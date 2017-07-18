@@ -699,6 +699,20 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       setCount = 0;
       <#if type.major = "VarLen">lastSet = -1;</#if>
     }
+
+    @Override
+    public void setLastSetValueCount(int value) {
+      values.getMutator().setLastSetValueCount(value);
+      bits.getMutator().setLastSetValueCount(value);
+    }
+  }
+
+  /**
+   * Sets the last number of values stored in this vector to the given value count
+   * @param value the last count to set
+   */
+  public void setLastSet(int value) {
+    this.getMutator().setLastSetValueCount(value);
   }
 }
 </#list>

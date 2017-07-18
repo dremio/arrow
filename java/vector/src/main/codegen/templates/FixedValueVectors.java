@@ -717,6 +717,14 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
      data.writerIndex(valueCount * ${type.width});
    }
  }
+
+ /**
+  * Sets the last number of values stored in this vector to the given value count
+  * @param value the last count to set
+  */
+  public void setLastSet(int value) {
+      this.getMutator().setLastSetValueCount(value);
+  }
 }
 
   </#if> <#-- type.major -->

@@ -87,6 +87,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {
+    public int lastSetValueCount;
     protected BaseMutator() { }
 
     @Override
@@ -95,6 +96,10 @@ public abstract class BaseValueVector implements ValueVector {
     //TODO: consider making mutator stateless(if possible) on another issue.
     @Override
     public void reset() {}
+
+    public void setLastSetValueCount(int value) {
+      lastSetValueCount = value;
+    }
   }
 
   @Override
