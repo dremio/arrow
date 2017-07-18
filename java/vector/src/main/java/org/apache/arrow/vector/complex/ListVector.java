@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 
@@ -411,4 +412,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
   }
 
+  public void setLastSet(int value) {
+    try {
+      java.lang.reflect.Field f = this.getMutator().getClass().getDeclaredField("lastSet");
+      f.setAccessible(true);
+      f.set(this.getMutator(), value);
+    } catch (Exception ex) {
+      throw Throwables.propagate(ex);
+    }
+  }
 }

@@ -116,5 +116,11 @@ public abstract class BaseValueVector implements ValueVector {
   public BufferAllocator getAllocator() {
     return allocator;
   }
+
+  /**
+   * Sets the last number of values stored in this vector to the given value count
+   * @param value the last count to set
+   */
+  public abstract void setLastSet(int value);
 }
 
