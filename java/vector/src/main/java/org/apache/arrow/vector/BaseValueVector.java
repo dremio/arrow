@@ -87,7 +87,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {
-    public int lastSetValueCount;
+    private int lastSetValueCount;
     protected BaseMutator() { }
 
     @Override
@@ -100,6 +100,8 @@ public abstract class BaseValueVector implements ValueVector {
     public void setLastSetValueCount(int value) {
       lastSetValueCount = value;
     }
+
+    public int getLastSetValueCount() { return lastSetValueCount; }
   }
 
   @Override
@@ -121,11 +123,5 @@ public abstract class BaseValueVector implements ValueVector {
   public BufferAllocator getAllocator() {
     return allocator;
   }
-
-  /**
-   * Sets the last number of values stored in this vector to the given value count
-   * @param value the last count to set
-   */
-  public abstract void setLastSet(int value);
 }
 

@@ -19,7 +19,6 @@ package org.apache.arrow.vector;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.lang.reflect.Field;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
@@ -27,8 +26,6 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-
-import com.google.common.base.Throwables;
 
 
 public abstract class BaseDataValueVector extends BaseValueVector implements BufferBacked {
@@ -144,13 +141,9 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
    */
   public void reset() {}
 
-  public void setLastSet(int value) {
-    try {
-      Field f = this.getMutator().getClass().getDeclaredField("lastSet");
-      f.setAccessible(true);
-      f.set(this.getMutator(), value);
-    } catch (Exception ex) {
-      throw Throwables.propagate(ex);
-    }
-  }
+  /**
+   * Sets the last number of values stored in this vector to the given value count
+   * @param value the last count to set
+   */
+  public abstract void setLastSet(int value);
 }

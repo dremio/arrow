@@ -707,10 +707,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
   }
 
-  /**
-   * Sets the last number of values stored in this vector to the given value count
-   * @param value the last count to set
-   */
+  @Override
   public void setLastSet(int value) {
     this.getMutator().setLastSetValueCount(value);
   }

@@ -402,14 +402,4 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       }
     }
   }
-
-  public void setLastSet(int value) {
-    try {
-      java.lang.reflect.Field f = this.getMutator().getClass().getDeclaredField("lastSet");
-      f.setAccessible(true);
-      f.set(this.getMutator(), value);
-    } catch (Exception ex) {
-      throw Throwables.propagate(ex);
-    }
-  }
 }
