@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 
@@ -410,5 +411,4 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       bits.getMutator().setValueCount(valueCount);
     }
   }
-
 }

@@ -140,4 +140,10 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
    * the value vector. The purpose is to move the value vector to a "mutate" state
    */
   public void reset() {}
+
+  /**
+   * Sets the last number of values stored in this vector to the given value count
+   * @param value the last count to set
+   */
+  public abstract void setLastSet(int value);
 }
