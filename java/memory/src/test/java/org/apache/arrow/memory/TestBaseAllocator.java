@@ -653,6 +653,71 @@ public class TestBaseAllocator {
     }
   }
 
+  @Test
+  public void testAllocator_transferSharedNoRelease() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferShared1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferShared2", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("transferShared3", 0, MAX_ALLOCATION);
+
+      final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
+
+      boolean allocationFit;
+
+      ArrowBuf arrowBuf2 = arrowBuf1.retain(childAllocator2);
+      rootAllocator.verify();
+      assertNotNull(arrowBuf2);
+      assertNotEquals(arrowBuf2, arrowBuf1);
+      assertEquiv(arrowBuf1, arrowBuf2);
+
+      TransferResult result = arrowBuf1.transferOwnership(childAllocator3);
+      allocationFit = result.allocationFit;
+      final ArrowBuf arrowBuf3 = result.buffer;
+      assertTrue(allocationFit);
+      assertEquiv(arrowBuf1, arrowBuf3);
+      rootAllocator.verify();
+
+      final BufferAllocator childAllocator4 = rootAllocator.newChildAllocator("transferShared4", 0, MAX_ALLOCATION);
+      TransferResult result2 = arrowBuf3.transferOwnership(childAllocator4);
+      allocationFit = result.allocationFit;
+      final ArrowBuf arrowBuf4 = result2.buffer;
+      assertTrue(allocationFit);
+      assertEquiv(arrowBuf3, arrowBuf4);
+      rootAllocator.verify();
+
+      // Since childAllocator3 now has childAllocator1's buffer, 1, can close
+      arrowBuf1.release();
+      childAllocator1.close();
+      rootAllocator.verify();
+
+      arrowBuf2.release();
+      childAllocator2.close();
+      rootAllocator.verify();
+
+
+      final BufferAllocator childAllocator5 = rootAllocator.newChildAllocator("transferShared5", 0, MAX_ALLOCATION);
+      TransferResult result3 = arrowBuf4.transferOwnership(childAllocator5);
+      allocationFit = result.allocationFit;
+      final ArrowBuf arrowBuf5 = result3.buffer;
+      assertTrue(allocationFit);
+      assertEquiv(arrowBuf4, arrowBuf5);
+      rootAllocator.verify();
+
+      arrowBuf3.release();
+      childAllocator3.close();
+      rootAllocator.verify();
+
+      arrowBuf4.release();
+      childAllocator4.close();
+      rootAllocator.verify();
+
+      arrowBuf5.release();
+      childAllocator5.close();
+      rootAllocator.verify();
+
+    }
+  }
+
   public void assertEquiv(ArrowBuf origBuf, ArrowBuf newBuf) {
     assertEquals(origBuf.readerIndex(), newBuf.readerIndex());
     assertEquals(origBuf.writerIndex(), newBuf.writerIndex());
