@@ -74,7 +74,7 @@ public class AllocationManager {
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
   private final int size;
   private final UnsafeDirectLittleEndian underlying;
-  private final IdentityHashMap<BufferAllocator, BufferLedger> map = new IdentityHashMap<>();
+  private final AllocatorLedgerMapWrap map = new AllocatorLedgerMapWrap();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private final AutoCloseableLock readLock = new AutoCloseableLock(lock.readLock());
   private final AutoCloseableLock writeLock = new AutoCloseableLock(lock.writeLock());
@@ -174,7 +174,10 @@ public class AllocationManager {
       } else {
         // we need to change the owning allocator. we've been removed so we'll get whatever is
         // top of list
-        BufferLedger newLedger = map.values().iterator().next();
+        // AllocatorLedgerMapWrap doe snot support map.values().iterator().next(); in some cases
+        // use custom method: getNextValue()
+        //BufferLedger newLedger = map.values().iterator().next();
+        BufferLedger newLedger = map.getNextValue();
 
         // we'll forcefully transfer the ownership and not worry about whether we exceeded the
         // limit
@@ -207,7 +210,7 @@ public class AllocationManager {
     // manage request for retain
     // correctly
     private final long lCreationTime = System.nanoTime();
-    private final BaseAllocator allocator;
+    final BaseAllocator allocator;
     private final HistoricalLog historicalLog = BaseAllocator.DEBUG ? new HistoricalLog
         (BaseAllocator.DEBUG_LOG_LENGTH,
             "BufferLedger[%d]", 1)
