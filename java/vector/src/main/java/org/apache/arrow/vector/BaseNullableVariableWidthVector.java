@@ -697,7 +697,6 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    * @param target destination vector for transfer
    */
   public void transferTo(BaseNullableVariableWidthVector target) {
-    compareTypes(target, "transferTo");
     target.clear();
     target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
     target.valueBuffer = valueBuffer.transferOwnership(target.allocator).buffer;
