@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 extern "C" {
 
@@ -136,13 +139,13 @@ NUMERIC_BOOL_DATE_TYPES(HASH64_OP, hash64AsDouble)
 NUMERIC_BOOL_DATE_TYPES(HASH64_WITH_SEED_OP, hash64WithSeed)
 NUMERIC_BOOL_DATE_TYPES(HASH64_WITH_SEED_OP, hash64AsDoubleWithSeed)
 
-static inline uint64 murmur3_64_buf(const uint8 *key, int32 len, int32 seed) {
+static inline uint64 murmur3_64_buf(const uint8* key, int32 len, int32 seed) {
   uint64 h1 = seed;
   uint64 h2 = seed;
   uint64 c1 = 0x87c37b91114253d5ull;
   uint64 c2 = 0x4cf5ad432745937full;
 
-  const uint64 *blocks = (const uint64 *)key;
+  const uint64* blocks = (const uint64*)key;
   int nblocks = len / 16;
   for (int i = 0; i < nblocks; i++) {
     uint64 k1 = blocks[i * 2 + 0];
@@ -168,7 +171,7 @@ static inline uint64 murmur3_64_buf(const uint8 *key, int32 len, int32 seed) {
   uint64 k1 = 0;
   uint64 k2 = 0;
 
-  const uint8 *tail = (const uint8 *)(key + nblocks * 16);
+  const uint8* tail = (const uint8*)(key + nblocks * 16);
   switch (len & 15) {
     case 15:
       k2 = (uint64)(tail[14]) << 48;
@@ -225,40 +228,40 @@ static inline uint64 murmur3_64_buf(const uint8 *key, int32 len, int32 seed) {
   return h1;
 }
 
-FORCE_INLINE int64 hash64_buf(const uint8 *buf, int len, int64 seed) {
+FORCE_INLINE int64 hash64_buf(const uint8* buf, int len, int64 seed) {
   return (int64)murmur3_64_buf(buf, len, (int32)seed);
 }
 
-FORCE_INLINE int32 hash32_buf(const uint8 *buf, int len, int32 seed) {
+FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
   return (int32)murmur3_64_buf(buf, len, seed);
 }
 
 // Wrappers for the varlen types
 
-#define HASH64_BUF_WITH_SEED_OP(NAME, TYPE)                                         \
-  FORCE_INLINE                                                                      \
-  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int64 seed,             \
-                      boolean seed_isvalid) {                                       \
-    return is_valid && seed_isvalid ? hash64_buf((const uint8 *)in, len, seed) : 0; \
+#define HASH64_BUF_WITH_SEED_OP(NAME, TYPE)                                        \
+  FORCE_INLINE                                                                     \
+  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int64 seed,            \
+                      boolean seed_isvalid) {                                      \
+    return is_valid && seed_isvalid ? hash64_buf((const uint8*)in, len, seed) : 0; \
   }
 
-#define HASH32_BUF_WITH_SEED_OP(NAME, TYPE)                                         \
-  FORCE_INLINE                                                                      \
-  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int32 seed,             \
-                      boolean seed_isvalid) {                                       \
-    return is_valid && seed_isvalid ? hash32_buf((const uint8 *)in, len, seed) : 0; \
+#define HASH32_BUF_WITH_SEED_OP(NAME, TYPE)                                        \
+  FORCE_INLINE                                                                     \
+  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int32 seed,            \
+                      boolean seed_isvalid) {                                      \
+    return is_valid && seed_isvalid ? hash32_buf((const uint8*)in, len, seed) : 0; \
   }
 
-#define HASH64_BUF_OP(NAME, TYPE)                                \
-  FORCE_INLINE                                                   \
-  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {    \
-    return is_valid ? hash64_buf((const uint8 *)in, len, 0) : 0; \
+#define HASH64_BUF_OP(NAME, TYPE)                               \
+  FORCE_INLINE                                                  \
+  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {   \
+    return is_valid ? hash64_buf((const uint8*)in, len, 0) : 0; \
   }
 
-#define HASH32_BUF_OP(NAME, TYPE)                                \
-  FORCE_INLINE                                                   \
-  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {    \
-    return is_valid ? hash32_buf((const uint8 *)in, len, 0) : 0; \
+#define HASH32_BUF_OP(NAME, TYPE)                               \
+  FORCE_INLINE                                                  \
+  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {   \
+    return is_valid ? hash32_buf((const uint8*)in, len, 0) : 0; \
   }
 
 // Expand inner macro for all numeric types.

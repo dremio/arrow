@@ -1,16 +1,19 @@
-// Copyright (C) 2017-2018 Dremio Corporation
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//   http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include "gandiva/projector.h"
 
@@ -27,22 +30,22 @@
 namespace gandiva {
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
-                     const FieldVector &output_fields,
+                     const FieldVector& output_fields,
                      std::shared_ptr<Configuration> configuration)
     : llvm_generator_(std::move(llvm_generator)),
       schema_(schema),
       output_fields_(output_fields),
       configuration_(configuration) {}
 
-Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
-                       std::shared_ptr<Projector> *projector) {
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       std::shared_ptr<Projector>* projector) {
   return Projector::Make(schema, exprs, ConfigurationBuilder::DefaultConfiguration(),
                          projector);
 }
 
-Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        std::shared_ptr<Configuration> configuration,
-                       std::shared_ptr<Projector> *projector) {
+                       std::shared_ptr<Projector>* projector) {
   GANDIVA_RETURN_FAILURE_IF_FALSE(schema != nullptr,
                                   Status::Invalid("schema cannot be null"));
   GANDIVA_RETURN_FAILURE_IF_FALSE(!exprs.empty(),
@@ -67,7 +70,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
   // Return if any of the expression is invalid since
   // we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
-  for (auto &expr : exprs) {
+  for (auto& expr : exprs) {
     status = expr_validator.Validate(expr);
     GANDIVA_RETURN_NOT_OK(status);
   }
@@ -77,7 +80,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
-  for (auto &expr : exprs) {
+  for (auto& expr : exprs) {
     output_fields.push_back(expr->result());
   }
 
@@ -88,8 +91,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector &exprs,
   return Status::OK();
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch &batch,
-                           const ArrayDataVector &output_data_vecs) {
+Status Projector::Evaluate(const arrow::RecordBatch& batch,
+                           const ArrayDataVector& output_data_vecs) {
   Status status = ValidateEvaluateArgsCommon(batch);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -101,7 +104,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
   }
 
   int idx = 0;
-  for (auto &array_data : output_data_vecs) {
+  for (auto& array_data : output_data_vecs) {
     if (array_data == nullptr) {
       std::stringstream ss;
       ss << "array for output field " << output_fields_[idx]->name() << "is null.";
@@ -116,8 +119,8 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch,
   return llvm_generator_->Execute(batch, output_data_vecs);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::MemoryPool *pool,
-                           arrow::ArrayVector *output) {
+Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
+                           arrow::ArrayVector* output) {
   Status status = ValidateEvaluateArgsCommon(batch);
   GANDIVA_RETURN_NOT_OK(status);
 
@@ -131,7 +134,7 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::MemoryPool *p
 
   // Allocate the output data vecs.
   ArrayDataVector output_data_vecs;
-  for (auto &field : output_fields_) {
+  for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
     status = AllocArrayData(field->type(), batch.num_rows(), pool, &output_data);
@@ -146,15 +149,15 @@ Status Projector::Evaluate(const arrow::RecordBatch &batch, arrow::MemoryPool *p
 
   // Create and return array arrays.
   output->clear();
-  for (auto &array_data : output_data_vecs) {
+  for (auto& array_data : output_data_vecs) {
     output->push_back(arrow::MakeArray(array_data));
   }
   return Status::OK();
 }
 
 // TODO : handle variable-len vectors
-Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
-                                 arrow::MemoryPool *pool, ArrayDataPtr *array_data) {
+Status Projector::AllocArrayData(const DataTypePtr& type, int num_records,
+                                 arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
   if (!arrow::is_primitive(type->id())) {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
@@ -166,7 +169,7 @@ Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
 
   std::shared_ptr<arrow::Buffer> data;
-  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*type);
+  const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
   int64_t data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   astatus = arrow::AllocateBuffer(pool, data_len, &data);
   GANDIVA_RETURN_ARROW_NOT_OK(astatus);
@@ -175,7 +178,7 @@ Status Projector::AllocArrayData(const DataTypePtr &type, int num_records,
   return Status::OK();
 }
 
-Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch &batch) {
+Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) {
   if (!batch.schema()->Equals(*schema_)) {
     return Status::Invalid("Schema in RecordBatch must match the schema in Make()");
   }
@@ -185,8 +188,8 @@ Status Projector::ValidateEvaluateArgsCommon(const arrow::RecordBatch &batch) {
   return Status::OK();
 }
 
-Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
-                                            const arrow::Field &field, int num_records) {
+Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
+                                            const arrow::Field& field, int num_records) {
   // verify that there are atleast two buffers (validity and data).
   if (array_data.buffers.size() < 2) {
     std::stringstream ss;
@@ -207,7 +210,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData &array_data,
 
   // verify size of data buffer.
   // TODO : handle variable-len vectors
-  const auto &fw_type = dynamic_cast<const arrow::FixedWidthType &>(*field.type());
+  const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*field.type());
   int64_t min_data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
   int64_t data_len = array_data.buffers[1]->capacity();
   if (data_len < min_data_len) {
