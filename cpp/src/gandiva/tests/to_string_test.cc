@@ -60,7 +60,8 @@ TEST_F(TestToString, TestAll) {
   CHECK_EXPR_TO_STRING(add_expr, "int64 add(int64, int64)");
 
   auto cond_node = TreeExprBuilder::MakeFunction(
-      "lesser_than", {f0_node, TreeExprBuilder::MakeLiteral((float)0)}, boolean());
+      "lesser_than", {f0_node, TreeExprBuilder::MakeLiteral(static_cast<float>(0))},
+      boolean());
   auto then_node = TreeExprBuilder::MakeField(f1);
   auto else_node = TreeExprBuilder::MakeField(f2);
 

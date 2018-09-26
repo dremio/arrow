@@ -32,6 +32,8 @@ class BooleanNode;
 /// \brief Visitor for nodes in the expression tree.
 class NodeVisitor {
  public:
+  virtual ~NodeVisitor() = default;
+
   virtual Status Visit(const FieldNode& node) = 0;
   virtual Status Visit(const FunctionNode& node) = 0;
   virtual Status Visit(const IfNode& node) = 0;

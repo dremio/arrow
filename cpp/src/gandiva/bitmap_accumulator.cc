@@ -39,7 +39,7 @@ void BitMapAccumulator::IntersectBitMaps(uint8_t* dst_map,
   uint64_t* dst_map64 = reinterpret_cast<uint64_t*>(dst_map);
   int num_words = (num_records + 63) / 64;  // aligned to 8-byte.
   int num_bytes = num_words * 8;
-  int nmaps = src_maps.size();
+  int nmaps = static_cast<int>(src_maps.size());
 
   switch (nmaps) {
     case 0: {

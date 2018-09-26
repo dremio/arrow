@@ -23,10 +23,10 @@ extern "C" {
 #include "./time_constants.h"
 #include "./types.h"
 
-#define TIMESTAMP_DIFF_FIXED_UNITS(TYPE, NAME, FROM_MILLIS)          \
-  FORCE_INLINE                                                       \
-  int32 NAME##_##TYPE##_##TYPE(TYPE start_millis, TYPE end_millis) { \
-    return FROM_MILLIS(end_millis - start_millis);                   \
+#define TIMESTAMP_DIFF_FIXED_UNITS(TYPE, NAME, FROM_MILLIS)              \
+  FORCE_INLINE                                                           \
+  int32 NAME##_##TYPE##_##TYPE(TYPE start_millis, TYPE end_millis) {     \
+    return static_cast<int32_t>(FROM_MILLIS(end_millis - start_millis)); \
   }
 
 #define SIGN_ADJUST_DIFF(is_positive, diff) ((is_positive) ? (diff) : -(diff))
@@ -56,8 +56,8 @@ extern "C" {
     EpochTimePoint start_tm(start_millis);                                        \
     EpochTimePoint end_tm(end_millis);                                            \
     int32 months_diff;                                                            \
-    months_diff = 12 * (end_tm.TmYear() - start_tm.TmYear()) +                    \
-                  (end_tm.TmMon() - start_tm.TmMon());                            \
+    months_diff = static_cast<int32>(12 * (end_tm.TmYear() - start_tm.TmYear()) + \
+                                     (end_tm.TmMon() - start_tm.TmMon()));        \
     if (end_tm.TmMday() > start_tm.TmMday()) {                                    \
       /* case a */                                                                \
       diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                           \
@@ -68,10 +68,12 @@ extern "C" {
       diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                       \
       return SIGN_ADJUST_DIFF(is_positive, diff);                                 \
     }                                                                             \
-    int32 end_day_millis = end_tm.TmHour() * MILLIS_IN_HOUR +                     \
-                           end_tm.TmMin() * MILLIS_IN_MIN + end_tm.TmSec();       \
-    int32 start_day_millis = start_tm.TmHour() * MILLIS_IN_HOUR +                 \
-                             start_tm.TmMin() * MILLIS_IN_MIN + start_tm.TmSec(); \
+    int32 end_day_millis =                                                        \
+        static_cast<int32>(end_tm.TmHour() * MILLIS_IN_HOUR +                     \
+                           end_tm.TmMin() * MILLIS_IN_MIN + end_tm.TmSec());      \
+    int32 start_day_millis =                                                      \
+        static_cast<int32>(start_tm.TmHour() * MILLIS_IN_HOUR +                   \
+                           start_tm.TmMin() * MILLIS_IN_MIN + start_tm.TmSec());  \
     if (end_day_millis >= start_day_millis) {                                     \
       /* case c1 */                                                               \
       diff = MONTHS_TO_TIMEUNIT(months_diff, N_MONTHS);                           \
@@ -97,7 +99,7 @@ TIMESTAMP_DIFF(timestamp)
 #define ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
   TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {          \
-    return millis + TO_MILLIS * (TYPE)count;                      \
+    return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 
 // Documentation of mktime suggests that it handles
@@ -106,25 +108,25 @@ TIMESTAMP_DIFF(timestamp)
 //
 // Using gmtime_r() and timegm() instead of localtime_r() and mktime()
 // since the input millis are since epoch
-#define ADD_INT32_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)      \
-  FORCE_INLINE                                                        \
-  TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {              \
-    EpochTimePoint tp(millis);                                        \
-    return (TYPE)(tp.AddMonths(count * N_MONTHS).MillisSinceEpoch()); \
+#define ADD_INT32_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \
+  FORCE_INLINE                                                                  \
+  TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {                        \
+    EpochTimePoint tp(millis);                                                  \
+    return tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch(); \
   }
 
 // TODO: Handle overflow while converting int64 to millis
 #define ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
   TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {          \
-    return millis + TO_MILLIS * (TYPE)count;                      \
+    return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 
-#define ADD_INT64_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)      \
-  FORCE_INLINE                                                        \
-  TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {              \
-    EpochTimePoint tp(millis);                                        \
-    return (TYPE)(tp.AddMonths(count * N_MONTHS).MillisSinceEpoch()); \
+#define ADD_INT64_TO_TIMESTAMP_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \
+  FORCE_INLINE                                                                  \
+  TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {                        \
+    EpochTimePoint tp(millis);                                                  \
+    return tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch(); \
   }
 
 #define TIMESTAMP_ADD_INT32(TYPE)                                             \

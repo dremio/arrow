@@ -39,6 +39,8 @@ class BooleanOrDex;
 /// \brief Visitor for decomposed expression.
 class DexVisitor {
  public:
+  virtual ~DexVisitor() = default;
+
   virtual void Visit(const VectorReadValidityDex& dex) = 0;
   virtual void Visit(const VectorReadFixedLenValueDex& dex) = 0;
   virtual void Visit(const VectorReadVarLenValueDex& dex) = 0;
@@ -59,19 +61,19 @@ class DexVisitor {
   void Visit(const DEX_CLASS& dex) override { DCHECK(0); }
 
 class DexDefaultVisitor : public DexVisitor {
-  VISIT_DCHECK(VectorReadValidityDex);
-  VISIT_DCHECK(VectorReadFixedLenValueDex);
-  VISIT_DCHECK(VectorReadVarLenValueDex);
-  VISIT_DCHECK(LocalBitMapValidityDex);
-  VISIT_DCHECK(TrueDex);
-  VISIT_DCHECK(FalseDex);
-  VISIT_DCHECK(LiteralDex);
-  VISIT_DCHECK(NonNullableFuncDex);
-  VISIT_DCHECK(NullableNeverFuncDex);
-  VISIT_DCHECK(NullableInternalFuncDex);
-  VISIT_DCHECK(IfDex);
-  VISIT_DCHECK(BooleanAndDex);
-  VISIT_DCHECK(BooleanOrDex);
+  VISIT_DCHECK(VectorReadValidityDex)
+  VISIT_DCHECK(VectorReadFixedLenValueDex)
+  VISIT_DCHECK(VectorReadVarLenValueDex)
+  VISIT_DCHECK(LocalBitMapValidityDex)
+  VISIT_DCHECK(TrueDex)
+  VISIT_DCHECK(FalseDex)
+  VISIT_DCHECK(LiteralDex)
+  VISIT_DCHECK(NonNullableFuncDex)
+  VISIT_DCHECK(NullableNeverFuncDex)
+  VISIT_DCHECK(NullableInternalFuncDex)
+  VISIT_DCHECK(IfDex)
+  VISIT_DCHECK(BooleanAndDex)
+  VISIT_DCHECK(BooleanOrDex)
 };
 
 }  // namespace gandiva

@@ -19,6 +19,8 @@
 #define GANDIVA_REGEX_UTIL_H
 
 #include <set>
+#include <string>
+
 #include "gandiva/status.h"
 
 namespace gandiva {

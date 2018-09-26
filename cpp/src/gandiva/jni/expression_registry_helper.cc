@@ -136,7 +136,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
 }
 
 JNIEXPORT jbyteArray JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedDataTypes(
+Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedDataTypes(  // NOLINT
     JNIEnv* env, jobject types_helper) {
   types::GandivaDataTypes gandiva_data_types;
   auto supported_types = ExpressionRegistry::supported_types();
@@ -144,9 +144,9 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
     types::ExtGandivaType* gandiva_data_type = gandiva_data_types.add_datatype();
     ArrowToProtobuf(type, gandiva_data_type);
   }
-  size_t size = gandiva_data_types.ByteSizeLong();
+  int size = static_cast<int>(gandiva_data_types.ByteSizeLong());
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
-  gandiva_data_types.SerializeToArray((void*)buffer.get(), size);
+  gandiva_data_types.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
   env->SetByteArrayRegion(ret, 0, size, buffer.get());
   return ret;
@@ -158,7 +158,7 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
  * Signature: ()[B
  */
 JNIEXPORT jbyteArray JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedFunctions(
+Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSupportedFunctions(  // NOLINT
     JNIEnv* env, jobject types_helper) {
   ExpressionRegistry expr_registry;
   types::GandivaFunctions gandiva_functions;
@@ -173,9 +173,9 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
       ArrowToProtobuf(param_type, proto_param_type);
     }
   }
-  size_t size = gandiva_functions.ByteSizeLong();
+  int size = static_cast<int>(gandiva_functions.ByteSizeLong());
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
-  gandiva_functions.SerializeToArray((void*)buffer.get(), size);
+  gandiva_functions.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
   env->SetByteArrayRegion(ret, 0, size, buffer.get());
   return ret;

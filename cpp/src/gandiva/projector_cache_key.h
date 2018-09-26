@@ -18,6 +18,10 @@
 #ifndef GANDIVA_PROJECTOR_CACHE_KEY_H
 #define GANDIVA_PROJECTOR_CACHE_KEY_H
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
 

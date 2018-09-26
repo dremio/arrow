@@ -22,6 +22,7 @@
 #include <string>
 
 #include "boost/functional/hash.hpp"
+
 #include "gandiva/arrow.h"
 #include "gandiva/filter.h"
 

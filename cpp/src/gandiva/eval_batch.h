@@ -20,7 +20,8 @@
 
 #include <memory>
 
-#include <arrow/util/logging.h>
+#include "arrow/util/logging.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/local_bitmaps_holder.h"

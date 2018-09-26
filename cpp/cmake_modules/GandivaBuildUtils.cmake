@@ -31,7 +31,7 @@ function(build_gandiva_lib TYPE ARROW)
   # ARROW is a public dependency i.e users of gandiva also will have a dependency on arrow.
   target_link_libraries(gandiva_${TYPE}
     PUBLIC
-      ARROW
+      ${ARROW}
     PRIVATE
       Boost::boost
       Boost::regex
@@ -59,6 +59,17 @@ function(build_gandiva_lib TYPE ARROW)
   )
 endfunction(build_gandiva_lib TYPE)
 
+set(GANDIVA_TEST_LINK_LIBS
+  ${GTEST_STATIC_LIB}
+  ${GTEST_MAIN_STATIC_LIB}
+  ${RE2_STATIC_LIB})
+
+if (PTHREAD_LIBRARY)
+  set(GANDIVA_TEST_LINK_LIBS
+    ${GANDIVA_TEST_LINK_LIBS}
+    ${PTHREAD_LIBRARY})
+endif()
+
 # Add a unittest executable, with its dependencies.
 function(add_gandiva_unit_test REL_TEST_NAME)
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
@@ -76,7 +87,7 @@ function(add_gandiva_unit_test REL_TEST_NAME)
     ${CMAKE_SOURCE_DIR}/src
   )
   target_link_libraries(${TEST_NAME}
-    PRIVATE arrow_shared ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB} ${RE2_STATIC_LIB} Boost::boost
+    PRIVATE arrow_shared ${GANDIVA_TEST_LINK_LIBS} Boost::boost
   )
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS unittest ${TEST_NAME})
@@ -88,7 +99,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${RE2_STATIC_LIB} ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB})
+  target_link_libraries(${TEST_NAME} PRIVATE ${GANDIVA_TEST_LINK_LIBS})
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
   set_property(TEST ${TEST_NAME} PROPERTY LABELS unittest ${TEST_NAME})
@@ -100,72 +111,11 @@ function(add_gandiva_integ_test REL_TEST_NAME GANDIVA_LIB)
 
   add_executable(${TEST_NAME}_${GANDIVA_LIB} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${CMAKE_SOURCE_DIR})
-  target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${GANDIVA_LIB} ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB})
+  target_link_libraries(${TEST_NAME}_${GANDIVA_LIB} PRIVATE ${GANDIVA_LIB} ${GANDIVA_TEST_LINK_LIBS})
 
   add_test(NAME ${TEST_NAME}_${GANDIVA_LIB} COMMAND ${TEST_NAME}_${GANDIVA_LIB})
   set_property(TEST ${TEST_NAME}_${GANDIVA_LIB} PROPERTY LABELS integ ${TEST_NAME}_${GANDIVA_LIB})
 endfunction(add_gandiva_integ_test REL_TEST_NAME)
-
-# Download and build external project.
-function(build_external PROJ)
-  message("Building ${PROJ} as external project")
-  # configure the download
-  configure_file(${CMAKE_SOURCE_DIR}/cmake/${PROJ}-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/${PROJ}-download/CMakeLists.txt)
-  execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-    RESULT_VARIABLE result
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJ}-download )
-  if(result)
-    message(FATAL_ERROR "CMake step for ${PROJ} failed: ${result}")
-  endif(result)
-
-  # unpack
-  execute_process(COMMAND ${CMAKE_COMMAND} --build .
-    RESULT_VARIABLE result
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJ}-download )
-  if(result)
-    message(FATAL_ERROR "Build step for ${PROJ} failed: ${result}")
-  endif(result)
-
-  # Add project directly to the build.
-  add_subdirectory(${CMAKE_BINARY_DIR}/${PROJ}-src
-                   ${CMAKE_BINARY_DIR}/${PROJ}-build
-                   EXCLUDE_FROM_ALL)
-endfunction(build_external PROJ)
-
-file(GLOB_RECURSE LINT_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/integ/*.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/integ/*.cc"
-)
-
-# Add "make stylecheck" target
-function(add_stylecheck)
-  if (UNIX)
-    add_custom_target(stylecheck
-      COMMENT "Performing stylecheck on all .cpp/.h files"
-      # use ! to check for no replacement
-      COMMAND !
-      ${CLANG_FORMAT_EXECUTABLE}
-      -style=file
-      -output-replacements-xml
-      ${LINT_FILES}
-      | grep "replacement offset"
-    )
-  endif (UNIX)
-endfunction(add_stylecheck)
-
-# Add "make stylefix" target
-function(add_stylefix)
-  if (UNIX)
-    add_custom_target(stylefix
-      COMMENT "Performing stylefix on all .cpp/.h files"
-      COMMAND
-      echo ${LINT_FILES} | xargs ${CLANG_FORMAT_EXECUTABLE} -style=file -i
-    )
-  endif (UNIX)
-endfunction(add_stylefix)
 
 function(prevent_in_source_builds)
  file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)

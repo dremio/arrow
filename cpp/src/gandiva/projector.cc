@@ -111,8 +111,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
       return Status::Invalid(ss.str());
     }
 
-    Status status =
-        ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), batch.num_rows());
+    Status status = ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]),
+                                              static_cast<int>(batch.num_rows()));
     GANDIVA_RETURN_NOT_OK(status);
     ++idx;
   }
@@ -137,7 +137,8 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* p
   for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
-    status = AllocArrayData(field->type(), batch.num_rows(), pool, &output_data);
+    status = AllocArrayData(field->type(), static_cast<int>(batch.num_rows()), pool,
+                            &output_data);
     GANDIVA_RETURN_NOT_OK(status);
 
     output_data_vecs.push_back(output_data);

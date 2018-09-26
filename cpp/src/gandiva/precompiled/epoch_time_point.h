@@ -18,20 +18,21 @@
 #ifndef GANDIVA_EPOCH_TIME_POINT_H
 #define GANDIVA_EPOCH_TIME_POINT_H
 
+// TODO(wesm): IR compilation does not have any include directories set
 #include "./date.h"
 
 // A point of time measured in millis since epoch.
 class EpochTimePoint {
  public:
-  EpochTimePoint(std::chrono::milliseconds millis_since_epoch)
+  explicit EpochTimePoint(std::chrono::milliseconds millis_since_epoch)
       : tp_(millis_since_epoch) {}
 
-  EpochTimePoint(int64_t millis_since_epoch)
+  explicit EpochTimePoint(int64_t millis_since_epoch)
       : EpochTimePoint(std::chrono::milliseconds(millis_since_epoch)) {}
 
-  int TmYear() const { return (int)YearMonthDay().year() - 1900; }
+  int TmYear() const { return static_cast<int>(YearMonthDay().year()) - 1900; }
 
-  int TmMon() const { return (unsigned)YearMonthDay().month() - 1; }
+  int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
     auto to_days = date::floor<date::days>(tp_);
@@ -39,36 +40,45 @@ class EpochTimePoint {
     return (to_days - first_day_in_year).count();
   }
 
-  int TmMday() const { return (unsigned)YearMonthDay().day(); }
+  int TmMday() const { return static_cast<unsigned int>(YearMonthDay().day()); }
 
   int TmWday() const {
     auto to_days = date::floor<date::days>(tp_);
-    return (date::weekday{to_days} - date::Sunday).count();
+    return (date::weekday{to_days} - date::Sunday).count();  // NOLINT
   }
 
-  int TmHour() const { return TimeOfDay().hours().count(); }
+  int TmHour() const { return static_cast<int>(TimeOfDay().hours().count()); }
 
-  int TmMin() const { return TimeOfDay().minutes().count(); }
+  int TmMin() const { return static_cast<int>(TimeOfDay().minutes().count()); }
 
-  int TmSec() const { return TimeOfDay().seconds().count(); }
+  int TmSec() const {
+    // TODO(wesm): UNIX y2k issue on int=int32 platforms
+    return static_cast<int>(TimeOfDay().seconds().count());
+  }
 
   EpochTimePoint AddYears(int num_years) const {
     auto ymd = YearMonthDay() + date::years(num_years);
-    return (date::sys_days{ymd} + TimeOfDay().to_duration()).time_since_epoch();
+    return EpochTimePoint((date::sys_days{ymd} +  // NOLINT
+                           TimeOfDay().to_duration())
+                              .time_since_epoch());
   }
 
   EpochTimePoint AddMonths(int num_months) const {
     auto ymd = YearMonthDay() + date::months(num_months);
-    return (date::sys_days{ymd} + TimeOfDay().to_duration()).time_since_epoch();
+    return EpochTimePoint((date::sys_days{ymd} +  // NOLINT
+                           TimeOfDay().to_duration())
+                              .time_since_epoch());
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch = date::sys_days{YearMonthDay()} + date::days(num_days);
-    return (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch();
+    auto days_since_epoch = date::sys_days{YearMonthDay()}  // NOLINT
+                            + date::days(num_days);
+    return EpochTimePoint(
+        (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
 
   EpochTimePoint ClearTimeOfDay() const {
-    return (tp_ - TimeOfDay().to_duration()).time_since_epoch();
+    return EpochTimePoint((tp_ - TimeOfDay().to_duration()).time_since_epoch());
   }
 
   bool operator==(const EpochTimePoint& other) const { return tp_ == other.tp_; }
@@ -77,7 +87,7 @@ class EpochTimePoint {
 
  private:
   date::year_month_day YearMonthDay() const {
-    return date::year_month_day{date::floor<date::days>(tp_)};
+    return date::year_month_day{date::floor<date::days>(tp_)};  // NOLINT
   }
 
   date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {

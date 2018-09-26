@@ -62,7 +62,7 @@ Status LikeHolder::Make(const std::string& sql_pattern,
 }
 
 #ifdef GDV_HELPERS
-}
+}  // namespace helpers
 #endif
 
 }  // namespace gandiva

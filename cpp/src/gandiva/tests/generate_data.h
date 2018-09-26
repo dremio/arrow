@@ -26,6 +26,8 @@ namespace gandiva {
 template <typename C_TYPE>
 class DataGenerator {
  public:
+  virtual ~DataGenerator() = default;
+
   virtual C_TYPE GenerateData() = 0;
 };
 
@@ -62,7 +64,8 @@ class Int64DataGenerator : public DataGenerator<int64_t> {
 
 class FastUtf8DataGenerator : public DataGenerator<std::string> {
  public:
-  FastUtf8DataGenerator(int max_len) : seed_(100), max_len_(max_len), cur_char_('a') {}
+  explicit FastUtf8DataGenerator(int max_len)
+      : seed_(100), max_len_(max_len), cur_char_('a') {}
 
   std::string GenerateData() {
     std::string generated_str;

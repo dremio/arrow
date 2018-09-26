@@ -17,7 +17,8 @@
 
 extern "C" {
 
-#include <string.h>
+#include <cstring>
+
 #include "./types.h"
 
 static inline uint64 rotate_left(uint64 val, int distance) {
@@ -78,11 +79,11 @@ static inline uint64 double_to_long_bits(double value) {
 }
 
 FORCE_INLINE int64 hash64(double val, int64 seed) {
-  return (int64)murmur3_64(double_to_long_bits(val), (int32)seed);
+  return murmur3_64(double_to_long_bits(val), static_cast<int32>(seed));
 }
 
 FORCE_INLINE int32 hash32(double val, int32 seed) {
-  return (int32)murmur3_64(double_to_long_bits(val), seed);
+  return static_cast<int32>(murmur3_64(double_to_long_bits(val), seed));
 }
 
 // Wrappers for all the numeric/data/time arrow types
@@ -90,25 +91,25 @@ FORCE_INLINE int32 hash32(double val, int32 seed) {
 #define HASH64_WITH_SEED_OP(NAME, TYPE)                                              \
   FORCE_INLINE                                                                       \
   int64 NAME##_##TYPE(TYPE in, boolean is_valid, int64 seed, boolean seed_isvalid) { \
-    return is_valid && seed_isvalid ? hash64((double)in, seed) : 0;                  \
+    return is_valid && seed_isvalid ? hash64(static_cast<double>(in), seed) : 0;     \
   }
 
 #define HASH32_WITH_SEED_OP(NAME, TYPE)                                              \
   FORCE_INLINE                                                                       \
   int32 NAME##_##TYPE(TYPE in, boolean is_valid, int32 seed, boolean seed_isvalid) { \
-    return is_valid && seed_isvalid ? hash32((double)in, seed) : 0;                  \
+    return is_valid && seed_isvalid ? hash32(static_cast<double>(in), seed) : 0;     \
   }
 
-#define HASH64_OP(NAME, TYPE)                      \
-  FORCE_INLINE                                     \
-  int64 NAME##_##TYPE(TYPE in, boolean is_valid) { \
-    return is_valid ? hash64((double)in, 0) : 0;   \
+#define HASH64_OP(NAME, TYPE)                                 \
+  FORCE_INLINE                                                \
+  int64 NAME##_##TYPE(TYPE in, boolean is_valid) {            \
+    return is_valid ? hash64(static_cast<double>(in), 0) : 0; \
   }
 
-#define HASH32_OP(NAME, TYPE)                      \
-  FORCE_INLINE                                     \
-  int32 NAME##_##TYPE(TYPE in, boolean is_valid) { \
-    return is_valid ? hash32((double)in, 0) : 0;   \
+#define HASH32_OP(NAME, TYPE)                                 \
+  FORCE_INLINE                                                \
+  int32 NAME##_##TYPE(TYPE in, boolean is_valid) {            \
+    return is_valid ? hash32(static_cast<double>(in), 0) : 0; \
   }
 
 // Expand inner macro for all numeric types.
@@ -145,7 +146,7 @@ static inline uint64 murmur3_64_buf(const uint8* key, int32 len, int32 seed) {
   uint64 c1 = 0x87c37b91114253d5ull;
   uint64 c2 = 0x4cf5ad432745937full;
 
-  const uint64* blocks = (const uint64*)key;
+  const uint64* blocks = reinterpret_cast<const uint64*>(key);
   int nblocks = len / 16;
   for (int i = 0; i < nblocks; i++) {
     uint64 k1 = blocks[i * 2 + 0];
@@ -171,47 +172,47 @@ static inline uint64 murmur3_64_buf(const uint8* key, int32 len, int32 seed) {
   uint64 k1 = 0;
   uint64 k2 = 0;
 
-  const uint8* tail = (const uint8*)(key + nblocks * 16);
+  const uint8* tail = reinterpret_cast<const uint8*>(key + nblocks * 16);
   switch (len & 15) {
     case 15:
-      k2 = (uint64)(tail[14]) << 48;
+      k2 = static_cast<uint64>(tail[14]) << 48;
     case 14:
-      k2 ^= (uint64)(tail[13]) << 40;
+      k2 ^= static_cast<uint64>(tail[13]) << 40;
     case 13:
-      k2 ^= (uint64)(tail[12]) << 32;
+      k2 ^= static_cast<uint64>(tail[12]) << 32;
     case 12:
-      k2 ^= (uint64)(tail[11]) << 24;
+      k2 ^= static_cast<uint64>(tail[11]) << 24;
     case 11:
-      k2 ^= (uint64)(tail[10]) << 16;
+      k2 ^= static_cast<uint64>(tail[10]) << 16;
     case 10:
-      k2 ^= (uint64)(tail[9]) << 8;
+      k2 ^= static_cast<uint64>(tail[9]) << 8;
     case 9:
-      k2 ^= (uint64)(tail[8]);
+      k2 ^= static_cast<uint64>(tail[8]);
       k2 *= c2;
       k2 = rotate_left(k2, 33);
       k2 *= c1;
       h2 ^= k2;
     case 8:
-      k1 ^= (uint64)(tail[7]) << 56;
+      k1 ^= static_cast<uint64>(tail[7]) << 56;
     case 7:
-      k1 ^= (uint64)(tail[6]) << 48;
+      k1 ^= static_cast<uint64>(tail[6]) << 48;
     case 6:
-      k1 ^= (uint64)(tail[5]) << 40;
+      k1 ^= static_cast<uint64>(tail[5]) << 40;
     case 5:
-      k1 ^= (uint64)(tail[4]) << 32;
+      k1 ^= static_cast<uint64>(tail[4]) << 32;
     case 4:
-      k1 ^= (uint64)(tail[3]) << 24;
+      k1 ^= static_cast<uint64>(tail[3]) << 24;
     case 3:
-      k1 ^= (uint64)(tail[2]) << 16;
+      k1 ^= static_cast<uint64>(tail[2]) << 16;
     case 2:
-      k1 ^= (uint64)(tail[1]) << 8;
+      k1 ^= static_cast<uint64>(tail[1]) << 8;
     case 1:
-      k1 ^= (uint64)(tail[0]) << 0;
+      k1 ^= static_cast<uint64>(tail[0]) << 0;
       k1 *= c1;
       k1 = rotate_left(k1, 31);
       k1 *= c2;
       h1 ^= k1;
-  };
+  }
 
   h1 ^= len;
   h2 ^= len;
@@ -229,39 +230,43 @@ static inline uint64 murmur3_64_buf(const uint8* key, int32 len, int32 seed) {
 }
 
 FORCE_INLINE int64 hash64_buf(const uint8* buf, int len, int64 seed) {
-  return (int64)murmur3_64_buf(buf, len, (int32)seed);
+  return murmur3_64_buf(buf, len, static_cast<int32>(seed));
 }
 
 FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
-  return (int32)murmur3_64_buf(buf, len, seed);
+  return static_cast<int32>(murmur3_64_buf(buf, len, seed));
 }
 
 // Wrappers for the varlen types
 
-#define HASH64_BUF_WITH_SEED_OP(NAME, TYPE)                                        \
-  FORCE_INLINE                                                                     \
-  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int64 seed,            \
-                      boolean seed_isvalid) {                                      \
-    return is_valid && seed_isvalid ? hash64_buf((const uint8*)in, len, seed) : 0; \
+#define HASH64_BUF_WITH_SEED_OP(NAME, TYPE)                                  \
+  FORCE_INLINE                                                               \
+  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int64 seed,      \
+                      boolean seed_isvalid) {                                \
+    return is_valid && seed_isvalid                                          \
+               ? hash64_buf(reinterpret_cast<const uint8_t*>(in), len, seed) \
+               : 0;                                                          \
   }
 
-#define HASH32_BUF_WITH_SEED_OP(NAME, TYPE)                                        \
-  FORCE_INLINE                                                                     \
-  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int32 seed,            \
-                      boolean seed_isvalid) {                                      \
-    return is_valid && seed_isvalid ? hash32_buf((const uint8*)in, len, seed) : 0; \
+#define HASH32_BUF_WITH_SEED_OP(NAME, TYPE)                                  \
+  FORCE_INLINE                                                               \
+  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int32 seed,      \
+                      boolean seed_isvalid) {                                \
+    return is_valid && seed_isvalid                                          \
+               ? hash32_buf(reinterpret_cast<const uint8_t*>(in), len, seed) \
+               : 0;                                                          \
   }
 
-#define HASH64_BUF_OP(NAME, TYPE)                               \
-  FORCE_INLINE                                                  \
-  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {   \
-    return is_valid ? hash64_buf((const uint8*)in, len, 0) : 0; \
+#define HASH64_BUF_OP(NAME, TYPE)                                                   \
+  FORCE_INLINE                                                                      \
+  int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {                       \
+    return is_valid ? hash64_buf(reinterpret_cast<const uint8_t*>(in), len, 0) : 0; \
   }
 
-#define HASH32_BUF_OP(NAME, TYPE)                               \
-  FORCE_INLINE                                                  \
-  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {   \
-    return is_valid ? hash32_buf((const uint8*)in, len, 0) : 0; \
+#define HASH32_BUF_OP(NAME, TYPE)                                                   \
+  FORCE_INLINE                                                                      \
+  int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) {                       \
+    return is_valid ? hash32_buf(reinterpret_cast<const uint8_t*>(in), len, 0) : 0; \
   }
 
 // Expand inner macro for all numeric types.

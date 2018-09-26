@@ -18,6 +18,9 @@
 #ifndef GANDIVA_SELECTION_VECTOR_IMP_H
 #define GANDIVA_SELECTION_VECTOR_IMP_H
 
+#include <limits>
+#include <memory>
+
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
 #include "gandiva/selection_vector.h"
@@ -44,7 +47,7 @@ class SelectionVectorImpl : public SelectionVector {
     DCHECK_LE(index, max_slots_);
     DCHECK_LE(value, GetMaxSupportedValue());
 
-    raw_data_[index] = value;
+    raw_data_[index] = static_cast<C_TYPE>(value);
   }
 
   ArrayPtr ToArray() const override;

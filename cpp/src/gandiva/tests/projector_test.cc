@@ -271,8 +271,8 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
-  auto array1 = MakeArrowArrayFloat32({4.0, 3.4, 6.8}, {true, true, true});
+  auto array0 = MakeArrowArrayFloat32({1.0f, 8.9f, 3.0f}, {true, true, false});
+  auto array1 = MakeArrowArrayFloat32({4.0f, 3.4f, 6.8f}, {true, true, true});
   // expected output
   auto exp = MakeArrowArrayBool({true, false, false}, {true, true, false});
 
@@ -306,7 +306,7 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayFloat32({1.0, 8.9, 3.0}, {true, true, false});
+  auto array0 = MakeArrowArrayFloat32({1.0f, 8.9f, 3.0f}, {true, true, false});
   // expected output
   auto exp = MakeArrowArrayBool({true, true, false}, {true, true, true});
 

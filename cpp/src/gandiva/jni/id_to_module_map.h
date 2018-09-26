@@ -18,6 +18,7 @@
 #ifndef JNI_ID_TO_MODULE_MAP_H
 #define JNI_ID_TO_MODULE_MAP_H
 
+#include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -47,7 +48,7 @@ class IdToModuleMap {
     HOLDER result = nullptr;
     try {
       result = map_.at(module_id);
-    } catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range&) {
     }
     if (result != nullptr) {
       return result;
@@ -55,7 +56,7 @@ class IdToModuleMap {
     mtx_.lock();
     try {
       result = map_.at(module_id);
-    } catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range&) {
     }
     mtx_.unlock();
     return result;

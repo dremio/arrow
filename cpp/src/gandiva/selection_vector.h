@@ -18,6 +18,8 @@
 #ifndef GANDIVA_SELECTION_VECTOR__H
 #define GANDIVA_SELECTION_VECTOR__H
 
+#include <memory>
+
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
 #include "gandiva/status.h"

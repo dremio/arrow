@@ -51,7 +51,7 @@ class ConfigHolder {
 
     try {
       result = configuration_map_.at(config_id_);
-    } catch (const std::out_of_range& e) {
+    } catch (const std::out_of_range&) {
     }
 
     return result;

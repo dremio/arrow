@@ -51,7 +51,7 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
-  int idx = compiled_exprs_.size();
+  int idx = static_cast<int>(compiled_exprs_.size());
 
   // decompose the expression to separate out value and validities.
   ExprDecomposer decomposer(function_registry_, annotator_);
@@ -105,7 +105,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
     // generate data/offset vectors.
     EvalFunc jit_function = compiled_expr->jit_function();
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetLocalBitMapArray(),
-                 record_batch.num_rows());
+                 static_cast<int>(record_batch.num_rows()));
 
     // generate validity vectors.
     ComputeBitMapsForExpr(*compiled_expr, *eval_batch);
@@ -548,7 +548,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
       llvm::Constant* str_int_cast = types->i64_constant((int64_t)str.c_str());
       value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
-      len = types->i32_constant(str.length());
+      len = types->i32_constant(static_cast<int32_t>(str.length()));
       break;
     }
 

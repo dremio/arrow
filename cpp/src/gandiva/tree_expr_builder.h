@@ -18,6 +18,7 @@
 #ifndef GANDIVA_EXPR_TREE_BUILDER_H
 #define GANDIVA_EXPR_TREE_BUILDER_H
 
+#include <memory>
 #include <string>
 #include <vector>
 

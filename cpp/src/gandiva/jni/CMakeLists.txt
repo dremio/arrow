@@ -41,8 +41,8 @@ add_custom_command(
 )
 
 add_custom_target(gandiva_jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
-set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/types.pb.cc")
-set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/types.pb.h")
+set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Types.pb.cc")
+set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Types.pb.h")
 
 # Create the jni header file (from the java class).
 set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/java")

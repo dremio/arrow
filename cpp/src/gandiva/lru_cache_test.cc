@@ -18,6 +18,7 @@
 #include "gandiva/lru_cache.h"
 
 #include <map>
+#include <string>
 #include <typeinfo>
 
 #include <gtest/gtest.h>
@@ -26,7 +27,7 @@ namespace gandiva {
 
 class TestCacheKey {
  public:
-  TestCacheKey(int tmp) : tmp_(tmp) {}
+  explicit TestCacheKey(int tmp) : tmp_(tmp) {}
   std::size_t Hash() const { return tmp_; }
   bool operator==(const TestCacheKey& other) const { return tmp_ == other.tmp_; }
 
@@ -49,7 +50,7 @@ TEST_F(TestLruCache, TestEvict) {
   cache_.insert(TestCacheKey(3), "hello");
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(1), boost::none);
+  ASSERT_EQ(cache_.get(TestCacheKey(1)), boost::none);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
@@ -58,6 +59,6 @@ TEST_F(TestLruCache, TestLruBehavior) {
   cache_.get(TestCacheKey(1));
   cache_.insert(TestCacheKey(3), "hello");
   // should have evicted key 2.
-  ASSERT_EQ(cache_.get(1).value(), "hello");
+  ASSERT_EQ(cache_.get(TestCacheKey(1)).value(), "hello");
 }
 }  // namespace gandiva

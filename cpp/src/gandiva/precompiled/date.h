@@ -890,8 +890,8 @@ std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>&
 
 #if !defined(_MSC_VER) || (_MSC_VER >= 1900)
 inline namespace literals {
-CONSTCD11 date::day operator"" _d(uint64_t d) NOEXCEPT;
-CONSTCD11 date::year operator"" _y(uint64_t y) NOEXCEPT;
+CONSTCD11 date::day operator"" _d(unsigned long long d) NOEXCEPT;
+CONSTCD11 date::year operator"" _y(unsigned long long y) NOEXCEPT;
 }  // namespace literals
 #endif  // !defined(_MSC_VER) || (_MSC_VER >= 1900)
 
@@ -1570,12 +1570,12 @@ inline std::basic_ostream<CharT, Traits>& operator<<(
 #if !defined(_MSC_VER) || (_MSC_VER >= 1900)
 inline namespace literals {
 CONSTCD11
-inline date::day operator"" _d(uint64_t d) NOEXCEPT {
+inline date::day operator"" _d(unsigned long long d) NOEXCEPT {
   return date::day{static_cast<unsigned>(d)};
 }
 
 CONSTCD11
-inline date::year operator"" _y(uint64_t y) NOEXCEPT {
+inline date::year operator"" _y(unsigned long long y) NOEXCEPT {
   return date::year(static_cast<int>(y));
 }
 #endif  // !defined(_MSC_VER) || (_MSC_VER >= 1900)

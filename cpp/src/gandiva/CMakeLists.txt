@@ -84,7 +84,9 @@ set_target_properties(gandiva_obj_lib PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_include_directories(gandiva_obj_lib
   PUBLIC
     $<INSTALL_INTERFACE:include>
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+
+target_include_directories(gandiva_obj_lib SYSTEM
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
@@ -168,7 +170,3 @@ include(CTest)
 enable_testing()
 
 add_subdirectory(tests)
-
-add_stylecheck()  # "make stylecheck" target
-add_stylefix()    # "make stylefix" target
-

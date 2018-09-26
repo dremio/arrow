@@ -35,7 +35,6 @@ class FunctionSignature {
                     DataTypePtr ret_type)
       : base_name_(base_name), param_types_(param_types), ret_type_(ret_type) {
     DCHECK_GT(base_name.length(), 0);
-    DCHECK_GE(param_types.size(), 0);
     for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
       DCHECK(*it);
     }

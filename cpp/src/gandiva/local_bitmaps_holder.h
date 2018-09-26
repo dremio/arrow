@@ -34,7 +34,7 @@ class LocalBitMapsHolder {
  public:
   LocalBitMapsHolder(int num_records, int num_local_bitmaps);
 
-  int GetNumLocalBitMaps() const { return local_bitmaps_vec_.size(); }
+  int GetNumLocalBitMaps() const { return static_cast<int>(local_bitmaps_vec_.size()); }
 
   int GetLocalBitMapSize() const { return local_bitmap_size_; }
 
