@@ -18,6 +18,7 @@
 #pragma once
 
 #include <list>
+#include <iostream>
 #include <unordered_map>
 #include <utility>
 
@@ -107,6 +108,7 @@ class LruCache {
 
  private:
   void evict() {
+    std::cout << "Evicted a cache item from the lru cache" << std::endl;
     // evict item from the end of most recently used list
     typename list_type::iterator i = --lru_list_.end();
     map_.erase(*i);
