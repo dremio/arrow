@@ -68,11 +68,9 @@ outputs:
         - glog
         - grpc-cpp
         - libprotobuf
-        - clangdev 10.* # [not win]
-        - llvmdev 10.* # [not win]
-        # llvmdev 9.* or later require Visual Studio 2017
-        - clangdev 8.* # [win]
-        - llvmdev 8.* # [win]
+        - clangdev 11
+        - llvmdev 11
+        - libutf8proc
         - lz4-c
         - numpy 1.16.*
         - orc  # [unix]
