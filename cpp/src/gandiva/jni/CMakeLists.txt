@@ -54,7 +54,7 @@ set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Types.pb.h")
 set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/java")
 add_subdirectory(../../../../java/gandiva ./java/gandiva)
 
-set(GANDIVA_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+set(GANDIVA_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} ${BOOST_FILESYSTEM_LIBRARY})
 if(ARROW_BUILD_STATIC)
   list(APPEND GANDIVA_LINK_LIBS gandiva_static)
 else()

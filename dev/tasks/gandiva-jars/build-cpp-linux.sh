@@ -34,6 +34,7 @@ pushd "${ARROW_BUILD_DIR}"
 PATH="${CPYTHON_PATH}/bin:${PATH}"
 
 cmake -DCMAKE_BUILD_TYPE=Release \
+    -DBOOST_SOURCE=BUNDLED \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
     -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \

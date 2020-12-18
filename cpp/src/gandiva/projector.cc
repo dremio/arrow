@@ -24,7 +24,6 @@
 
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
-
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
@@ -148,6 +147,14 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        SelectionVector::Mode selection_vector_mode,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
+  return Projector::Make(schema, exprs, selection_vector_mode, configuration, projector,
+                         nullptr);
+}
+
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       SelectionVector::Mode selection_vector_mode,
+                       std::shared_ptr<Configuration> configuration,
+                       std::shared_ptr<Projector>* projector, bool* cache_hit) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(exprs.empty(), Status::Invalid("Expressions cannot be empty"));
   ARROW_RETURN_IF(configuration == nullptr,
@@ -159,6 +166,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
   if (cached_projector != nullptr) {
     *projector = cached_projector;
+    if (cache_hit != nullptr) {
+      *cache_hit = true;
+    }
     return Status::OK();
   }
 
@@ -187,6 +197,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
   cache.PutModule(cache_key, *projector);
+  if (cache_hit != nullptr) {
+    *cache_hit = false;
+  }
 
   return Status::OK();
 }

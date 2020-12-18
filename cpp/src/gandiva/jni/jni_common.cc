@@ -15,8 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/builder.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
 #include <google/protobuf/io/coded_stream.h>
 
+#include <boost/filesystem.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -24,10 +33,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <arrow/builder.h>
-#include <arrow/record_batch.h>
-#include <arrow/type.h>
 
 #include "Types.pb.h"
 #include "gandiva/configuration.h"
@@ -62,10 +67,14 @@ using gandiva::ConfigurationBuilder;
 using gandiva::FilterHolder;
 using gandiva::ProjectorHolder;
 
+namespace fs = boost::filesystem;
+
 // forward declarations
 NodePtr ProtoTypeToNode(const types::TreeNode& node);
 
 static jint JNI_VERSION = JNI_VERSION_1_6;
+
+static const char* kEnvPrewarmCacheDir = "GANDIVA_PREWARM_CACHE_DIR";
 
 // extern refs - initialized for other modules.
 jclass configuration_builder_class_;
@@ -81,6 +90,8 @@ static jfieldID vector_expander_ret_capacity_;
 // module maps
 gandiva::IdToModuleMap<std::shared_ptr<ProjectorHolder>> projector_modules_;
 gandiva::IdToModuleMap<std::shared_ptr<FilterHolder>> filter_modules_;
+
+void PrewarmCache();
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
@@ -117,6 +128,9 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       env->GetFieldID(vector_expander_ret_class_, "address", "J");
   vector_expander_ret_capacity_ =
       env->GetFieldID(vector_expander_ret_class_, "capacity", "J");
+
+  PrewarmCache();
+
   return JNI_VERSION;
 }
 
@@ -572,6 +586,192 @@ void releaseProjectorInput(jbyteArray schema_arr, jbyte* schema_bytes,
   env->ReleaseByteArrayElements(exprs_arr, exprs_bytes, JNI_ABORT);
 }
 
+void PrewarmCache() {
+  try {
+    auto prewarm_cache_dir = std::getenv(kEnvPrewarmCacheDir);
+    if (prewarm_cache_dir == nullptr) {
+      std::cout << "[Gandiva Cache Prewarm] No cache directory env variable is set. "
+                   "Skipping prewarming"
+                << std::endl;
+      return;
+    }
+
+    fs::path path(prewarm_cache_dir);
+    std::cout << path.string() << "\n";
+    if (!fs::is_directory(path)) {
+      std::cerr << "[Gandiva Cache Prewarm] Prewarm cache dir env variable set is not a "
+                   "directory"
+                << std::endl;
+      return;
+    }
+
+    fs::directory_iterator end_iter;
+    for (fs::directory_iterator dir_iter(path); dir_iter != end_iter; ++dir_iter) {
+      try {
+        if (fs::is_regular_file(dir_iter->status())) {
+          std::ifstream fin;
+          fin.open(dir_iter->path().string(), std::ios::binary);
+          if (!fin.is_open()) {
+            std::cerr << "[Gandiva Cache Prewarm] Failure opening warmup cache file"
+                      << std::endl;
+            continue;
+          }
+
+          fin.seekg(0, std::ios::end);
+          size_t remaining = fin.tellg();
+          fin.seekg(0, std::ios::beg);
+
+          int32_t schema_len;
+          if (remaining < sizeof(schema_len)) {
+            std::cerr << "[Gandiva Cache Prewarm] Invalid file." << std::endl;
+            continue;
+          }
+          fin.read(reinterpret_cast<char*>(&schema_len), sizeof schema_len);
+          remaining -= sizeof(schema_len);
+
+          if (remaining < (size_t)schema_len) {
+            std::cerr << "[Gandiva Cache Prewarm] Invalid file." << std::endl;
+            continue;
+          }
+          std::vector<char> schema_vec(schema_len);
+          fin.read(schema_vec.data(), schema_len);
+          remaining -= (size_t)schema_len;
+
+          int32_t exprs_len;
+          if (remaining < sizeof(exprs_len)) {
+            std::cerr << "[Gandiva Cache Prewarm] Invalid file." << std::endl;
+            continue;
+          }
+          fin.read(reinterpret_cast<char*>(&exprs_len), sizeof exprs_len);
+          remaining -= sizeof(exprs_len);
+
+          if (remaining != (size_t)exprs_len) {
+            std::cerr << "[Gandiva Cache Prewarm] Invalid file." << std::endl;
+            continue;
+          }
+          std::vector<char> exprs_vec(exprs_len);
+          fin.read(exprs_vec.data(), exprs_len);
+
+          fin.close();
+
+          uint8_t* schema_bytes = reinterpret_cast<uint8_t*>(schema_vec.data());
+          uint8_t* exprs_bytes = reinterpret_cast<uint8_t*>(exprs_vec.data());
+
+          std::shared_ptr<Projector> projector;
+          types::Schema schema;
+          types::ExpressionList exprs;
+          ExpressionVector expr_vector;
+          SchemaPtr schema_ptr;
+          FieldVector ret_types;
+          gandiva::Status status;
+          auto mode = gandiva::SelectionVector::MODE_NONE;
+
+          ConfigurationBuilder configuration_builder;
+          std::shared_ptr<Configuration> config = configuration_builder.build();
+
+          if (!ParseProtobuf(schema_bytes, schema_len, &schema)) {
+            std::cerr << "[Gandiva Cache Prewarm] Failed to parse protobuf for schema"
+                      << std::endl;
+            continue;
+          }
+
+          if (!ParseProtobuf(exprs_bytes, exprs_len, &exprs)) {
+            std::cerr << "[Gandiva Cache Prewarm] Failed to parse protobuf for expr list"
+                      << std::endl;
+            continue;
+          }
+
+          // convert types::Schema to arrow::Schema
+          schema_ptr = ProtoTypeToSchema(schema);
+          if (schema_ptr == nullptr) {
+            std::cerr << "[Gandiva Cache Prewarm] Failed to convert protobuf schema to "
+                         "arrow type"
+                      << std::endl;
+            continue;
+          }
+
+          // create Expression out of the list of exprs
+          for (int i = 0; i < exprs.exprs_size(); i++) {
+            ExpressionPtr root = ProtoTypeToExpression(exprs.exprs(i));
+
+            if (root == nullptr) {
+              std::cerr << "[Gandiva Cache Prewarm] Failed to convert protobuf expr to "
+                           "arrow type"
+                        << std::endl;
+              continue;
+            }
+
+            expr_vector.push_back(root);
+            ret_types.push_back(root->result());
+          }
+
+          status = Projector::Make(schema_ptr, expr_vector, mode, config, &projector);
+
+          if (!status.ok()) {
+            std::cerr << "[Gandiva Cache Prewarm] Failed to create a projector module";
+            continue;
+          }
+          std::cout << "[Gandiva Cache Prewarm] Built and cached a projector from the "
+                       "expression and schema in the file"
+                    << std::endl;
+        }
+      } catch (const std::exception& ex) {
+        std::cerr << "[Gandiva Cache Prewarm] " << dir_iter->path().filename() << " "
+                  << ex.what() << std::endl;
+      }
+    }
+
+  } catch (const std::exception& ex) {
+    std::cerr << "[Gandiva Cache Prewarm] Failed prewarming the cache: " << ex.what()
+              << std::endl;
+  }
+}
+
+void CacheExpressionAndSchemaForPrewarmOnStartup(char* schema_bytes, int32_t schema_len,
+                                                 char* exprs_bytes, int32_t exprs_len) {
+  try {
+    auto env_path = std::getenv(kEnvPrewarmCacheDir);
+    if (env_path == nullptr) {
+      return;
+    }
+
+    fs::path path(env_path);
+    if (!fs::is_directory(path) && !fs::create_directories(path)) {
+      std::cerr << "[CacheExpression] Failed to create directory to save the schema and "
+                   "expressions"
+                << std::endl;
+      return;
+    }
+
+    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+
+    path /= boost::uuids::to_string(uuid);
+
+    std::ofstream fout;
+    fout.open(path.string(), std::ios::binary | std::ios::out);
+    if (!fout.is_open()) {
+      std::cerr
+          << "[CacheExpression] Failed to open file to write the schema and expression"
+          << std::endl;
+      return;
+    }
+
+    fout.write(reinterpret_cast<char*>(&schema_len), sizeof(schema_len));
+    fout.write(schema_bytes, schema_len);
+
+    fout.write(reinterpret_cast<char*>(&exprs_len), sizeof(exprs_len));
+    fout.write(exprs_bytes, exprs_len);
+
+    fout.close();
+
+    std::cout << "[CacheExpression] Cached schema and expression bytes to a file"
+              << std::endl;
+  } catch (const std::exception& ex) {
+    std::cerr << "[CacheExpression] Failed to cache the expression to file " << ex.what()
+              << std::endl;
+  }
+}
+
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_buildProjector(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
     jint selection_vector_type, jlong configuration_id) {
@@ -648,7 +848,8 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
       break;
   }
   // good to invoke the evaluator now
-  status = Projector::Make(schema_ptr, expr_vector, mode, config, &projector);
+  bool cache_hit;
+  status = Projector::Make(schema_ptr, expr_vector, mode, config, &projector, &cache_hit);
 
   if (!status.ok()) {
     ss << "Failed to make LLVM module due to " << status.message() << "\n";
@@ -660,6 +861,13 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   holder = std::shared_ptr<ProjectorHolder>(
       new ProjectorHolder(schema_ptr, ret_types, std::move(projector)));
   module_id = projector_modules_.Insert(holder);
+
+  if (!cache_hit) {
+    CacheExpressionAndSchemaForPrewarmOnStartup(
+        reinterpret_cast<char*>(schema_bytes), schema_len,
+        reinterpret_cast<char*>(exprs_bytes), exprs_len);
+  }
+
   releaseProjectorInput(schema_arr, schema_bytes, exprs_arr, exprs_bytes, env);
   return module_id;
 
