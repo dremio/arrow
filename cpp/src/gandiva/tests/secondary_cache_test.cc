@@ -63,6 +63,8 @@ class SecondaryCache : public SecondaryCacheInterface {
     cache[key] = value;
   }
 
+  void ReleaseMemory(long address) {}
+
  private:
   std::map<std::shared_ptr<arrow::Buffer>, std::shared_ptr<arrow::Buffer>, compare> cache;
 };

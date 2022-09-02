@@ -30,6 +30,8 @@ class GANDIVA_EXPORT SecondaryCacheInterface {
   virtual void Set(std::shared_ptr<arrow::Buffer> serialized_expr,
                    std::shared_ptr<arrow::Buffer> value) = 0;
 
+  virtual void ReleaseMemory(long address) = 0;
+
   virtual ~SecondaryCacheInterface() {}
 };
 

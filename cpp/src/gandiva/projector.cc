@@ -111,6 +111,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
           llvm::MemoryBuffer::getMemBufferCopy(string_buffer);
       std::shared_ptr<llvm::MemoryBuffer> sec_cached_obj = std::move(obj_buffer);
       cache->PutObjectCode(cache_key, sec_cached_obj);
+
+      // release the buffer fetched from java using an upcall
+      sec_cache->ReleaseMemory(arrow_buffer->address());
     }
   }
 
