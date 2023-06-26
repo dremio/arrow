@@ -469,6 +469,11 @@ const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,
                                     gdv_int64 length, gdv_int32* out_len);
 const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in_len,
                               gdv_int64 offset64, gdv_int32* out_len);
+const char* substr_utf8_int32_int32(gdv_int64 context, const char* input,
+                                    gdv_int32 in_len, gdv_int32 offset64,
+                                    gdv_int32 length, gdv_int32* out_len);
+const char* substr_utf8_int32(gdv_int64 context, const char* input, gdv_int32 in_len,
+                              gdv_int32 offset64, gdv_int32* out_len);                              
 
 const char* concat_utf8_utf8(gdv_int64 context, const char* left, gdv_int32 left_len,
                              bool left_validity, const char* right, gdv_int32 right_len,
