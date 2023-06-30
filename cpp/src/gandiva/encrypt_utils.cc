@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/encrypt_utils.h"
+#include <string.h>
 
 #include <stdexcept>
 
@@ -25,13 +26,33 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
                     unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
+  int32_t current_key_len = static_cast<int32_t>(strlen(key));
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
+  const EVP_CIPHER* cipher_algo = nullptr;
 
   if (!en_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for encryption");
   }
 
-  if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr,
+  if (current_key_len != 16 && current_key_len != 24 && current_key_len != 32) {
+        throw std::runtime_error("invalid key length");
+  }
+
+  switch (current_key_len) {
+    case 16:
+      cipher_algo = EVP_aes_128_ecb();
+      break;
+    case 24:
+      cipher_algo = EVP_aes_192_ecb();
+      break;
+    case 32:
+      cipher_algo = EVP_aes_256_ecb();
+      break;
+    default:
+      throw std::runtime_error("unsupported key length");
+  }
+
+  if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for encryption");
   }
@@ -60,12 +81,32 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
+  int32_t current_key_len = static_cast<int32_t>(strlen(key));
+  const EVP_CIPHER* cipher_algo = nullptr;
 
   if (!de_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for decryption");
   }
 
-  if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr,
+  if (current_key_len != 16 && current_key_len != 24 && current_key_len != 32) {
+        throw std::runtime_error("invalid key length");
+  }
+
+  switch (current_key_len) {
+    case 16:
+      cipher_algo = EVP_aes_128_ecb();
+      break;
+    case 24:
+      cipher_algo = EVP_aes_192_ecb();
+      break;
+    case 32:
+      cipher_algo = EVP_aes_256_ecb();
+      break;
+    default:
+      throw std::runtime_error("unsupported key length");
+  }
+
+  if (!EVP_DecryptInit_ex(de_ctx, cipher_algo, nullptr,
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for decryption");
   }
