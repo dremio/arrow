@@ -30,6 +30,9 @@ from_chars_result parse_infnan(const char *first, const char *last, T &value)  n
       minusSign = true;
       ++first;
   }
+  if (*first == '+') {
+      ++first;
+  }
   if (last - first >= 3) {
     if (fastfloat_strncasecmp(first, "nan", 3)) {
       answer.ptr = (first += 3);
