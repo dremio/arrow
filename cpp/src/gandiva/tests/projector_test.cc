@@ -2818,9 +2818,9 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
 
   int num_records = 3;
 
-  const char* key_16_bytes = "12345678abcdefgh";
-  const char* key_24_bytes = "12345678abcdefgh12345678";
-  const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
+  const char* key_16_bytes = "12345678abcdefg";
+  const char* key_24_bytes = "12345678abcdefgh1234567";
+  const char* key_32_bytes = "12345678abcdefgh12345678abcdefg";
 
   auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted"},
                                        {true, true, true, true});
