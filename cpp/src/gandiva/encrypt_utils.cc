@@ -27,24 +27,10 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
   int32_t cipher_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
-  const EVP_CIPHER* cipher_algo = nullptr;
+  const EVP_CIPHER* cipher_algo = get_cipher_algo(key_len);
 
   if (!en_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for encryption");
-  }
-
-  switch (key_len) {
-    case 16:
-      cipher_algo = EVP_aes_128_ecb();
-      break;
-    case 24:
-      cipher_algo = EVP_aes_192_ecb();
-      break;
-    case 32:
-      cipher_algo = EVP_aes_256_ecb();
-      break;
-    default:
-      throw std::runtime_error("unsupported key length");
   }
 
   if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
@@ -76,24 +62,10 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
-  const EVP_CIPHER* cipher_algo = nullptr;
+  const EVP_CIPHER* cipher_algo = get_cipher_algo(key_len);
 
   if (!de_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for decryption");
-  }
-
-  switch (key_len) {
-    case 16:
-      cipher_algo = EVP_aes_128_ecb();
-      break;
-    case 24:
-      cipher_algo = EVP_aes_192_ecb();
-      break;
-    case 32:
-      cipher_algo = EVP_aes_256_ecb();
-      break;
-    default:
-      throw std::runtime_error("unsupported key length");
   }
 
   if (!EVP_DecryptInit_ex(de_ctx, cipher_algo, nullptr,
@@ -117,5 +89,18 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
 
   EVP_CIPHER_CTX_free(de_ctx);
   return plaintext_len;
+}
+
+const EVP_CIPHER* get_cipher_algo(int32_t key_length){
+  switch (key_length) {
+    case 16:
+      return EVP_aes_128_ecb();
+    case 24:
+      return EVP_aes_192_ecb();
+    case 32:
+      return EVP_aes_256_ecb();
+    default:
+      throw std::runtime_error("unsupported key length");
+  }
 }
 }  // namespace gandiva
