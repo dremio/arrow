@@ -822,9 +822,83 @@ const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,
 }
 
 FORCE_INLINE
+const char* substr_utf8_int32_int32(gdv_int64 context, const char* input,
+                                    gdv_int32 in_data_len, gdv_int32 position,
+                                    gdv_int32 substring_length, gdv_int32* out_data_len) {
+  if (substring_length <= 0 || input == nullptr || in_data_len <= 0) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  gdv_int32 in_glyphs_count = utf8_length(context, input, in_data_len);
+
+  // in_glyphs_count is zero if input has invalid glyphs
+  if (in_glyphs_count == 0) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  gdv_int32 from_glyph;  // from_glyph==0 indicates the first glyph of the input
+  if (position > 0) {
+    from_glyph = position - 1;
+  } else if (position < 0) {
+    from_glyph = in_glyphs_count + position;
+  } else {
+    from_glyph = 0;
+  }
+
+  if (from_glyph < 0 || from_glyph >= in_glyphs_count) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  gdv_int32 out_glyphs_count = substring_length;
+  if (substring_length > in_glyphs_count - from_glyph) {
+    out_glyphs_count = in_glyphs_count - from_glyph;
+  }
+
+  gdv_int32 start_pos = 0;
+  gdv_int32 end_pos = in_data_len;
+
+  gdv_int32 current_glyph = 0;
+  gdv_int32 pos = 0;
+  while (pos < in_data_len) {
+    if (current_glyph == from_glyph) {
+      start_pos = pos;
+    }
+    pos += utf8_char_length(input[pos]);
+    if (current_glyph - from_glyph + 1 == out_glyphs_count) {
+      end_pos = pos;
+    }
+    current_glyph++;
+  }
+
+  if (end_pos > in_data_len || end_pos > INT_MAX) {
+    end_pos = in_data_len;
+  }
+
+  *out_data_len = end_pos - start_pos;
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_data_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_data_len = 0;
+    return "";
+  }
+  memcpy(ret, input + start_pos, *out_data_len);
+  return ret;
+}
+
+FORCE_INLINE
 const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in_len,
                               gdv_int64 offset64, gdv_int32* out_len) {
   return substr_utf8_int64_int64(context, input, in_len, offset64, in_len, out_len);
+}
+
+FORCE_INLINE
+const char* substr_utf8_int32(gdv_int64 context, const char* input, gdv_int32 in_len,
+                              gdv_int32 offset64, gdv_int32* out_len) {
+  return substr_utf8_int32_int32(context, input, in_len, offset64, in_len, out_len);
 }
 
 FORCE_INLINE

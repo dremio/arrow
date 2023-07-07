@@ -237,6 +237,15 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("substr", {"substring"},
+                     DataTypeVector{utf8(), int32() /*offset*/, int32() /*length*/},
+                     utf8(), kResultNullIfNull, "substr_utf8_int32_int32",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int32() /*offset*/},
+                     utf8(), kResultNullIfNull, "substr_utf8_int32",
+                     NativeFunction::kNeedsContext),      
+
       NativeFunction("lpad", {}, DataTypeVector{utf8(), int32(), utf8()}, utf8(),
                      kResultNullIfNull, "lpad_utf8_int32_utf8",
                      NativeFunction::kNeedsContext),
