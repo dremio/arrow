@@ -1358,8 +1358,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
   const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, &cipher_len);
   const char* decrypted_value = gdv_fn_aes_decrypt(ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, &decrypted_len);
 
-  EXPECT_EQ(std::string(data, data_len),
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+  EXPECT_EQ(data, std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
@@ -1376,8 +1375,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
 
   const char* decrypted_value = gdv_fn_aes_decrypt(ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, &decrypted_len);
 
-  EXPECT_EQ(std::string(data, data_len),
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+  EXPECT_EQ(data, std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
@@ -1394,8 +1392,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
 
   const char* decrypted_value = gdv_fn_aes_decrypt(ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, &decrypted_len);
 
-  EXPECT_EQ(std::string(data, data_len),
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+  EXPECT_EQ(data, std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
