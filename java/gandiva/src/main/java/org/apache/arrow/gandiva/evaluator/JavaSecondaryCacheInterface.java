@@ -36,7 +36,6 @@ public interface JavaSecondaryCacheInterface {
 
   }
 
-<<<<<<< HEAD
   /**
    * Get from the secondary cache using the key buffer.
    * @param keyBufAddr address of the key buffer
@@ -58,11 +57,6 @@ public interface JavaSecondaryCacheInterface {
    * release the buffer associated with the given address.
    */
   void releaseBufferResult(long address);
-=======
-  BufferResult getSecondaryCache(long addr, long size);
-
-  void setSecondaryCache(long addrExpr, long sizeExpr, long addr, long size);
->>>>>>> 5ed2f61a9 (Add a Secondary Cache to cache gandiva object code)
 
 }
 
