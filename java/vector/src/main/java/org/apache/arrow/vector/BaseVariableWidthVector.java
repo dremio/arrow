@@ -715,6 +715,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+  public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
+
   /**
    * Transfer this vector'data to another vector. The memory associated
    * with this vector is transferred to the allocator of target vector
