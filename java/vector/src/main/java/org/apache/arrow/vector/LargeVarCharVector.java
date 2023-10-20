@@ -280,6 +280,11 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
     return new LargeVarCharVector.TransferImpl(ref, allocator);
   }
 
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new LargeVarCharVector.TransferImpl(field, allocator);
+  }
+
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
@@ -296,6 +301,10 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new LargeVarCharVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new LargeVarCharVector(field, allocator);
     }
 
     public TransferImpl(LargeVarCharVector to) {
