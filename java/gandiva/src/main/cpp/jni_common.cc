@@ -1148,7 +1148,7 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
     if (!status.ok()) {
       break;
     }
-
+    std::string dump = holder->projector()->DumpIR();
     status = holder->projector()->Evaluate(*in_batch, selection_vector.get(), output);
   } while (0);
 
