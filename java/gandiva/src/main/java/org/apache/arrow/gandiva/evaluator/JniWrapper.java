@@ -68,6 +68,13 @@ public class JniWrapper {
                                 int selectionVectorType, int selectionVectorSize,
                                 long selectionVectorBufferAddr, long selectionVectorBufferSize,
                                 long[] outAddrs, long[] outSizes) throws GandivaException;
+  
+  /**
+   * Dumps the IR of the projector referenced by moduleId.
+   *
+   * @param moduleId moduleId to dump the IR
+   */
+  native String dumpProjectorIr(long moduleId);
 
   /**
    * Closes the projector referenced by moduleId.
@@ -111,6 +118,13 @@ public class JniWrapper {
   native int evaluateFilter(long moduleId, int numRows, long[] bufAddrs, long[] bufSizes,
                             int selectionVectorType,
                             long outAddr, long outSize) throws GandivaException;
+
+  /**
+   * Dumps the IR of the filter referenced by moduleId.
+   *
+   * @param moduleId moduleId to dump the IR
+   */
+  native String dumpFilterIr(long moduleId);
 
   /**
    * Closes the filter referenced by moduleId.

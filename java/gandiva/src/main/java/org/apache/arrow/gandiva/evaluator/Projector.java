@@ -379,6 +379,13 @@ public class Projector {
   }
 
   /**
+   * Dumps the IR for the LLVM module representing this projector.
+   */
+  public String dumpIR() throws GandivaException {
+    return wrapper.dumpProjectorIr(this.moduleId);
+  }
+
+  /**
    * Closes the LLVM module representing this evaluator.
    */
   public void close() throws GandivaException {

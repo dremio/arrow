@@ -34,11 +34,12 @@ using gandiva::ConfigurationBuilder;
  */
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
-    JNIEnv* env, jobject configuration, jboolean optimize, jboolean target_host_cpu) {
+    JNIEnv* env, jobject configuration, jboolean optimize, jboolean target_host_cpu, jboolean dump_ir) {
   ConfigurationBuilder configuration_builder;
   std::shared_ptr<Configuration> config = configuration_builder.build();
   config->set_optimize(optimize);
   config->target_host_cpu(target_host_cpu);
+  config->set_dump_ir(dump_ir);
   return ConfigHolder::MapInsert(config);
 }
 

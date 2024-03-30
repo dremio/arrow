@@ -186,6 +186,14 @@ public class Filter {
   }
 
   /**
+   * Dumps the IR for the LLVM module representing this filter.
+   */
+  public String dumpIR() throws GandivaException {
+    return wrapper.dumpFilterIr(this.moduleId);
+  }
+
+
+  /**
    * Closes the LLVM module representing this filter.
    */
   public void close() throws GandivaException {

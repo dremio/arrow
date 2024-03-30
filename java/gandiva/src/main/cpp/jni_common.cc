@@ -1064,6 +1064,18 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
   }
 }
 
+JNIEXPORT jstring JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_dumpProjectorIr(
+    JNIEnv* env, jobject cls, jlong module_id) {
+  std::shared_ptr<ProjectorHolder> holder = projector_modules_.Lookup(module_id);
+  if (holder == nullptr) {
+    env->ThrowNew(gandiva_exception_, "Unknown module id\n");
+    return env->NewStringUTF(nullptr);
+  }
+
+  std::string ir = holder->projector()->DumpIR();
+  return env->NewStringUTF(ir.c_str());
+}
+
 JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_closeProjector(
     JNIEnv* env, jobject cls, jlong module_id) {
   projector_modules_.Erase(module_id);
@@ -1225,6 +1237,18 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evalua
     }
     return static_cast<int>(num_slots);
   }
+}
+
+JNIEXPORT jstring JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_dumpFilterIr(
+    JNIEnv* env, jobject cls, jlong module_id) {
+  std::shared_ptr<FilterHolder> holder = filter_modules_.Lookup(module_id);
+  if (holder == nullptr) {
+    env->ThrowNew(gandiva_exception_, "Unknown module id\n");
+    return env->NewStringUTF(nullptr);
+  }
+
+  std::string ir = holder->filter()->DumpIR();
+  return env->NewStringUTF(ir.c_str());
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_closeFilter(

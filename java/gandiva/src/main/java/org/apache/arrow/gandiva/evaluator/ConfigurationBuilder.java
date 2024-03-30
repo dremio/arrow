@@ -25,10 +25,10 @@ import java.util.Objects;
 public class ConfigurationBuilder {
 
   public long buildConfigInstance(ConfigOptions configOptions) {
-    return buildConfigInstance(configOptions.optimize, configOptions.targetCPU);
+    return buildConfigInstance(configOptions.optimize, configOptions.targetCPU, configOptions.dumpIR);
   }
 
-  private native long buildConfigInstance(boolean optimize, boolean detectHostCPU);
+  private native long buildConfigInstance(boolean optimize, boolean detectHostCPU, boolean dumpIR);
 
   public native void releaseConfigInstance(long configId);
 
@@ -38,6 +38,7 @@ public class ConfigurationBuilder {
   public static class ConfigOptions {
     private boolean optimize = true;
     private boolean targetCPU = true;
+    private boolean dumpIR = false;
 
     public static ConfigOptions getDefault() {
       return new ConfigOptions();
@@ -52,6 +53,11 @@ public class ConfigurationBuilder {
 
     public ConfigOptions withTargetCPU(boolean targetCPU) {
       this.targetCPU = targetCPU;
+      return this;
+    }
+
+    public ConfigOptions withDumpIR(boolean dumpIR) {
+      this.dumpIR = dumpIR;
       return this;
     }
 
