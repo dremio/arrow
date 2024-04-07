@@ -24,10 +24,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import com.sun.jna.Library;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 
 /**
@@ -73,6 +77,9 @@ class JniLoader {
     final String libraryToLoad =
         getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
+    if (Platform.isLinux()) {
+      NativeLibrary.getInstance(libraryFile.getAbsolutePath(), Collections.singletonMap(Library.OPTION_OPEN_FLAGS, new Integer(257)));
+    }
     System.load(libraryFile.getAbsolutePath());
   }
 

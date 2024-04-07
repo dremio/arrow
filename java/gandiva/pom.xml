@@ -26,6 +26,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <protobuf.version>3.25.1</protobuf.version>
+        <jna.version>5.14.0</jna.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
     </properties>
@@ -61,6 +62,11 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>${jna.version}</version>
         </dependency>
     </dependencies>
     <profiles>
