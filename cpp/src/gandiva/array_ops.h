@@ -82,5 +82,25 @@ double* array_float64_remove(int64_t context_ptr, const double* entry_buf,
                               double remove_data, bool entry_validWhat, 
                               int64_t loop_var, int64_t validity_index_var,
                               bool* valid_row, int32_t* out_len, int32_t** valid_ptr);
-
+GANDIVA_EXPORT
+char* array_int32_to_string(int64_t context_ptr, const int32_t* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              int32_t contains_data, bool contains_data_valid, 
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, id_t* out_len);
+GANDIVA_EXPORT
+char* array_int64_to_string(int64_t context_ptr, const int64_t* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, id_t* out_len);
+GANDIVA_EXPORT
+char* array_float32_to_string(int64_t context_ptr, const float* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, id_t* out_len);
+GANDIVA_EXPORT
+char* array_float64_to_string(int64_t context_ptr, const double* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, id_t* out_len);
 }

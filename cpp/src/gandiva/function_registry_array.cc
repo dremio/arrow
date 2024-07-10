@@ -47,6 +47,19 @@ std::vector<NativeFunction> GetArrayFunctionRegistry() {
       NativeFunction("array_remove", {}, DataTypeVector{list(float64()), float64()},
                      list(float64()), kResultNullInternal, "array_float64_remove",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("array_to_string", {}, DataTypeVector{list(int32()), utf8()},
+                     utf8(), kResultNullInternal, "array_int32_to_string",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("array_to_string", {}, DataTypeVector{list(int64()), utf8()},
+                     utf8(), kResultNullInternal, "array_int64_to_string",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("array_to_string", {}, DataTypeVector{list(float32()), utf8()},
+                     utf8(), kResultNullInternal, "array_float32_to_string",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("array_to_string", {}, DataTypeVector{list(float64()), utf8()},
+                     utf8(), kResultNullInternal, "array_float64_to_string",
+                     NativeFunction::kNeedsContext),               
   };
   return array_fn_registry_;
 }

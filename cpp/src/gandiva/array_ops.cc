@@ -116,6 +116,37 @@ bool array_contains_template(const Type* entry_buf,
   return false;
 }
 
+template <typename Type>
+char* array_to_string_template(const Type* entry_buf,
+                   int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                   const char* delimiter, gdv_int32 delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                   bool* valid_row, gdv_int32* out_len) {
+  bool first_element = true;
+
+  const int32_t* entry_validityAdjusted = entry_validity - entry_len;
+  int64_t validityBitIndex = -entry_len;
+  std::string result; // Initialize the result variable as an empty string
+
+  for (int i = 0; i < entry_len; i++) {
+    if (!arrow::bit_util::GetBit(reinterpret_cast<const uint8_t*>(entry_validityAdjusted), validityBitIndex + i)) {
+      continue;
+    }
+
+    if (!first_element) {
+      result += delimiter;
+    }
+
+    Type entry_item = *(entry_buf + i);
+    result += std::to_string(entry_item);
+
+    first_element = false;
+  }
+  *valid_row = true;
+  char* result_char = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  std::strcpy(result_char, result.c_str());
+  return result_char;
+}
+
 extern "C" {
 
 bool array_int32_contains_int32(int64_t context_ptr, const int32_t* entry_buf,
@@ -207,6 +238,39 @@ double* array_float64_remove(int64_t context_ptr, const double* entry_buf,
                               remove_data, remove_data_valid,
                               loop_var, validity_index_var,
                               valid_row, out_len, valid_ptr);
+}
+
+char* array_int32_to_string(int64_t context_ptr, const int32_t* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              int32_t contains_data, bool contains_data_valid, 
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, int32_t* out_len) {
+  return array_to_string_template<int32_t>(entry_buf, entry_len, entry_validity, 
+                              combined_row_validity, delimiter, delimiter_len, loop_var, validity_index_var, valid_row, out_len);
+}
+
+char* array_int64_to_string(int64_t context_ptr, const int64_t* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, id_t* out_len) {
+  return array_to_string_template<int64_t>(entry_buf, entry_len, entry_validity, 
+                              combined_row_validity, delimiter, delimiter_len, loop_var, validity_index_var, valid_row, out_len);
+}
+
+char* array_float32_to_string(int64_t context_ptr, const float* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter,int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, int32_t** out_len) {
+  return array_to_string_template<float>(entry_buf, entry_len, entry_validity, 
+                              combined_row_validity, delimiter, delimiter_len, loop_var, validity_index_var, valid_row, out_len);
+}
+
+char* array_float64_to_string(int64_t context_ptr, const double* entry_buf,
+                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
+                              const char* delimiter, int32_t delimiter_len, int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row, int32_t* out_len) {
+  return array_to_string_template<double>(entry_buf, entry_len, entry_validity, 
+                              combined_row_validity, delimiter, delimiter_len, loop_var, validity_index_var, valid_row, out_len);
 }
 }
 
@@ -353,6 +417,79 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("array_float64_remove",
                                   types->double_ptr_type(), args,
                                   reinterpret_cast<void*>(array_float64_remove));
+
+
+  //Array to string.
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i32_ptr_type(),   // int8_t* input data ptr
+          types->i32_type(),      // int32_t  input length
+          types->i32_ptr_type(),   // input validity buffer
+          types->i1_type(),   // bool input row validity
+          types->i8_ptr_type(),
+          types->i32_ptr_type()   //delimiter length
+          types->i1_type(),   // bool validity --Needed?
+          types->i64_type(),      //in loop var  --Needed?
+          types->i64_type(),      //in validity_index_var index into the valdity vector for the current row.
+          types->i1_ptr_type()   //output validity for the row   
+          types->i32_ptr_type(),   // output length         //value to for delimiter
+        };
+  engine->AddGlobalMappingForFunc("array_int32_to_string",
+                                  types->i32_ptr_type(), args,
+                                  reinterpret_cast<void*>(array_int32_to_string));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i64_ptr_type(),   // int8_t* input data ptr
+          types->i32_type(),      // int32_t  input length
+          types->i32_ptr_type(),   // input validity buffer
+          types->i1_type(),   // bool input row validity
+          types->i8_ptr_type(),      //value to for delimiter
+          types->i32_ptr_type(),   //delimiter length
+          types->i1_type(),   // bool validity --Needed?
+          types->i64_type(),      //in loop var  --Needed?
+          types->i64_type(),      //in validity_index_var index into the valdity vector for the current row.
+          types->i1_ptr_type()   //output validity for the row   
+          types->i32_ptr_type(),   // output length         
+        };
+
+  engine->AddGlobalMappingForFunc("array_int64_to_string",
+                                  types->i64_ptr_type(), args,
+                                  reinterpret_cast<void*>(array_int64_to_string));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->float_ptr_type(),   // float* input data ptr
+          types->i32_type(),      // int32_t  input length
+          types->i32_ptr_type(),   // input validity buffer
+          types->i1_type(),   // bool input row validity
+          types->i8_ptr_type(),      //value to for delimiter
+          types->i32_ptr_type(),   //delimiter length
+          types->i1_type(),   // bool validity --Needed?
+          types->i64_type(),      //in loop var  --Needed?
+          types->i64_type(),      //in validity_index_var index into the valdity vector for the current row.
+          types->i1_ptr_type()   //output validity for the row   
+          types->i32_ptr_type(),   // output length   
+        };
+
+  engine->AddGlobalMappingForFunc("array_float32_to_string",
+                                  types->float_ptr_type(), args,
+                                  reinterpret_cast<void*>(array_float32_to_string));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->double_ptr_type(),   // int8_t* input data ptr
+          types->i32_type(),      // int32_t  input length
+          types->i32_ptr_type(),   // input validity buffer
+          types->i1_type(),   // bool input row validity
+          types->i8_ptr_type(),      //value to for delimiter
+          types->i32_ptr_type(),   //delimiter length
+          types->i1_type(),   // bool validity --Needed?
+          types->i64_type(),      //in loop var  --Needed?
+          types->i64_type(),      //in validity_index_var index into the valdity vector for the current row.
+          types->i1_ptr_type()   //output validity for the row   
+          types->i32_ptr_type(),   // output length         
+        };
+
+  engine->AddGlobalMappingForFunc("array_float64_to_string",
+                                  types->double_ptr_type(), args,
+                                  reinterpret_cast<void*>(array_float64_to_string));                                
   return arrow::Status::OK();
 }
 }  // namespace gandiva
