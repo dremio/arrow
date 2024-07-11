@@ -40,7 +40,7 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
   static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder);
 
   static Status Make(const std::string& sql_pattern, const std::string& escape_char,
-                     std::shared_ptr<LikeHolder>* holder);
+                     std::shared_ptr<LikeHolder>* holder, RE2::Options regex_op);
 
   static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder,
                      RE2::Options regex_op);

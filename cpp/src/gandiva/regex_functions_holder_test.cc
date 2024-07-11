@@ -27,6 +27,8 @@ namespace gandiva {
 class TestLikeHolder : public ::testing::Test {
  public:
   RE2::Options regex_op;
+  void SetUp() { regex_op.set_dot_nl(true); }
+
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
@@ -75,6 +77,15 @@ TEST_F(TestLikeHolder, TestMatchOne) {
   EXPECT_FALSE(like("dabc"));
 }
 
+TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
+  std::shared_ptr<LikeHolder> like_holder;
+  auto status = LikeHolder::Make("%Space1.%", &like_holder, regex_op);
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(
+      like("[name: \"Space1.protect\"\nargs: \"count\"\ncolumn_name: \"pass_count\"]"));
+}
+
 TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
@@ -104,17 +115,25 @@ TEST_F(TestLikeHolder, TestDot) {
   EXPECT_FALSE(like("abcd"));
 }
 
+TEST_F(TestLikeHolder, TestMatchWithNewLine) {
+  std::shared_ptr<LikeHolder> like_holder;
+  auto status = LikeHolder::Make("%abc%", "\\", &like_holder, regex_op);
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc\nd"));
+}
+
 TEST_F(TestLikeHolder, TestMatchSubString) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("%abc%", "\\", &like_holder);
+  auto status = LikeHolder::Make("%abc%", "\\", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
   EXPECT_FALSE(like("xxabdc"));
 
-  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", &like_holder);
+  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like_reserved_char = *like_holder;
@@ -192,7 +211,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
 TEST_F(TestLikeHolder, TestMatchOneEscape) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab\\_", "\\", &like_holder);
+  auto status = LikeHolder::Make("ab\\_", "\\", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -209,8 +228,7 @@ TEST_F(TestLikeHolder, TestMatchOneEscape) {
 TEST_F(TestLikeHolder, TestMatchManyEscape) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab\\%", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  auto status = LikeHolder::Make("ab\\%", "\\", &like_holder, regex_op);
 
   auto& like = *like_holder;
 
@@ -226,7 +244,7 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 TEST_F(TestLikeHolder, TestMatchEscape) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab\\\\", "\\", &like_holder);
+  auto status = LikeHolder::Make("ab\\\\", "\\", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -239,7 +257,7 @@ TEST_F(TestLikeHolder, TestMatchEscape) {
 TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab\\_", "", &like_holder);
+  auto status = LikeHolder::Make("ab\\_", "", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -254,7 +272,7 @@ TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
 TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
+  auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), false) << status.message();
 }
 
