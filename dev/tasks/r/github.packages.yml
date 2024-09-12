@@ -351,7 +351,7 @@ jobs:
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: r-pkg_centos7
       - name: Install DTS Package
@@ -433,7 +433,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Install R
