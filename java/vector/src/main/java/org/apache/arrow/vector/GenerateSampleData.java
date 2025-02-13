@@ -73,6 +73,8 @@ public class GenerateSampleData {
       writeTimeStampData((TimeStampMilliVector) vector, valueCount);
     } else if (vector instanceof TimeStampNanoVector) {
       writeTimeStampData((TimeStampNanoVector) vector, valueCount);
+    } else if (vector instanceof TimeStampWithPrecisionVector) {
+      writeTimeStampData((TimeStampWithPrecisionVector) vector, valueCount);
     } else if (vector instanceof TimeStampSecTZVector) {
       writeTimeStampData((TimeStampSecTZVector) vector, valueCount);
     } else if (vector instanceof TimeStampMicroTZVector) {

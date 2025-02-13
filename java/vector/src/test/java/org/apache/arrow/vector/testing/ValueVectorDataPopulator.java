@@ -52,6 +52,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -443,6 +444,22 @@ public class ValueVectorDataPopulator {
    * @param values numbers of nanoseconds since UNIX epoch
    */
   public static void setVector(TimeStampNanoVector vector, Long... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for TimeStampNanoVector.
+   *
+   * @param values numbers of nanoseconds since UNIX epoch
+   */
+  public static void setVector(TimeStampWithPrecisionVector vector, Long... values) {
     final int length = values.length;
     vector.allocateNew(length);
     for (int i = 0; i < length; i++) {

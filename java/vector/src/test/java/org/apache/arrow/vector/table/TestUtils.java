@@ -54,6 +54,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -74,6 +75,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.TimestampWithPrecision;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
@@ -257,6 +259,11 @@ public class TestUtils {
     vectors.add(new TimeStampMilliVector("timeStampMilli_vector", allocator));
     vectors.add(new TimeStampMicroVector("timeStampMicro_vector", allocator));
     vectors.add(new TimeStampNanoVector("timeStampNano_vector", allocator));
+    vectors.add(
+        new TimeStampWithPrecisionVector(
+            "timeStampPrecision_vector",
+            FieldType.nullable(new TimestampWithPrecision(9, null)),
+            allocator));
 
     vectors.add(new DateMilliVector("dateMilli_vector", allocator));
     vectors.add(new DateDayVector("dateDay_vector", allocator));

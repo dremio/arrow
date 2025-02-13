@@ -42,6 +42,7 @@ import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -52,6 +53,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.TimestampWithPrecision;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -442,6 +444,29 @@ public class TestValueVectorPopulator {
   public void testPopulateTimeStampNanoVector() {
     try (final TimeStampNanoVector vector1 = new TimeStampNanoVector("vector", allocator);
         final TimeStampNanoVector vector2 = new TimeStampNanoVector("vector", allocator)) {
+
+      vector1.allocateNew(10);
+      for (int i = 0; i < 10; i++) {
+        if (i % 2 == 0) {
+          vector1.setNull(i);
+        } else {
+          vector1.set(i, i * 10000);
+        }
+      }
+      vector1.setValueCount(10);
+      setVector(vector2, null, 10000L, null, 30000L, null, 50000L, null, 70000L, null, 90000L);
+      assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
+    }
+  }
+
+  @Test
+  public void testPopulateTimeStampPrecisionVector() {
+    try (final TimeStampWithPrecisionVector vector1 =
+            new TimeStampWithPrecisionVector(
+                "vector", FieldType.nullable(new TimestampWithPrecision(9, null)), allocator);
+        final TimeStampWithPrecisionVector vector2 =
+            new TimeStampWithPrecisionVector(
+                "vector", FieldType.nullable(new TimestampWithPrecision(9, null)), allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {

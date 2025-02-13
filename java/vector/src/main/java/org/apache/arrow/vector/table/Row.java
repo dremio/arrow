@@ -56,6 +56,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -93,6 +94,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampWithPrecisionHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -1098,6 +1100,74 @@ public class Row implements Iterator<Row> {
   public void getTimeStampSecTZ(int columnIndex, NullableTimeStampSecTZHolder holder) {
     TimeStampSecTZVector vector = (TimeStampSecTZVector) table.getVector(columnIndex);
     vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns a long from the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public long getTimeStampWithPrecision(String columnName) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnName);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Returns a long from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public long getTimeStampWithPrecision(int columnIndex) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnIndex);
+    return vector.get(rowNumber);
+  }
+
+  /**
+   * Updates the holder with the value from the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public void getTimeStampWithPrecision(
+      String columnName, NullableTimeStampWithPrecisionHolder holder) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnName);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Updates the holder with the value from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public void getTimeStampWithPrecision(
+      int columnIndex, NullableTimeStampWithPrecisionHolder holder) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnIndex);
+    vector.get(rowNumber, holder);
+  }
+
+  /**
+   * Returns a LocalDateTime from the column of the given name at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public LocalDateTime getTimeStampWithPrecisionObj(String columnName) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnName);
+    return vector.getObject(rowNumber);
+  }
+
+  /**
+   * Returns a LocalDateTime from the column with the given index at the current row. An
+   * IllegalArgumentException is thrown if the column is not present, and a ClassCastException is
+   * thrown if it is present but has a different type
+   */
+  public LocalDateTime getTimeStampWithPrecisionObj(int columnIndex) {
+    TimeStampWithPrecisionVector vector =
+        (TimeStampWithPrecisionVector) table.getVector(columnIndex);
+    return vector.getObject(rowNumber);
   }
 
   /**

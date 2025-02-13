@@ -48,6 +48,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -60,6 +61,8 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.types.pojo.ArrowType.TimestampWithPrecision;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -625,6 +628,18 @@ public class RootAllocatorTestExtension
     valueVector.allocateNew(2);
     valueVector.setSafe(0, 1625702400000L);
     valueVector.setSafe(1, 1625788800000L);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampWithPrecisionVector createTimeStampWithPrecisionVector() {
+    TimeStampWithPrecisionVector valueVector =
+        new TimeStampWithPrecisionVector(
+            "", FieldType.nullable(new TimestampWithPrecision(9, null)), this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
     valueVector.setValueCount(2);
 
     return valueVector;

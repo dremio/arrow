@@ -92,6 +92,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampWithPrecisionHolder;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -549,21 +550,30 @@ class RowTest {
       assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), c.getTimeStampMilli(15));
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), c.getTimeStampMicro(16));
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), c.getTimeStampNano(17));
+      assertEquals(
+          c.getTimeStampWithPrecision("timeStampPrecision_vector"),
+          c.getTimeStampWithPrecision(18));
 
       // time stamp tests using Nullable Holders
       NullableTimeStampSecHolder timeStampSecHolder = new NullableTimeStampSecHolder();
       NullableTimeStampMilliHolder timeStampMilliHolder = new NullableTimeStampMilliHolder();
       NullableTimeStampMicroHolder timeStampMicroHolder = new NullableTimeStampMicroHolder();
       NullableTimeStampNanoHolder timeStampNanoHolder = new NullableTimeStampNanoHolder();
+      NullableTimeStampWithPrecisionHolder timeStampWithPrecisionHolder =
+          new NullableTimeStampWithPrecisionHolder();
       // fill the holders using vector index and test
       c.getTimeStampSec(14, timeStampSecHolder);
       c.getTimeStampMilli(15, timeStampMilliHolder);
       c.getTimeStampMicro(16, timeStampMicroHolder);
       c.getTimeStampNano(17, timeStampNanoHolder);
+      c.getTimeStampWithPrecision(18, timeStampWithPrecisionHolder);
       assertEquals(c.getTimeStampSec("timeStampSec_vector"), timeStampSecHolder.value);
       assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), timeStampMilliHolder.value);
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
+      assertEquals(
+          c.getTimeStampWithPrecision("timeStampPrecision_vector"),
+          timeStampWithPrecisionHolder.value);
 
       LocalDateTime secDT = c.getTimeStampSecObj(14);
       assertNotNull(secDT);
@@ -581,15 +591,24 @@ class RowTest {
       assertNotNull(nanoDT);
       assertEquals(nanoDT, c.getTimeStampNanoObj("timeStampNano_vector"));
 
+      LocalDateTime nanoPrecisionDT = c.getTimeStampWithPrecisionObj(18);
+      assertNotNull(nanoPrecisionDT);
+      assertEquals(nanoPrecisionDT, c.getTimeStampWithPrecisionObj("timeStampPrecision_vector"));
+
       // refill the holders using vector name and retest
       c.getTimeStampSec("timeStampSec_vector", timeStampSecHolder);
       c.getTimeStampMilli("timeStampMilli_vector", timeStampMilliHolder);
       c.getTimeStampMicro("timeStampMicro_vector", timeStampMicroHolder);
       c.getTimeStampNano("timeStampNano_vector", timeStampNanoHolder);
+      c.getTimeStampWithPrecision("timeStampPrecision_vector", timeStampWithPrecisionHolder);
+
       assertEquals(c.getTimeStampSec("timeStampSec_vector"), timeStampSecHolder.value);
       assertEquals(c.getTimeStampMilli("timeStampMilli_vector"), timeStampMilliHolder.value);
       assertEquals(c.getTimeStampMicro("timeStampMicro_vector"), timeStampMicroHolder.value);
       assertEquals(c.getTimeStampNano("timeStampNano_vector"), timeStampNanoHolder.value);
+      assertEquals(
+          c.getTimeStampWithPrecision("timeStampPrecision_vector"),
+          timeStampWithPrecisionHolder.value);
     }
   }
 

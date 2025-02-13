@@ -133,6 +133,11 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
             "TimeStampMilliTZVector",
             ASIA_BANGKOK),
         Arguments.of(
+            (Supplier<TimeStampVector>)
+                () -> rootAllocatorTestExtension.createTimeStampWithPrecisionVector(),
+            "TimeStampWithPrecisionVector",
+            null),
+        Arguments.of(
             (Supplier<TimeStampVector>) () -> rootAllocatorTestExtension.createTimeStampSecVector(),
             "TimeStampSecVector",
             null),

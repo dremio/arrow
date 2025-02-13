@@ -66,6 +66,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.UInt1Vector;
@@ -506,6 +507,9 @@ public class JsonFileWriter implements AutoCloseable {
           break;
         case TIMESTAMPNANO:
           generator.writeNumber(TimeStampNanoVector.get(buffer, index));
+          break;
+        case TIMESTAMPWITHPRECISION:
+          generator.writeNumber(TimeStampWithPrecisionVector.get(buffer, index));
           break;
         case TIMESTAMPSECTZ:
           generator.writeNumber(TimeStampSecTZVector.get(buffer, index));
