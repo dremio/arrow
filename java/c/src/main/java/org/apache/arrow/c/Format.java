@@ -208,6 +208,12 @@ final class Format {
           String timezone = type.getTimezone();
           return String.format("%s:%s", format, timezone == null ? "" : timezone);
         }
+      case TimestampWithPrecision:
+      {
+        ArrowType.TimestampWithPrecision type = (ArrowType.TimestampWithPrecision) arrowType;
+        String timezone = type.getTimezone();
+        return String.format("tsp:%s,%d", timezone == null ? "" : timezone, type.getPrecision());
+      }
       case Union:
         ArrowType.Union type = (ArrowType.Union) arrowType;
         String typeIDs =
@@ -360,6 +366,9 @@ final class Format {
         return new ArrowType.Timestamp(TimeUnit.MICROSECOND, payloadToTimezone(payload));
       case "tsn":
         return new ArrowType.Timestamp(TimeUnit.NANOSECOND, payloadToTimezone(payload));
+      case "tsp":
+        String[] parts = payload.split(",");
+        return new ArrowType.TimestampWithPrecision(Integer.parseInt(parts[1]), parts[0]);
       default:
         throw new UnsupportedOperationException(
             String.format("Format %s:%s is not supported", format, payload));

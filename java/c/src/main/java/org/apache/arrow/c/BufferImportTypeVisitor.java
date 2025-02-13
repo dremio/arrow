@@ -382,6 +382,12 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.TimestampWithPrecision type) {
+    return Arrays.asList(
+        maybeImportBitmap(type), importFixedBytes(type, 1, TimeStampVector.TYPE_WIDTH));
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.Interval type) {
     switch (type.getUnit()) {
       case YEAR_MONTH:
