@@ -121,6 +121,11 @@
       complex: false
     },
     {
+      name: "TimestampWithPrecision",
+      fields: [{name: "precision", type: int}, {name: "timezone", type: String}],
+      complex: false
+    },
+    {
       name: "Interval",
       fields: [{name: "unit", type: short, valueType: IntervalUnit}],
       complex: false

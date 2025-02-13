@@ -54,6 +54,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ViewVarBinaryVector;
@@ -398,6 +399,11 @@ public class OpaqueType extends ArrowType.ExtensionType {
     @Override
     public FieldVector visit(RunEndEncoded type) {
       throw unsupported(type);
+    }
+
+    @Override
+    public FieldVector visit(TimestampWithPrecision type) {
+      return new TimeStampWithPrecisionVector(Field.nullable(name, type), allocator);
     }
   }
 }

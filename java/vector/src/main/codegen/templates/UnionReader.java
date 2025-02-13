@@ -39,7 +39,7 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private static final int NUM_SUPPORTED_TYPES = 51;
+  private static final int NUM_SUPPORTED_TYPES = 52;
 
   private BaseReader[] readers = new BaseReader[NUM_SUPPORTED_TYPES];
   public UnionVector data;
@@ -99,7 +99,7 @@ public class UnionReader extends AbstractFieldReader {
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
     case ${name?upper_case}:
       return (FieldReader) get${name}();
         </#if>
@@ -190,7 +190,7 @@ public class UnionReader extends AbstractFieldReader {
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
       <#assign safeType=friendlyType />
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 

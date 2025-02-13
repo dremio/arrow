@@ -57,11 +57,11 @@ public class UnionViewWriter extends UnionWriter {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
 
   private ${name}Writer ${name?uncap_first}Writer;
 
-  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
   private ${name}Writer get${name}Writer(ArrowType arrowType) {
     if (${uncappedName}Writer == null) {
       ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector(arrowType));
@@ -111,13 +111,17 @@ public class UnionViewWriter extends UnionWriter {
         ArrowType arrowType = new ArrowType.FixedSizeBinary(holder.byteWidth);
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write(holder);
+    <#elseif minor.class == "TimestampWithPrecision">
+        ArrowType arrowType = new ArrowType.TimeStampWithPrecision(holder.precision, null);
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).write(holder);
     <#else>
     get${name}Writer().setPosition(idx());
     get${name}Writer().write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
     </#if>
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal") || minor.class == "TimestampWithPrecision">, ArrowType arrowType</#if>) {
     data.setType(idx(), MinorType.${name?upper_case});
     <#if minor.class?starts_with("Decimal")>
         get${name}Writer(arrowType).setPosition(idx());
@@ -131,6 +135,9 @@ public class UnionViewWriter extends UnionWriter {
         // This is expected to throw. There's nothing more that we can do here since we can't infer any
         // sort of default unit for the Duration or a default width for the FixedSizeBinary types.
         ArrowType arrowType = MinorType.${name?upper_case}.getType();
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+    <#elseif minor.class == "TimestampWithPrecision">
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     <#else>
@@ -187,6 +194,13 @@ public class UnionViewWriter extends UnionWriter {
     get${name}Writer().setPosition(idx());
     get${name}Writer().write${minor.class}(value);
   }
+  <#elseif minor.class == "TimestampWithPrecision">
+  public void write${name}(${friendlyType} value, int precision) {
+    data.setType(idx(), MinorType.${name?upper_case});
+    ArrowType arrowType = new ArrowType.TimeStampWithPrecision(precision, null);
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).write${name}(value);
+  }
   </#if>
       </#if>
     </#list>
@@ -197,7 +211,7 @@ public class UnionViewWriter extends UnionWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
 
   @Override
   public ${capName}Writer ${lowerName}() {

@@ -56,6 +56,7 @@ import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -108,6 +109,7 @@ import org.apache.arrow.vector.complex.impl.TimeStampNanoTZWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampSecTZWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeStampSecWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimeStampWithPrecisionWriterImpl;
 import org.apache.arrow.vector.complex.impl.TinyIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
@@ -147,6 +149,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
+import org.apache.arrow.vector.types.pojo.ArrowType.TimestampWithPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
@@ -354,6 +357,18 @@ public class Types {
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new TimeStampNanoWriterImpl((TimeStampNanoVector) vector);
+      }
+    },
+    TIMESTAMPWITHPRECISION(null) {
+      @Override
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new TimeStampWithPrecisionVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new TimeStampWithPrecisionWriterImpl((TimeStampWithPrecisionVector) vector);
       }
     },
     INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
@@ -1040,6 +1055,11 @@ public class Types {
           @Override
           public MinorType visit(RunEndEncoded type) {
             return MinorType.RUNENDENCODED;
+          }
+
+          @Override
+          public MinorType visit(TimestampWithPrecision type) {
+            return MinorType.TIMESTAMPWITHPRECISION;
           }
         });
   }

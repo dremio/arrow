@@ -44,6 +44,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
+import org.apache.arrow.vector.types.pojo.ArrowType.TimestampWithPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
@@ -97,6 +98,11 @@ public class TypeLayout {
 
               @Override
               public TypeLayout visit(Timestamp type) {
+                return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
+              }
+
+              @Override
+              public TypeLayout visit(TimestampWithPrecision type) {
                 return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
               }
 
@@ -454,6 +460,11 @@ public class TypeLayout {
           @Override
           public Integer visit(RunEndEncoded type) {
             return 0;
+          }
+
+          @Override
+          public Integer visit(TimestampWithPrecision type) {
+            return FIXED_WIDTH_BUFFER_COUNT;
           }
         });
   }

@@ -40,6 +40,7 @@ import org.apache.arrow.driver.jdbc.converter.impl.NullAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.StructAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.TimestampPrecisionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8ViewAvaticaParameterConverter;
@@ -289,6 +290,11 @@ public final class ConvertUtils {
     public AvaticaParameter visit(ArrowType.RunEndEncoded type) {
       throw new UnsupportedOperationException(
           "No Avatica parameter binder implemented for type " + type);
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.TimestampWithPrecision type) {
+      return new TimestampPrecisionAvaticaParameterConverter(type).createParameter(field);
     }
   }
 }

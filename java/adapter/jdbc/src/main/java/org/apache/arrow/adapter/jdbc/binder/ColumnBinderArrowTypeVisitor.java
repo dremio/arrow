@@ -39,6 +39,7 @@ import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
 import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -293,5 +294,15 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   @Override
   public ColumnBinder visit(ArrowType.LargeListView type) {
     throw new UnsupportedOperationException("No column binder implemented for type " + type);
+  }
+
+  @Override
+  public ColumnBinder visit(ArrowType.TimestampWithPrecision type) {
+    Calendar calendar = null;
+    final String timezone = type.getTimezone();
+    if (timezone != null && !timezone.isEmpty()) {
+      calendar = Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of(timezone)));
+    }
+    return new TimestampWithPrecisionBinder((TimeStampWithPrecisionVector) vector, calendar);
   }
 }

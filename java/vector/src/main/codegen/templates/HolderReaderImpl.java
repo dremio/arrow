@@ -148,7 +148,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     return DateUtility.getLocalDateTimeFromEpochMilli(holder.value);
   <#elseif minor.class == "TimeStampMicro">
     return DateUtility.getLocalDateTimeFromEpochMicro(holder.value);
-  <#elseif minor.class == "TimeStampNano">
+  <#elseif minor.class == "TimeStampNano" || minor.class == "TimeStampWithPrecision">
     return DateUtility.getLocalDateTimeFromEpochNano(holder.value);
   <#else>
     ${friendlyType} value = new ${friendlyType}(this.holder.value);

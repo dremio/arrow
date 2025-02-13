@@ -316,6 +316,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         || type == MinorType.MAP
         || type == MinorType.DURATION
         || type == MinorType.FIXEDSIZEBINARY
+        || type == MinorType.TIMESTAMPWITHPRECISION
         || (type.name().startsWith("TIMESTAMP") && type.name().endsWith("TZ"));
   }
 

@@ -107,7 +107,7 @@ public ${eName}WriterImpl(${name}Vector vector) {
 
   <#else>
 
-  <#if !minor.class?starts_with("Decimal")>
+  <#if !minor.class?starts_with("Decimal") && !(minor.class == "TimestampWithPrecision")>
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
@@ -183,6 +183,24 @@ public ${eName}WriterImpl(${name}Vector vector) {
   public void writeBigEndianBytesTo${minor.class}(byte[] value){
     vector.setBigEndianSafe(idx(), value);
     vector.setValueCount(idx() + 1);
+  }
+  </#if>
+  
+  <#if minor.class == "TimestampWithPrecision">
+
+  public void write(${minor.class}Holder h) {
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
+  }
+
+  public void write(Nullable${minor.class}Holder h) {
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
+  }
+
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType){
+    vector.setSafe(idx(), 1<#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
+    vector.setValueCount(idx()+1);
   }
   </#if>
 
@@ -272,6 +290,14 @@ public interface ${eName}Writer extends BaseWriter {
   public void write${minor.class}(${friendlyType} value);
 
   public void write${minor.class}(String value);
+</#if>
+  
+<#if minor.class == "TimestampWithPrecision">
+
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType);
+
+  public void write${minor.class}(${friendlyType} value);
+  
 </#if>
 }
 

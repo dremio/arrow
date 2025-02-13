@@ -273,11 +273,11 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
 
   private ${name}Vector ${uncappedName}Vector;
 
-  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
   public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       ${uncappedName}Vector = internalStruct.getChild(fieldName(MinorType.${name?upper_case}), ${name}Vector.class);
