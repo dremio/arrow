@@ -107,7 +107,7 @@ public ${eName}WriterImpl(${name}Vector vector) {
 
   <#else>
 
-  <#if !minor.class?starts_with("Decimal") && !(minor.class == "TimestampWithPrecision")>
+  <#if !minor.class?starts_with("Decimal") && !(minor.class == "TimeStampWithPrecision")>
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
@@ -186,7 +186,7 @@ public ${eName}WriterImpl(${name}Vector vector) {
   }
   </#if>
   
-  <#if minor.class == "TimestampWithPrecision">
+  <#if minor.class == "TimeStampWithPrecision">
 
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
@@ -292,7 +292,7 @@ public interface ${eName}Writer extends BaseWriter {
   public void write${minor.class}(String value);
 </#if>
   
-<#if minor.class == "TimestampWithPrecision">
+<#if minor.class == "TimeStampWithPrecision">
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType);
 

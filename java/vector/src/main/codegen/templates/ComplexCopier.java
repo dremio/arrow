@@ -114,14 +114,14 @@ public class ComplexCopier {
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
 
-  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || minor.class == "TimestampWithPrecision">
+  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || minor.class == "TimeStampWithPrecision">
 
       case ${name?upper_case}:
         if (reader.isSet()) {
           Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
           reader.read(${uncappedName}Holder);
           if (${uncappedName}Holder.isSet == 1) {
-            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class = "TimestampWithPrecision">, new ArrowType.TimeStampWithPrecision(${uncappedName}Holder.precision, ${uncappedName}Holder.scale, ${name}Holder.WIDTH * 8)</#if><#if minor.class?starts_with("Decimal")>, new ArrowType.Decimal(${uncappedName}Holder.precision, ${uncappedName}Holder.scale, ${name}Holder.WIDTH * 8)</#if>);
+            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class = "TimeStampWithPrecision">, new ArrowType.TimestampWithPrecision(${uncappedName}Holder.precision, null)</#if><#if minor.class?starts_with("Decimal")>, new ArrowType.Decimal(${uncappedName}Holder.precision, ${uncappedName}Holder.scale, ${name}Holder.WIDTH * 8)</#if>);
           }
         } else {
           writer.writeNull();

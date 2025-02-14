@@ -232,9 +232,9 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
     case ${name?upper_case}:
-      <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+      <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
       return get${name}Writer(arrowType);
       <#else>
       return get${name}Writer();
@@ -252,11 +252,11 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
 
   private ${name}Writer ${name?uncap_first}Writer;
 
-  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
   private ${name}Writer get${name}Writer(ArrowType arrowType) {
     if (${uncappedName}Writer == null) {
       ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector(arrowType));
@@ -306,8 +306,8 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     ArrowType arrowType = new ArrowType.FixedSizeBinary(holder.byteWidth);
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write(holder);
-    <#elseif minor.class == "TimestampWithPrecision">
-    ArrowType arrowType = new ArrowType.TimeStampWithPrecision(holder.precision, null);
+    <#elseif minor.class == "TimeStampWithPrecision">
+    ArrowType arrowType = new ArrowType.TimestampWithPrecision(holder.precision, null);
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write(holder);
     <#else>
@@ -316,7 +316,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     </#if>
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal") || minor.class == "TimestampWithPrecision">, ArrowType arrowType</#if>) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal") || minor.class == "TimeStampWithPrecision">, ArrowType arrowType</#if>) {
     data.setType(idx(), MinorType.${name?upper_case});
     <#if minor.class?starts_with("Decimal")>
     get${name}Writer(arrowType).setPosition(idx());
@@ -332,7 +332,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     ArrowType arrowType = MinorType.${name?upper_case}.getType();
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
-    <#elseif minor.class == "TimestampWithPrecision">
+    <#elseif minor.class == "TimeStampWithPrecision">
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>, arrowType);
     <#else>
@@ -353,10 +353,10 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).writeBigEndianBytesTo${name}(value, arrowType);
   }
-  <#elseif minor.class == "TimestampWithPrecision">
+  <#elseif minor.class == "TimeStampWithPrecision">
   public void write${name}(${friendlyType} value, int precision) {
     data.setType(idx(), MinorType.${name?upper_case});
-    ArrowType arrowType = new ArrowType.TimeStampWithPrecision(precision, null);
+    ArrowType arrowType = new ArrowType.TimestampWithPrecision(precision, null);
     get${name}Writer(arrowType).setPosition(idx());
     get${name}Writer(arrowType).write${name}(value);
   }
@@ -479,7 +479,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     data.setType(idx(), MinorType.STRUCT);
@@ -494,7 +494,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return getListWriter().${lowerName}();
   }
   </#if>
-  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimestampWithPrecision">
+  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary" || minor.class == "TimeStampWithPrecision">
   @Override
   public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     data.setType(idx(), MinorType.STRUCT);

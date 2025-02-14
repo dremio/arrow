@@ -209,11 +209,11 @@ final class Format {
           return String.format("%s:%s", format, timezone == null ? "" : timezone);
         }
       case TimestampWithPrecision:
-      {
-        ArrowType.TimestampWithPrecision type = (ArrowType.TimestampWithPrecision) arrowType;
-        String timezone = type.getTimezone();
-        return String.format("tsp:%s,%d", timezone == null ? "" : timezone, type.getPrecision());
-      }
+        {
+          ArrowType.TimestampWithPrecision type = (ArrowType.TimestampWithPrecision) arrowType;
+          String timezone = type.getTimezone();
+          return String.format("tsp:%s,%d", timezone == null ? "" : timezone, type.getPrecision());
+        }
       case Union:
         ArrowType.Union type = (ArrowType.Union) arrowType;
         String typeIDs =

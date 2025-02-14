@@ -165,7 +165,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
   </#if>
   
-  <#if minor.class?starts_with("TimestampWithPrecision")>
+  <#if minor.class?starts_with("TimeStampWithPrecision")>
   public void write${minor.class}(${friendlyType} value) {
     fail("${name}");
   }
