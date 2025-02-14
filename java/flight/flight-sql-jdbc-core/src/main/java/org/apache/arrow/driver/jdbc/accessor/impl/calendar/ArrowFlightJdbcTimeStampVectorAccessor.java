@@ -46,6 +46,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
   /** Functional interface used to convert a number (in any time resolution) to LocalDateTime. */
   interface LongToLocalDateTime {
+
     LocalDateTime fromLong(long value);
   }
 
@@ -126,51 +127,68 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
   }
 
   protected static TimeUnit getTimeUnitForVector(TimeStampVector vector) {
-    ArrowType.Timestamp arrowType =
-        (ArrowType.Timestamp) vector.getField().getFieldType().getType();
 
-    switch (arrowType.getUnit()) {
-      case NANOSECOND:
-        return TimeUnit.NANOSECONDS;
-      case MICROSECOND:
-        return TimeUnit.MICROSECONDS;
-      case MILLISECOND:
-        return TimeUnit.MILLISECONDS;
-      case SECOND:
-        return TimeUnit.SECONDS;
-      default:
-        throw new UnsupportedOperationException("Invalid Arrow time unit");
+    ArrowType type = vector.getField().getFieldType().getType();
+    if (type instanceof ArrowType.Timestamp) {
+      ArrowType.Timestamp arrowType =
+          (ArrowType.Timestamp) vector.getField().getFieldType().getType();
+
+      switch (arrowType.getUnit()) {
+        case NANOSECOND:
+          return TimeUnit.NANOSECONDS;
+        case MICROSECOND:
+          return TimeUnit.MICROSECONDS;
+        case MILLISECOND:
+          return TimeUnit.MILLISECONDS;
+        case SECOND:
+          return TimeUnit.SECONDS;
+        default:
+          throw new UnsupportedOperationException("Invalid Arrow time unit");
+      }
+    } else if (type instanceof ArrowType.TimestampWithPrecision) {
+      return TimeUnit.NANOSECONDS;
+    } else {
+      throw new UnsupportedOperationException("Invalid Arrow timestamp type");
     }
   }
 
   protected static LongToLocalDateTime getLongToLocalDateTimeForVector(
       TimeStampVector vector, TimeZone timeZone) {
     String timeZoneID = timeZone.getID();
+    ArrowType arrowType = vector.getField().getFieldType().getType();
 
-    ArrowType.Timestamp arrowType =
-        (ArrowType.Timestamp) vector.getField().getFieldType().getType();
-
-    switch (arrowType.getUnit()) {
-      case NANOSECOND:
-        return nanoseconds -> DateUtility.getLocalDateTimeFromEpochNano(nanoseconds, timeZoneID);
-      case MICROSECOND:
-        return microseconds -> DateUtility.getLocalDateTimeFromEpochMicro(microseconds, timeZoneID);
-      case MILLISECOND:
-        return milliseconds -> DateUtility.getLocalDateTimeFromEpochMilli(milliseconds, timeZoneID);
-      case SECOND:
-        return seconds ->
-            DateUtility.getLocalDateTimeFromEpochMilli(
-                TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
-      default:
-        throw new UnsupportedOperationException("Invalid Arrow time unit");
+    if (arrowType instanceof ArrowType.TimestampWithPrecision) {
+      return nanoseconds -> DateUtility.getLocalDateTimeFromEpochNano(nanoseconds, timeZoneID);
+    } else {
+      ArrowType.Timestamp timeStamp =
+          (ArrowType.Timestamp) vector.getField().getFieldType().getType();
+      switch (timeStamp.getUnit()) {
+        case NANOSECOND:
+          return nanoseconds -> DateUtility.getLocalDateTimeFromEpochNano(nanoseconds, timeZoneID);
+        case MICROSECOND:
+          return microseconds ->
+              DateUtility.getLocalDateTimeFromEpochMicro(microseconds, timeZoneID);
+        case MILLISECOND:
+          return milliseconds ->
+              DateUtility.getLocalDateTimeFromEpochMilli(milliseconds, timeZoneID);
+        case SECOND:
+          return seconds ->
+              DateUtility.getLocalDateTimeFromEpochMilli(
+                  TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
+        default:
+          throw new UnsupportedOperationException("Invalid Arrow time unit");
+      }
     }
   }
 
   protected static TimeZone getTimeZoneForVector(TimeStampVector vector) {
-    ArrowType.Timestamp arrowType =
-        (ArrowType.Timestamp) vector.getField().getFieldType().getType();
-
-    String timezoneName = arrowType.getTimezone();
+    ArrowType arrowType = vector.getField().getFieldType().getType();
+    String timezoneName;
+    if (arrowType instanceof ArrowType.TimestampWithPrecision) {
+      timezoneName = ((ArrowType.TimestampWithPrecision) arrowType).getTimezone();
+    } else {
+      timezoneName = ((ArrowType.Timestamp) arrowType).getTimezone();
+    }
     if (timezoneName == null) {
       return TimeZone.getTimeZone("UTC");
     }

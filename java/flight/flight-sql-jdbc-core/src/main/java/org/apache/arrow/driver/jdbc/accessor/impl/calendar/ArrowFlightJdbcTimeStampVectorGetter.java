@@ -25,6 +25,7 @@ import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TimeStampWithPrecisionVector;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMicroTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
@@ -33,6 +34,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampWithPrecisionHolder;
 
 /** Auxiliary class used to unify data access on TimeStampVectors. */
 final class ArrowFlightJdbcTimeStampVectorGetter {
@@ -73,6 +75,8 @@ final class ArrowFlightJdbcTimeStampVectorGetter {
       return createGetter((TimeStampSecVector) vector);
     } else if (vector instanceof TimeStampSecTZVector) {
       return createGetter((TimeStampSecTZVector) vector);
+    } else if (vector instanceof TimeStampWithPrecisionVector) {
+      return createGetter((TimeStampWithPrecisionVector) vector);
     }
 
     throw new UnsupportedOperationException("Unsupported Timestamp vector type");
@@ -143,6 +147,15 @@ final class ArrowFlightJdbcTimeStampVectorGetter {
 
   private static Getter createGetter(TimeStampSecTZVector vector) {
     NullableTimeStampSecTZHolder auxHolder = new NullableTimeStampSecTZHolder();
+    return (index, holder) -> {
+      vector.get(index, auxHolder);
+      holder.isSet = auxHolder.isSet;
+      holder.value = auxHolder.value;
+    };
+  }
+
+  private static Getter createGetter(TimeStampWithPrecisionVector vector) {
+    NullableTimeStampWithPrecisionHolder auxHolder = new NullableTimeStampWithPrecisionHolder();
     return (index, holder) -> {
       vector.get(index, auxHolder);
       holder.isSet = auxHolder.isSet;
