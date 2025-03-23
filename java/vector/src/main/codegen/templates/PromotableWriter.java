@@ -23,6 +23,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import java.util.Locale;
+import org.apache.arrow.vector.ExtensionTypeVector;
 <#include "/@includes/vv_imports.ftl" />
 
 /**
@@ -285,6 +286,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       case UNION:
         writer = new UnionWriter((UnionVector) vector, nullableStructWriterFactory);
         break;
+      case EXTENSIONTYPE:
+        writer = new UnionExtensionWriter((ExtensionTypeVector) vector);
+        break;  
       default:
         writer = type.getNewFieldWriter(vector);
         break;
@@ -316,6 +320,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         || type == MinorType.MAP
         || type == MinorType.DURATION
         || type == MinorType.FIXEDSIZEBINARY
+        || type == MinorType.EXTENSIONTYPE
         || (type.name().startsWith("TIMESTAMP") && type.name().endsWith("TZ"));
   }
 

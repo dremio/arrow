@@ -241,6 +241,19 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("Map");
     return null;
   }
+
+  @Override
+  public ExtensionWriter extension(String name, ArrowType arrowType) {
+    fail("Extension");
+    return null;
+  }
+
+  @Override
+  public ExtensionWriter extension(ArrowType arrowType) {
+    fail("Extension");
+    return null;
+  }
+  
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

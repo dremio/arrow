@@ -61,12 +61,16 @@ public interface BaseWriter extends AutoCloseable, Positionable {
 
     void copyReaderToField(String name, FieldReader reader);
     StructWriter struct(String name);
+    ExtensionWriter extension(String name, ArrowType arrowType);
     ListWriter list(String name);
     ListWriter listView(String name);
     MapWriter map(String name);
     MapWriter map(String name, boolean keysSorted);
     void start();
     void end();
+  }
+
+  public interface ExtensionWriter extends StructWriter {
   }
 
   public interface ListWriter extends BaseWriter {
@@ -79,6 +83,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     ListWriter listView();
     MapWriter map();
     MapWriter map(boolean keysSorted);
+    ExtensionWriter extension(ArrowType arrowType);
     void copyReader(FieldReader reader);
 
     <#list vv.types as type><#list type.minor as minor>
