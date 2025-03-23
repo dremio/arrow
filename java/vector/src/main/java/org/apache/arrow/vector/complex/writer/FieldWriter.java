@@ -26,7 +26,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
  * Composite of all writer types. Writers are convenience classes for incrementally adding values to
  * {@linkplain org.apache.arrow.vector.ValueVector}s.
  */
-public interface FieldWriter extends StructWriter, ListWriter, MapWriter, ScalarWriter, ExtensionWriter {
+public interface FieldWriter
+    extends StructWriter, ListWriter, MapWriter, ScalarWriter, ExtensionWriter {
   void allocate();
 
   void clear();
