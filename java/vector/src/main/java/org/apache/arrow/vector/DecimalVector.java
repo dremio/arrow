@@ -565,7 +565,14 @@ public final class DecimalVector extends BaseFixedWidthVector
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to =
-          new DecimalVector(ref, allocator, DecimalVector.this.precision, DecimalVector.this.scale);
+          new DecimalVector(
+              ref,
+              new FieldType(
+                  DecimalVector.this.field.getFieldType().isNullable(),
+                  new ArrowType.Decimal(
+                      DecimalVector.this.precision, DecimalVector.this.scale, TYPE_WIDTH * 8),
+                  null),
+              allocator);
     }
 
     public TransferImpl(Field field, BufferAllocator allocator) {
