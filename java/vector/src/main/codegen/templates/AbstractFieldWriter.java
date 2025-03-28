@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-<@pp.dropOutputFile />
+import org.apache.arrow.vector.holders.Float2Holder;<@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/AbstractFieldWriter.java" />
 
 
@@ -106,6 +106,17 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   public void endEntry() {
     throw new IllegalStateException(String.format("You tried to end a map entry when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
   }
+
+  public <T extends ExtensionHolder> void write(T var1)  {
+    this.fail("ExtensionType");
+  }
+  public void writeExtensionType(Object var1)  {
+    this.fail("ExtensionType");
+  }
+  public <T extends ExtensionTypeWriterVisitor> void addExtensionTypeVisitor(T var1) {
+    this.fail("ExtensionType");
+  }
+
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />

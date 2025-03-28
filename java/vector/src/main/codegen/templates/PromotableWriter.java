@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-<@pp.dropOutputFile />
+import org.apache.arrow.vector.types.Types.MinorType;<@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/PromotableWriter.java" />
 
 <#include "/@includes/license.ftl" />
@@ -539,6 +539,16 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   @Override
   public void writeLargeVarChar(String value) {
     getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
+  @Override
+  public void writeExtensionType(Object value) {
+    getWriter(MinorType.EXTENSIONTYPE).writeExtensionType(value);
+  }
+
+  @Override
+  public <T extends ExtensionTypeWriterVisitor> void addExtensionTypeVisitor(T var1) {
+    getWriter(MinorType.EXTENSIONTYPE).addExtensionTypeVisitor(var1);
   }
 
   @Override

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-<@pp.dropOutputFile />
+import org.apache.arrow.vector.holders.ValueHolder;<@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/writer/BaseWriter.java" />
 
 
@@ -70,7 +70,11 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void end();
   }
 
-  public interface ExtensionWriter extends StructWriter {
+  public interface ExtensionWriter extends BaseWriter {
+    void writeNull();
+    <T extends ExtensionHolder> void write(T var1);
+    void writeExtensionType(Object var1);
+    <T extends ExtensionTypeWriterVisitor> void addExtensionTypeVisitor(T var1);
   }
 
   public interface ListWriter extends BaseWriter {
