@@ -66,4 +66,10 @@ public class UnionExtensionWriter extends AbstractFieldWriter {
   public <T extends ExtensionHolder> void write(T var1) {
     this.writer.write(var1);
   }
+
+  @Override
+  public void setPosition(int index) {
+    super.setPosition(index);
+    this.writer.setPosition(index);
+  }
 }
