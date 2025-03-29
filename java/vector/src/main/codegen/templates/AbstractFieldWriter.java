@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.impl.ExtensionTypeWriterFactory;
 import org.apache.arrow.vector.holders.Float2Holder;<@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/AbstractFieldWriter.java" />
 
@@ -113,7 +114,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   public void writeExtensionType(Object var1)  {
     this.fail("ExtensionType");
   }
-  public <T extends ExtensionTypeWriterVisitor> void addExtensionTypeVisitor(T var1) {
+  public <T extends ExtensionTypeWriterFactory> void addExtensionTypeFactory(T var1) {
     this.fail("ExtensionType");
   }
 

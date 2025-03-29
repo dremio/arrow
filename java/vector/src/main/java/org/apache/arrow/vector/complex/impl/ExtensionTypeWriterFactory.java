@@ -18,6 +18,6 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.ExtensionTypeVector;
 
-public interface ExtensionTypeWriterVisitor<T extends AbstractFieldWriter> {
-  T visit(ExtensionTypeVector vector);
+public interface ExtensionTypeWriterFactory<T extends AbstractFieldWriter> {
+  T getWriterImpl(ExtensionTypeVector vector);
 }

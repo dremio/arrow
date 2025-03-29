@@ -59,8 +59,8 @@ public class UnionExtensionWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public <S extends ExtensionTypeWriterVisitor> void addExtensionTypeVisitor(S var1) {
-    this.writer = var1.visit(vector);
+  public <S extends ExtensionTypeWriterFactory> void addExtensionTypeFactory(S var1) {
+    this.writer = var1.getWriterImpl(vector);
     this.writer.setPosition(idx());
   }
 
