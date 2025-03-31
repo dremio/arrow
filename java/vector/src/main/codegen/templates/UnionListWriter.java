@@ -16,6 +16,7 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.complex.impl.ExtensionTypeWriterFactory;
 import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.Decimal256Holder;
@@ -24,6 +25,8 @@ import org.apache.arrow.vector.holders.DecimalHolder;
 
 import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
+import org.apache.arrow.vector.holders.ExtensionHolder;
+import org.apache.arrow.vector.types.Types.MinorType;
 
 <@pp.dropOutputFile />
 <#list ["List", "ListView", "LargeList", "LargeListView"] as listName>
@@ -332,6 +335,20 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     } else {
       writer.writeNull();
     }
+  }
+
+  @Override
+  public void writeExtensionType(Object value) {
+    writer.writeExtensionType(value);
+  }
+
+  @Override
+  public <T extends ExtensionTypeWriterFactory> void addExtensionTypeFactory(T var1) {
+    writer.addExtensionTypeFactory(var1);
+  }
+
+  public <T extends ExtensionHolder> void write(T var1) {
+    writer.write(var1);
   }
 
   <#list vv.types as type>

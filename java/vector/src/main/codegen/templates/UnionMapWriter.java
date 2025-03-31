@@ -16,6 +16,8 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.writer.BaseWriter.ExtensionWriter;
 import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.Decimal256Holder;
@@ -23,6 +25,7 @@ import org.apache.arrow.vector.holders.DecimalHolder;
 
 import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionMapWriter.java" />
@@ -229,6 +232,18 @@ public class UnionMapWriter extends UnionListWriter {
         return entryWriter.map(MapVector.VALUE_NAME);
       default:
         return super.map();
+    }
+  }
+
+  @Override
+  public ExtensionWriter extension(ArrowType type) {
+    switch (mode) {
+      case KEY:
+        return entryWriter.extension(MapVector.KEY_NAME, type);
+      case VALUE:
+        return entryWriter.extension(MapVector.VALUE_NAME, type);
+      default:
+        return super.extension(type);
     }
   }
 }
