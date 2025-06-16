@@ -51,7 +51,7 @@ jobs:
           R CMD build --no-build-vignettes .
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
@@ -106,7 +106,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -162,7 +162,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -195,7 +195,7 @@ jobs:
           cd build
           sha512sum arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__windows
           path: build/arrow-*.zip*
@@ -282,7 +282,7 @@ jobs:
           cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
@@ -339,7 +339,7 @@ jobs:
           '
       - name: Upload binary artifact
         if: matrix.config.devtoolset
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg_centos7
           path: arrow_*

@@ -58,7 +58,7 @@ jobs:
         shell: bash
 
       - name: Upload the parquet artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: files
           path: arrow/r/extra-tests/files

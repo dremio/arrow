@@ -74,7 +74,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ubuntu-shared-lib-{{ arch }}
           path: arrow-shared-libs-linux-{{ arch }}.tar.gz
@@ -93,9 +93,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["macos-12"], arch: "x86_64"}
+          - { runs_on: ["macos-13"], arch: "x86_64"}
     env:
-      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
@@ -138,6 +138,18 @@ jobs:
           # used on test  We uninstall Homebrew's Protobuf to ensure using
           # bundled Protobuf.
           brew uninstall protobuf
+          # fix cmake and boost versions
+          brew uninstall -f boost || true
+          brew uninstall -f cmake || true
+          mkdir -p homebrew-custom/Formula
+          curl -o homebrew-custom/Formula/cmake.rb https://raw.githubusercontent.com/Homebrew/homebrew-core/f68532bfe5cb87474093df8a839c3818c6aa44dd/Formula/c/cmake.rb
+          curl -o homebrew-custom/Formula/boost.rb https://raw.githubusercontent.com/Homebrew/homebrew-core/23f9c56c5075dd56b4471e2c93f89f6400b49ddd/Formula/b/boost.rb
+          brew install -v ./homebrew-custom/Formula/cmake.rb
+          brew install -v ./homebrew-custom/Formula/boost.rb
+          brew pin cmake
+          brew pin boost
+          #
+
 
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
@@ -154,7 +166,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-shared-lib-{{ arch }}
           path: arrow-shared-libs-macos-{{ arch }}.tar.gz
@@ -188,14 +200,14 @@ jobs:
         shell: bash
         run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-shared-lib
           path: arrow-shared-libs-windows.tar.gz
 
   package-jars:
     name: Build jar files
-    runs-on: macos-12
+    runs-on: macos-13
     needs:
       - build-cpp-ubuntu
       - build-cpp-macos
@@ -203,7 +215,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Libraries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Decompress artifacts
