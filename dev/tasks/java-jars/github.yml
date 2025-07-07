@@ -171,47 +171,12 @@ jobs:
           name: macos-shared-lib-{{ arch }}
           path: arrow-shared-libs-macos-{{ arch }}.tar.gz
 
-  build-cpp-windows:
-    name: Build C++ libraries Windows
-    runs-on: windows-2019
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-      - name: Download Timezone Database
-        shell: bash
-        run: arrow/ci/scripts/download_tz_database.sh
-      - name: Install sccache
-        shell: bash
-        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
-      - name: Build C++ libraries
-        shell: cmd
-        env:
-        {{ macros.github_set_sccache_envvars()|indent(8) }}
-        run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          REM For ORC
-          set TZDIR=/c/msys64/usr/share/zoneinfo
-          bash -c "arrow/ci/scripts/java_jni_windows_build.sh $(pwd)/arrow $(pwd)/arrow/cpp-build $(pwd)/arrow/java-dist"
-      - name: Compress into single artifact to keep directory structure
-        shell: bash
-        run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-shared-lib
-          path: arrow-shared-libs-windows.tar.gz
-
   package-jars:
     name: Build jar files
     runs-on: macos-15-intel
     needs:
       - build-cpp-ubuntu
       - build-cpp-macos
-      - build-cpp-windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Libraries
@@ -224,7 +189,6 @@ jobs:
           tar -xvzf arrow-shared-libs-linux-x86_64.tar.gz
           tar -xvzf arrow-shared-libs-linux-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
-          tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
           set -x
@@ -243,10 +207,6 @@ jobs:
           test -f arrow/java-dist/arrow_dataset_jni/x86_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/arrow_orc_jni/x86_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/gandiva_jni/x86_64/libgandiva_jni.dylib
-
-          test -f arrow/java-dist/arrow_cdata_jni/x86_64/arrow_cdata_jni.dll
-          test -f arrow/java-dist/arrow_dataset_jni/x86_64/arrow_dataset_jni.dll
-          test -f arrow/java-dist/arrow_orc_jni/x86_64/arrow_orc_jni.dll
       - name: Build bundled jar
         run: |
           set -e
