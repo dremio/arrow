@@ -425,8 +425,8 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
   }
 
   try {
-    *out_len = gandiva::aes_encrypt(data, data_len, key_data, key_data_len,
-                                    reinterpret_cast<unsigned char*>(ret));
+    *out_len = gandiva::aes_encrypt_ecb(data, data_len, key_data, key_data_len,
+                                        reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
      *out_len = 0;
@@ -467,11 +467,111 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
   }
 
   try {
-    *out_len = gandiva::aes_decrypt(data, data_len, key_data, key_data_len,
-                                    reinterpret_cast<unsigned char*>(ret));
+    *out_len = gandiva::aes_decrypt_ecb(data, data_len, key_data, key_data_len,
+                                        reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
      *out_len = 0;
+    return nullptr;
+  }
+  ret[*out_len] = '\0';
+  return ret;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_mode(int64_t context, const char* data, int32_t data_len,
+                                    const char* key_data, int32_t key_data_len,
+                                    const char* mode, int32_t mode_len,
+                                    const char* iv, int32_t iv_len,
+                                    bool use_padding,
+                                    int32_t* out_len) {
+  if (data_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid data length to be encrypted");
+    *out_len = 0;
+    return "";
+  }
+
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
+    gdv_fn_context_set_error_msg(context, "invalid key length");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  if (mode_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "invalid mode length");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int64_t kAesBlockSize = static_cast<int64_t>(key_data_len);
+  *out_len =
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    std::string err_msg =
+        "Could not allocate memory for returning aes encrypt cypher text";
+    gdv_fn_context_set_error_msg(context, err_msg.data());
+    *out_len = 0;
+    return nullptr;
+  }
+
+  try {
+    std::string mode_str(mode, mode_len);
+    *out_len = gandiva::aes_encrypt(data, data_len, key_data, key_data_len, mode_str, iv,
+                                    iv_len, use_padding, reinterpret_cast<unsigned char*>(ret));
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
+    return nullptr;
+  }
+
+  return ret;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_mode(int64_t context, const char* data, int32_t data_len,
+                                    const char* key_data, int32_t key_data_len,
+                                    const char* mode, int32_t mode_len,
+                                    const char* iv, int32_t iv_len,
+                                    bool use_padding,
+                                    int32_t* out_len) {
+  if (data_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid data length to be decrypted");
+    *out_len = 0;
+    return "";
+  }
+
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
+    gdv_fn_context_set_error_msg(context, "invalid key length");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  if (mode_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "invalid mode length");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int64_t kAesBlockSize = static_cast<int64_t>(key_data_len);
+  *out_len =
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    std::string err_msg =
+        "Could not allocate memory for returning aes decrypt plaintext";
+    gdv_fn_context_set_error_msg(context, err_msg.data());
+    *out_len = 0;
+    return nullptr;
+  }
+
+  try {
+    std::string mode_str(mode, mode_len);
+    *out_len = gandiva::aes_decrypt(data, data_len, key_data, key_data_len, mode_str, iv,
+                                    iv_len, use_padding, reinterpret_cast<unsigned char*>(ret));
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
     return nullptr;
   }
   ret[*out_len] = '\0';
@@ -1149,6 +1249,44 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt));
+
+  // gdv_fn_aes_encrypt_mode
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv
+      types->i32_type(),     // iv_length
+      types->i1_type(),      // use_padding
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt_mode",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt_mode));
+
+  // gdv_fn_aes_decrypt_mode
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv
+      types->i32_type(),     // iv_length
+      types->i1_type(),      // use_padding
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt_mode",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt_mode));
 
   // gdv_mask_first_n and gdv_mask_last_n
   std::vector<llvm::Type*> mask_args = {

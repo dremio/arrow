@@ -18,57 +18,56 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <openssl/evp.h>
 #include "gandiva/visibility.h"
-#include "gandiva/encrypt_utils_ecb.h"
-#include "gandiva/encrypt_utils_cbc.h"
 
 namespace gandiva {
 
 /**
- * Encrypt data using AES with specified mode
+ * Get the EVP cipher algorithm for AES-ECB with the specified key length
+ * Supports 128-bit (16 bytes), 192-bit (24 bytes), and 256-bit (32 bytes) keys
  *
- * Dispatcher function that routes to the appropriate encryption implementation
- * based on the mode parameter.
+ * @param key_length The length of the encryption key in bytes
+ * @return The EVP_CIPHER pointer for AES-ECB
+ * @throws std::runtime_error if key length is unsupported
+ */
+const EVP_CIPHER* get_ecb_cipher_algo(int32_t key_length);
+
+/**
+ * Encrypt data using AES-ECB algorithm (legacy, insecure)
+ *
+ * WARNING: ECB mode is deterministic and should not be used for sensitive data.
+ * Use CBC or GCM mode instead.
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param mode Encryption mode: "ECB", "CBC", "GCM" (case-insensitive)
- * @param iv Initialization vector (required for CBC/GCM, ignored for ECB)
- * @param iv_len Length of IV in bytes
- * @param use_padding For CBC: whether to use PKCS7 padding (default: true)
  * @param cipher Output buffer for encrypted data
  * @return Length of encrypted data in bytes
- * @throws std::runtime_error on invalid mode or encryption failure
+ * @throws std::runtime_error on encryption failure
  */
 GANDIVA_EXPORT
-int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
-                    int32_t key_len, const std::string& mode, const char* iv,
-                    int32_t iv_len, bool use_padding, unsigned char* cipher);
+int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char* key,
+                        int32_t key_len, unsigned char* cipher);
 
 /**
- * Decrypt data using AES with specified mode
+ * Decrypt data using AES-ECB algorithm (legacy, insecure)
  *
- * Dispatcher function that routes to the appropriate decryption implementation
- * based on the mode parameter.
+ * WARNING: ECB mode is deterministic and should not be used for sensitive data.
+ * Use CBC or GCM mode instead.
  *
  * @param ciphertext The data to decrypt
  * @param ciphertext_len Length of ciphertext in bytes
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param mode Decryption mode: "ECB", "CBC", "GCM" (case-insensitive)
- * @param iv Initialization vector (required for CBC/GCM, ignored for ECB)
- * @param iv_len Length of IV in bytes
- * @param use_padding For CBC: whether to remove PKCS7 padding (default: true)
  * @param plaintext Output buffer for decrypted data
  * @return Length of decrypted data in bytes
- * @throws std::runtime_error on invalid mode or decryption failure
+ * @throws std::runtime_error on decryption failure
  */
 GANDIVA_EXPORT
-int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                    int32_t key_len, const std::string& mode, const char* iv,
-                    int32_t iv_len, bool use_padding, unsigned char* plaintext);
+int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const char* key,
+                        int32_t key_len, unsigned char* plaintext);
 
 }  // namespace gandiva
+

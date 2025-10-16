@@ -502,6 +502,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_aes_decrypt",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), boolean()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_mode",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), boolean()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_mode",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "gdv_mask_first_n_utf8_int32",
                      NativeFunction::kNeedsContext),
