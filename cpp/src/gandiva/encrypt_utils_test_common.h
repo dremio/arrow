@@ -53,8 +53,14 @@ inline std::vector<unsigned char> runOpenSslCommand(const std::string& cmd) {
 
   int status = pclose(pipe);
   if (status != 0) {
-    std::cerr << "OpenSSL command failed with status " << status << std::endl;
-    std::cerr << "Command was: " << cmd << std::endl;
+    std::cerr << "\n=== OpenSSL command failed ===" << std::endl;
+    std::cerr << "Status: " << status << std::endl;
+    std::cerr << "Command: " << cmd << std::endl;
+    std::cerr << "Output length: " << result.size() << " bytes" << std::endl;
+    if (!result.empty()) {
+      std::cerr << "Output (hex): " << toHexString(result.data(), result.size()) << std::endl;
+    }
+    std::cerr << "==============================\n" << std::endl;
   }
   return result;
 }
