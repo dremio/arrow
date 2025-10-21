@@ -22,10 +22,9 @@
 #include <cstdlib>
 #include <vector>
 
-#include "arrow/util/string.h"
 #include "gandiva/encrypt_utils_test_common.h"
 
-using gandiva::runOpenSslCommand;
+using gandiva::computeExpectedCiphertext;
 using gandiva::compareCiphertexts;
 
 // Test AES-128-CBC encryption
@@ -37,14 +36,9 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16) {
   auto plaintext_len = static_cast<int32_t>(strlen(plaintext));
   unsigned char cipher[64];
 
-  // Get expected ciphertext from OpenSSL CLI
-  // Note: -K expects hex string of key bytes, -iv expects hex string of IV bytes
-  auto cli_cipher = runOpenSslCommand(
-      (std::ostringstream() << "echo -n '" << plaintext << "' |"
-                            << " openssl enc -aes-128-cbc"
-                            << " -K " << arrow::HexEncode(key, key_len)
-                            << " -iv " << arrow::HexEncode(iv, 16))
-          .str());
+  // Get expected ciphertext using EVP API
+  auto expected_cipher = computeExpectedCiphertext(plaintext, plaintext_len, key, key_len,
+                                                   iv, 16, true);
 
   // Encrypt
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -52,9 +46,9 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16) {
 
   // 12 bytes plaintext + 4 bytes PKCS7 padding = 16 bytes
   EXPECT_EQ(cipher_len, 16);
-  compareCiphertexts(cipher, cipher_len, cli_cipher.data(), cli_cipher.size(),
+  compareCiphertexts(cipher, cipher_len, expected_cipher.data(), expected_cipher.size(),
                      "TestAesCbcEncrypt16");
-  EXPECT_EQ(0, std::memcmp(cipher, cli_cipher.data(), cipher_len));
+  EXPECT_EQ(0, std::memcmp(cipher, expected_cipher.data(), cipher_len));
 }
 
 // Test AES-128-CBC encryption/decryption
@@ -91,21 +85,17 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt24) {
   auto plaintext_len = static_cast<int32_t>(strlen(plaintext));
   unsigned char cipher[128];
 
-  auto cli_cipher = runOpenSslCommand(
-      (std::ostringstream() << "echo -n '" << plaintext << "' |"
-                            << " openssl enc -aes-192-cbc"
-                            << " -K " << arrow::HexEncode(key, key_len)
-                            << " -iv " << arrow::HexEncode(iv, 16))
-          .str());
+  auto expected_cipher = computeExpectedCiphertext(plaintext, plaintext_len, key, key_len,
+                                                   iv, 16, true);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                                                 iv, 16, cipher);
 
   // 25 bytes plaintext + 7 bytes PKCS7 padding = 32 bytes
   EXPECT_EQ(cipher_len, 32);
-  compareCiphertexts(cipher, cipher_len, cli_cipher.data(), cli_cipher.size(),
+  compareCiphertexts(cipher, cipher_len, expected_cipher.data(), expected_cipher.size(),
                      "TestAesCbcEncrypt24");
-  EXPECT_EQ(0, std::memcmp(cipher, cli_cipher.data(), cipher_len));
+  EXPECT_EQ(0, std::memcmp(cipher, expected_cipher.data(), cipher_len));
 }
 
 // Test AES-192-CBC encryption/decryption
@@ -142,21 +132,17 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt32) {
   auto plaintext_len = static_cast<int32_t>(strlen(plaintext));
   unsigned char cipher[128];
 
-  auto cli_cipher = runOpenSslCommand(
-      (std::ostringstream() << "echo -n '" << plaintext << "' |"
-                            << " openssl enc -aes-256-cbc"
-                            << " -K " << arrow::HexEncode(key, key_len)
-                            << " -iv " << arrow::HexEncode(iv, 16))
-          .str());
+  auto expected_cipher = computeExpectedCiphertext(plaintext, plaintext_len, key, key_len,
+                                                   iv, 16, true);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                                                 iv, 16, cipher);
 
   // 25 bytes plaintext + 7 bytes PKCS7 padding = 32 bytes
   EXPECT_EQ(cipher_len, 32);
-  compareCiphertexts(cipher, cipher_len, cli_cipher.data(), cli_cipher.size(),
+  compareCiphertexts(cipher, cipher_len, expected_cipher.data(), expected_cipher.size(),
                      "TestAesCbcEncrypt32");
-  EXPECT_EQ(0, std::memcmp(cipher, cli_cipher.data(), cipher_len));
+  EXPECT_EQ(0, std::memcmp(cipher, expected_cipher.data(), cipher_len));
 }
 
 // Test AES-256-CBC encryption/decryption
@@ -209,12 +195,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcNoPaddingEncrypt16) {
   auto plaintext_len = static_cast<int32_t>(strlen(plaintext));
   unsigned char cipher[64];
 
-  auto cli_cipher = runOpenSslCommand(
-      (std::ostringstream() << "echo -n '" << plaintext << "' |"
-                            << " openssl enc -aes-128-cbc -nopad"
-                            << " -K " << arrow::HexEncode(key, key_len)
-                            << " -iv " << arrow::HexEncode(iv, 16))
-          .str());
+  auto expected_cipher = computeExpectedCiphertext(plaintext, plaintext_len, key, key_len,
+                                                   iv, 16, false);
 
   // Encrypt without padding
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -223,9 +205,9 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcNoPaddingEncrypt16) {
 
   // 16 bytes plaintext, no padding = 16 bytes ciphertext
   EXPECT_EQ(cipher_len, 16);
-  compareCiphertexts(cipher, cipher_len, cli_cipher.data(), cli_cipher.size(),
+  compareCiphertexts(cipher, cipher_len, expected_cipher.data(), expected_cipher.size(),
                      "TestAesCbcNoPaddingEncrypt16");
-  EXPECT_EQ(0, std::memcmp(cipher, cli_cipher.data(), cipher_len));
+  EXPECT_EQ(0, std::memcmp(cipher, expected_cipher.data(), cipher_len));
 }
 
 // Test AES-128-CBC encryption/decryption without padding
@@ -295,12 +277,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16Negative) {
   unsigned char cipher[64];
 
   // Get expected ciphertext using correct plaintext
-  auto cli_cipher = runOpenSslCommand(
-      (std::ostringstream() << "echo -n '" << plaintext << "' |"
-                            << " openssl enc -aes-128-cbc"
-                            << " -K " << arrow::HexEncode(key, key_len)
-                            << " -iv " << arrow::HexEncode(iv, 16))
-          .str());
+  auto expected_cipher = computeExpectedCiphertext(plaintext, plaintext_len, key, key_len,
+                                                   iv, 16, true);
 
   // Encrypt using wrong plaintext
   int32_t cipher_len = gandiva::aes_encrypt_cbc(wrong_plaintext, plaintext_len, key, key_len,
@@ -308,7 +286,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16Negative) {
 
   // Ciphertexts should NOT match
   EXPECT_EQ(cipher_len, 16);
-  EXPECT_NE(0, std::memcmp(cipher, cli_cipher.data(), cipher_len));
+  EXPECT_NE(0, std::memcmp(cipher, expected_cipher.data(), cipher_len));
 }
 
 // Negative test: Verify encryption with different plaintext produces different ciphertext
