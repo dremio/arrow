@@ -36,69 +36,27 @@ inline std::string toHexString(const unsigned char* data, size_t len) {
   return oss.str();
 }
 
-// Helper function to compute AES-CBC ciphertext using OpenSSL EVP API
-// This replaces the shell-based approach which has platform-specific issues
-inline std::vector<unsigned char> computeExpectedCiphertext(
-    const char* plaintext, int32_t plaintext_len,
-    const char* key, int32_t key_len,
-    const char* iv, int32_t iv_len,
-    bool use_padding) {
-  EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-  if (!ctx) {
-    throw std::runtime_error("Failed to create EVP_CIPHER_CTX");
+// Helper function to execute OpenSSL command and return output
+inline std::vector<unsigned char> runOpenSslCommand(const std::string& cmd) {
+  FILE* pipe = popen(cmd.c_str(), "r");
+  if (!pipe) {
+    throw std::runtime_error("Failed to execute OpenSSL command");
   }
 
-  // Select cipher based on key length
-  const EVP_CIPHER* cipher = nullptr;
-  switch (key_len) {
-    case 16:
-      cipher = EVP_aes_128_cbc();
-      break;
-    case 24:
-      cipher = EVP_aes_192_cbc();
-      break;
-    case 32:
-      cipher = EVP_aes_256_cbc();
-      break;
-    default:
-      EVP_CIPHER_CTX_free(ctx);
-      throw std::runtime_error("Unsupported key length");
+  std::vector<unsigned char> result;
+  unsigned char buffer[4096];
+  size_t bytes_read;
+
+  while ((bytes_read = fread(buffer, 1, sizeof(buffer), pipe)) > 0) {
+    result.insert(result.end(), buffer, buffer + bytes_read);
   }
 
-  std::vector<unsigned char> ciphertext(plaintext_len + 16);  // Max size with padding
-  int len = 0;
-  int ciphertext_len = 0;
-
-  // Initialize encryption
-  if (EVP_EncryptInit_ex(ctx, cipher, nullptr,
-                         reinterpret_cast<const unsigned char*>(key),
-                         reinterpret_cast<const unsigned char*>(iv)) != 1) {
-    EVP_CIPHER_CTX_free(ctx);
-    throw std::runtime_error("EVP_EncryptInit_ex failed");
+  int status = pclose(pipe);
+  if (status != 0) {
+    std::cerr << "OpenSSL command failed with status " << status << std::endl;
+    std::cerr << "Command was: " << cmd << std::endl;
   }
-
-  // Set padding
-  EVP_CIPHER_CTX_set_padding(ctx, use_padding ? 1 : 0);
-
-  // Encrypt data
-  if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len,
-                        reinterpret_cast<const unsigned char*>(plaintext),
-                        plaintext_len) != 1) {
-    EVP_CIPHER_CTX_free(ctx);
-    throw std::runtime_error("EVP_EncryptUpdate failed");
-  }
-  ciphertext_len = len;
-
-  // Finalize encryption
-  if (EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len) != 1) {
-    EVP_CIPHER_CTX_free(ctx);
-    throw std::runtime_error("EVP_EncryptFinal_ex failed");
-  }
-  ciphertext_len += len;
-
-  EVP_CIPHER_CTX_free(ctx);
-  ciphertext.resize(ciphertext_len);
-  return ciphertext;
+  return result;
 }
 
 // Helper function to compare two ciphertexts and print debug info if they differ
