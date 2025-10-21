@@ -38,6 +38,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16) {
   unsigned char cipher[64];
 
   // Get expected ciphertext from OpenSSL CLI
+  // Note: -K expects hex string of key bytes, -iv expects hex string of IV bytes
   auto cli_cipher = runOpenSslCommand(
       (std::ostringstream() << "echo -n '" << plaintext << "' |"
                             << " openssl enc -aes-128-cbc"
