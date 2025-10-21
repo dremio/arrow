@@ -37,8 +37,11 @@ inline std::string toHexString(const unsigned char* data, size_t len) {
 }
 
 // Helper function to execute OpenSSL command and return output
+// Redirects stderr to /dev/null to avoid capturing error messages
 inline std::vector<unsigned char> runOpenSslCommand(const std::string& cmd) {
-  FILE* pipe = popen(cmd.c_str(), "r");
+  // Redirect stderr to /dev/null to only capture stdout
+  std::string full_cmd = cmd + " 2>/dev/null";
+  FILE* pipe = popen(full_cmd.c_str(), "r");
   if (!pipe) {
     throw std::runtime_error("Failed to execute OpenSSL command");
   }
