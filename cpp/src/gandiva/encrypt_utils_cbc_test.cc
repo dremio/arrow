@@ -43,8 +43,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  std::string cmd = "echo -n '" + std::string(plaintext) + "' | openssl enc -aes-128-cbc -K " + key_hex + " -iv " + iv_hex;
-  auto cli_cipher = runOpenSslCommand(cmd);
+  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+                                               plaintext, plaintext_len, false);
 
   // Encrypt
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -94,8 +94,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt24) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  std::string cmd = "echo -n '" + std::string(plaintext) + "' | openssl enc -aes-192-cbc -K " + key_hex + " -iv " + iv_hex;
-  auto cli_cipher = runOpenSslCommand(cmd);
+  auto cli_cipher = runOpenSslEncWithPlaintext("aes-192-cbc", key_hex, iv_hex,
+                                               plaintext, plaintext_len, false);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                                                 iv, 16, cipher);
@@ -144,8 +144,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt32) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  std::string cmd = "echo -n '" + std::string(plaintext) + "' | openssl enc -aes-256-cbc -K " + key_hex + " -iv " + iv_hex;
-  auto cli_cipher = runOpenSslCommand(cmd);
+  auto cli_cipher = runOpenSslEncWithPlaintext("aes-256-cbc", key_hex, iv_hex,
+                                               plaintext, plaintext_len, false);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                                                 iv, 16, cipher);
@@ -210,8 +210,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcNoPaddingEncrypt16) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  std::string cmd = "echo -n '" + std::string(plaintext) + "' | openssl enc -aes-128-cbc -nopad -K " + key_hex + " -iv " + iv_hex;
-  auto cli_cipher = runOpenSslCommand(cmd);
+  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+                                               plaintext, plaintext_len, true);
 
   // Encrypt without padding
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -295,8 +295,8 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16Negative) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  std::string cmd = "echo -n '" + std::string(plaintext) + "' | openssl enc -aes-128-cbc -K " + key_hex + " -iv " + iv_hex;
-  auto cli_cipher = runOpenSslCommand(cmd);
+  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+                                               plaintext, plaintext_len, false);
 
   // Encrypt using wrong plaintext
   int32_t cipher_len = gandiva::aes_encrypt_cbc(wrong_plaintext, plaintext_len, key, key_len,

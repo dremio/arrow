@@ -24,6 +24,8 @@
 #include <cstring>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <cstdlib>
 
 namespace gandiva {
 
@@ -66,6 +68,44 @@ inline std::vector<unsigned char> runOpenSslCommand(const std::string& cmd) {
     std::cerr << "==============================\n" << std::endl;
   }
   return result;
+}
+
+// Create a temporary file with the given bytes and return its path
+inline std::string writeTempFile(const char* data, size_t len) {
+  char tpl[] = "/tmp/gdv_enc_XXXXXX";
+  int fd = mkstemp(tpl);
+  if (fd == -1) {
+    throw std::runtime_error("Failed to create temp file");
+  }
+  // Use ofstream for portability
+  std::ofstream ofs(tpl, std::ios::binary | std::ios::trunc);
+  if (!ofs) {
+    std::remove(tpl);
+    throw std::runtime_error("Failed to open temp file for writing");
+  }
+  ofs.write(data, static_cast<std::streamsize>(len));
+  ofs.close();
+  // Return the path; caller is responsible for removing the file
+  return std::string(tpl);
+}
+
+// Run openssl enc with -in <tmpfile>, avoiding shell echo/printf pitfalls
+inline std::vector<unsigned char> runOpenSslEncWithPlaintext(const std::string& cipher,
+                                                             const std::string& key_hex,
+                                                             const std::string& iv_hex,
+                                                             const char* plaintext,
+                                                             size_t plaintext_len,
+                                                             bool no_padding = false) {
+  auto path = writeTempFile(plaintext, plaintext_len);
+  std::string cmd = "openssl enc -" + cipher + " -K " + key_hex + " -iv " + iv_hex +
+                    " -nosalt ";
+  if (no_padding) {
+    cmd += "-nopad ";
+  }
+  cmd += "-in " + path;
+  auto out = runOpenSslCommand(cmd);
+  std::remove(path.c_str());
+  return out;
 }
 
 // Helper function to compare two ciphertexts and print debug info if they differ
