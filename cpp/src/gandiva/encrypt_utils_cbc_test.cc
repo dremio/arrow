@@ -43,7 +43,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+  auto cli_cipher = gandiva::runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
                                                plaintext, plaintext_len, false);
 
   // Encrypt
@@ -94,7 +94,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt24) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  auto cli_cipher = runOpenSslEncWithPlaintext("aes-192-cbc", key_hex, iv_hex,
+  auto cli_cipher = gandiva::runOpenSslEncWithPlaintext("aes-192-cbc", key_hex, iv_hex,
                                                plaintext, plaintext_len, false);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -144,7 +144,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt32) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  auto cli_cipher = runOpenSslEncWithPlaintext("aes-256-cbc", key_hex, iv_hex,
+  auto cli_cipher = gandiva::runOpenSslEncWithPlaintext("aes-256-cbc", key_hex, iv_hex,
                                                plaintext, plaintext_len, false);
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
@@ -210,7 +210,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcNoPaddingEncrypt16) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+  auto cli_cipher = gandiva::runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
                                                plaintext, plaintext_len, true);
 
   // Encrypt without padding
@@ -295,7 +295,7 @@ TEST(TestAesCbcEncryptUtils, TestAesCbcEncrypt16Negative) {
   std::string key_hex = arrow::HexEncode(key, key_len);
   std::string iv_hex = arrow::HexEncode(iv, 16);
 
-  auto cli_cipher = runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
+  auto cli_cipher = gandiva::runOpenSslEncWithPlaintext("aes-128-cbc", key_hex, iv_hex,
                                                plaintext, plaintext_len, false);
 
   // Encrypt using wrong plaintext
