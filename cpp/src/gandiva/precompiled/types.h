@@ -841,4 +841,7 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
 
+const char* castUUID_utf8(int64_t context, const char* data, int32_t data_len,
+                          int32_t* out_len);
+
 }  // extern "C"

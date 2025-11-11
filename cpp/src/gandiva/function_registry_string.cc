@@ -201,6 +201,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("castUUID", {}, DataTypeVector{utf8()}, arrow::fixed_size_binary(16),
+                     kResultNullIfNull, "castUUID_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
                      "gdv_fn_crc_32_utf8", NativeFunction::kNeedsContext),
 

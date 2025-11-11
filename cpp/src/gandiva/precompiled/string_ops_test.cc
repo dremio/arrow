@@ -2704,4 +2704,120 @@ TEST(TestStringOps, TestInstr) {
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 8);
 }
+
+TEST(TestStringOps, TestCastUUID) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // Test valid UUID with hyphens (36 characters)
+  const char* uuid_with_hyphens = "550e8400-e29b-41d4-a716-446655440000";
+  const char* result = castUUID_utf8(ctx_ptr, uuid_with_hyphens, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+
+  // Expected bytes for the UUID above
+  unsigned char expected[] = {0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4,
+                              0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00};
+  EXPECT_EQ(memcmp(result, expected, 16), 0);
+
+  // Test valid UUID without hyphens (32 characters)
+  const char* uuid_without_hyphens = "550e8400e29b41d4a716446655440000";
+  result = castUUID_utf8(ctx_ptr, uuid_without_hyphens, 32, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(memcmp(result, expected, 16), 0);
+
+  // Test UUID with uppercase hex digits
+  const char* uuid_uppercase = "550E8400-E29B-41D4-A716-446655440000";
+  result = castUUID_utf8(ctx_ptr, uuid_uppercase, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(memcmp(result, expected, 16), 0);
+
+  // Test UUID with mixed case
+  const char* uuid_mixed = "550e8400-E29B-41d4-A716-446655440000";
+  result = castUUID_utf8(ctx_ptr, uuid_mixed, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(memcmp(result, expected, 16), 0);
+
+  // Test all zeros UUID
+  const char* uuid_zeros = "00000000-0000-0000-0000-000000000000";
+  result = castUUID_utf8(ctx_ptr, uuid_zeros, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  unsigned char zeros[16] = {0};
+  EXPECT_EQ(memcmp(result, zeros, 16), 0);
+
+  // Test all Fs UUID
+  const char* uuid_fs = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+  result = castUUID_utf8(ctx_ptr, uuid_fs, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  unsigned char fs[16];
+  memset(fs, 0xff, 16);
+  EXPECT_EQ(memcmp(result, fs, 16), 0);
+
+  // Test invalid length (too short)
+  const char* uuid_short = "550e8400-e29b-41d4-a716";
+  result = castUUID_utf8(ctx_ptr, uuid_short, 23, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid UUID string length"));
+  ctx.Reset();
+
+  // Test invalid length (too long)
+  const char* uuid_long = "550e8400-e29b-41d4-a716-446655440000-extra";
+  result = castUUID_utf8(ctx_ptr, uuid_long, 42, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid UUID string length"));
+  ctx.Reset();
+
+  // Test invalid hex character
+  const char* uuid_invalid_hex = "550e8400-e29b-41d4-a716-44665544000g";
+  result = castUUID_utf8(ctx_ptr, uuid_invalid_hex, 36, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid hex digit in UUID"));
+  ctx.Reset();
+
+  // Test hyphens at wrong positions
+  const char* uuid_wrong_hyphens = "550e8400e-29b-41d4-a716-446655440000";
+  result = castUUID_utf8(ctx_ptr, uuid_wrong_hyphens, 36, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid UUID format: hyphens at wrong positions"));
+  ctx.Reset();
+
+  // Test empty string
+  result = castUUID_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid UUID string length"));
+  ctx.Reset();
+
+  // Test another valid UUID (different pattern)
+  const char* uuid2 = "123e4567-e89b-12d3-a456-426614174000";
+  result = castUUID_utf8(ctx_ptr, uuid2, 36, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  unsigned char expected2[] = {0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3,
+                               0xa4, 0x56, 0x42, 0x66, 0x14, 0x17, 0x40, 0x00};
+  EXPECT_EQ(memcmp(result, expected2, 16), 0);
+
+  // Test UUID without hyphens (different pattern)
+  const char* uuid2_no_hyphens = "123e4567e89b12d3a456426614174000";
+  result = castUUID_utf8(ctx_ptr, uuid2_no_hyphens, 32, &out_len);
+  EXPECT_EQ(out_len, 16);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(memcmp(result, expected2, 16), 0);
+}
+
 }  // namespace gandiva
