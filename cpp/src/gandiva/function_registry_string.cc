@@ -494,12 +494,23 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      // ECB mode specific functions
+      // String-based signatures (UTF8, UTF8) -> UTF8
       NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_aes_encrypt",
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_ecb_legacy",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_aes_decrypt",
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_ecb_legacy",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Binary-based signatures (BINARY, BINARY, UTF8) -> BINARY
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_ecb",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_ecb",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
