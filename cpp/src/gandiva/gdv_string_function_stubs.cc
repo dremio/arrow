@@ -986,6 +986,18 @@ arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+  
+  // castUUID_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // const char* data
+      types->i32_type(),     // data_len
+      types->i32_ptr_type()  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("castUUID_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(castUUID_utf8));
   return arrow::Status::OK();
 }
 }  // namespace gandiva
