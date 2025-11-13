@@ -342,6 +342,10 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                                      int32_t to_len, int32_t* out_len);
 
 GANDIVA_EXPORT
+const char* castUUID_utf8(int64_t context, const char* data, int32_t data_len,
+                          int32_t* out_len);
+
+GANDIVA_EXPORT
 gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_milliseconds,
                                         const char* timezone, int32_t length);
 

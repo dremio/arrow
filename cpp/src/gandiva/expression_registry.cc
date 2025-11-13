@@ -17,6 +17,7 @@
 
 #include "gandiva/expression_registry.h"
 
+#include "arrow/extension/uuid.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/llvm_types.h"
 
@@ -165,6 +166,10 @@ static void AddArrowTypesToVector(arrow::Type::type type, DataTypeVector& vector
       break;
     case arrow::Type::type::INTERVAL_DAY_TIME:
       vector.push_back(arrow::day_time_interval());
+      break;
+    case arrow::Type::type::EXTENSION:
+      // Add UUID extension type
+      vector.push_back(arrow::extension::uuid());
       break;
     default:
       // Unsupported types. test ensures that

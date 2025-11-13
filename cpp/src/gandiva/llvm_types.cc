@@ -17,6 +17,8 @@
 
 #include "gandiva/llvm_types.h"
 
+#include "arrow/extension/uuid.h"
+
 namespace gandiva {
 
 // LLVM doesn't distinguish between signed and unsigned types.
@@ -43,7 +45,7 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext& context) : context_(context) {
                                 {arrow::Type::type::DECIMAL, i128_type()},
                                 {arrow::Type::type::INTERVAL_MONTHS, i32_type()},
                                 {arrow::Type::type::INTERVAL_DAY_TIME, i64_type()},
-                                {arrow::Type::type::FIXED_SIZE_BINARY, i8_ptr_type()}};
+                                {arrow::Type::type::EXTENSION, i8_ptr_type()}};
 }
 
 }  // namespace gandiva

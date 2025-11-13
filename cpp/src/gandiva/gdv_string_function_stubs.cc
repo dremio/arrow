@@ -757,6 +757,84 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 }
 }
 
+// Helper function to convert a hex character to its numeric value
+static inline int hex_char_to_int(char c) {
+  if (c >= '0' && c <= '9') {
+    return c - '0';
+  } else if (c >= 'a' && c <= 'f') {
+    return c - 'a' + 10;
+  } else if (c >= 'A' && c <= 'F') {
+    return c - 'A' + 10;
+  }
+  return -1;  // Invalid hex character
+}
+
+GANDIVA_EXPORT
+const char* castUUID_utf8(int64_t context, const char* data, int32_t data_len,
+                          int32_t* out_len) {
+  *out_len = 16;  // UUID is always 16 bytes
+
+  // Allocate output buffer
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 16));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for UUID");
+    *out_len = 0;
+    return "";
+  }
+
+  // Parse UUID string
+  // Expected format: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" (36 chars)
+  // or without hyphens: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" (32 chars)
+
+  if (data_len == 36) {
+    // Format with hyphens: validate hyphen positions
+    if (data[8] != '-' || data[13] != '-' || data[18] != '-' || data[23] != '-') {
+      gdv_fn_context_set_error_msg(context, "Invalid UUID format: hyphens at wrong positions");
+      *out_len = 0;
+      return "";
+    }
+
+    // Parse hex digits, skipping hyphens
+    int byte_idx = 0;
+    for (int i = 0; i < 36 && byte_idx < 16; i++) {
+      if (data[i] == '-') continue;
+
+      // Parse two hex digits
+      int high = hex_char_to_int(data[i]);
+      int low = hex_char_to_int(data[i + 1]);
+
+      if (high < 0 || low < 0) {
+        gdv_fn_context_set_error_msg(context, "Invalid hex digit in UUID");
+        *out_len = 0;
+        return "";
+      }
+
+      ret[byte_idx++] = static_cast<char>((high << 4) | low);
+      i++;  // Skip the second hex digit
+    }
+  } else if (data_len == 32) {
+    // Format without hyphens
+    for (int i = 0; i < 16; i++) {
+      int high = hex_char_to_int(data[i * 2]);
+      int low = hex_char_to_int(data[i * 2 + 1]);
+
+      if (high < 0 || low < 0) {
+        gdv_fn_context_set_error_msg(context, "Invalid hex digit in UUID");
+        *out_len = 0;
+        return "";
+      }
+
+      ret[i] = static_cast<char>((high << 4) | low);
+    }
+  } else {
+    gdv_fn_context_set_error_msg(context, "Invalid UUID string length: expected 32 or 36 characters");
+    *out_len = 0;
+    return "";
+  }
+
+  return ret;
+}
+
 namespace gandiva {
 
 arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
