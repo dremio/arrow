@@ -1480,4 +1480,181 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
   ctx.Reset();
 }
 
+// Tests for CBC mode encryption/decryption
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbc) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding = "PKCS7";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                              key16_len, mode.c_str(), mode_len, iv.c_str(),
+                                              iv_len, padding.c_str(), padding_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_aes_decrypt_cbc(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, padding.c_str(), padding_len, &decrypted_len);
+  EXPECT_EQ(data, std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcNoPadding) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "1234567890123456";  // Exactly 16 bytes
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding = "NONE";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                              key16_len, mode.c_str(), mode_len, iv.c_str(),
+                                              iv_len, padding.c_str(), padding_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_aes_decrypt_cbc(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, padding.c_str(), padding_len, &decrypted_len);
+  EXPECT_EQ(data, std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcCaseInsensitive) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len1 = 0;
+  int32_t cipher_len2 = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding_upper = "PKCS7";
+  auto padding_upper_len = static_cast<int32_t>(padding_upper.length());
+  std::string padding_lower = "pkcs7";
+  auto padding_lower_len = static_cast<int32_t>(padding_lower.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher1 = gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                               key16_len, mode.c_str(), mode_len, iv.c_str(),
+                                               iv_len, padding_upper.c_str(), padding_upper_len,
+                                               &cipher_len1);
+  const char* cipher2 = gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                               key16_len, mode.c_str(), mode_len, iv.c_str(),
+                                               iv_len, padding_lower.c_str(), padding_lower_len,
+                                               &cipher_len2);
+
+  // Both should produce same ciphertext
+  EXPECT_EQ(cipher_len1, cipher_len2);
+  EXPECT_EQ(std::string(cipher1, cipher_len1), std::string(cipher2, cipher_len2));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcInvalidIV) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "short";  // Too short
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding = "PKCS7";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len,
+                         mode.c_str(), mode_len, iv.c_str(), iv_len, padding.c_str(),
+                         padding_len, &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid IV length"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcInvalidKey) {
+  gandiva::ExecutionContext ctx;
+  std::string key = "short";  // Too short
+  auto key_len = static_cast<int32_t>(key.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding = "PKCS7";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key.c_str(), key_len,
+                         mode.c_str(), mode_len, iv.c_str(), iv_len, padding.c_str(),
+                         padding_len, &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid key length"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcInvalidPadding) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = "CBC";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string padding = "INVALID";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len,
+                         mode.c_str(), mode_len, iv.c_str(), iv_len, padding.c_str(),
+                         padding_len, &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid padding mode"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcModeValidation) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string invalid_mode = "ECB";
+  auto invalid_mode_len = static_cast<int32_t>(invalid_mode.length());
+  std::string padding = "PKCS7";
+  auto padding_len = static_cast<int32_t>(padding.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test encrypt with invalid mode
+  gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len,
+                         invalid_mode.c_str(), invalid_mode_len, iv.c_str(), iv_len,
+                         padding.c_str(), padding_len, &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("AES encryption mode mismatch"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("ECB"));
+  ctx.Reset();
+}
+
 }  // namespace gandiva
