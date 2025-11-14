@@ -523,6 +523,27 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_aes_decrypt_cbc",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      // GCM mode specific functions
+      // Binary-based signatures (BINARY, BINARY, UTF8, BINARY) -> BINARY
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_gcm",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Binary-based signatures (BINARY, BINARY, UTF8, BINARY, BINARY) -> BINARY (with AAD)
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_gcm",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Binary-based signatures (BINARY, BINARY, UTF8, BINARY, INT32) -> BINARY
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), int32()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_gcm",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Binary-based signatures (BINARY, BINARY, UTF8, BINARY, INT32, BINARY) -> BINARY (with AAD)
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), int32(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_gcm",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "gdv_mask_first_n_utf8_int32",
                      NativeFunction::kNeedsContext),

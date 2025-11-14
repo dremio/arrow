@@ -217,18 +217,29 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data, int
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt_cbc(int64_t context, const char* data, int32_t data_len,
                                    const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   const char* iv_data, int32_t iv_data_len,
-                                   const char* padding, int32_t padding_len,
-                                   int32_t* out_len);
+                                   const char* iv, int32_t iv_len, const char* padding,
+                                   int32_t padding_len, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_aes_decrypt_cbc(int64_t context, const char* data, int32_t data_len,
                                    const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   const char* iv_data, int32_t iv_data_len,
-                                   const char* padding, int32_t padding_len,
+                                   const char* iv, int32_t iv_len, const char* padding,
+                                   int32_t padding_len, int32_t* out_len);
+
+// GCM mode specific functions
+GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_gcm(int64_t context, const char* data, int32_t data_len,
+                                   const char* key_data, int32_t key_data_len,
+                                   const char* mode, int32_t mode_len, const char* iv,
+                                   int32_t iv_len, const char* aad, int32_t aad_len,
                                    int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_gcm(int64_t context, const char* data, int32_t data_len,
+                                   const char* key_data, int32_t key_data_len,
+                                   const char* mode, int32_t mode_len, const char* iv,
+                                   int32_t iv_len, int32_t tag_length, const char* aad,
+                                   int32_t aad_len, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,

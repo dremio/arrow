@@ -122,4 +122,41 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
          "different precompiled functions:\n"
       << stream.str();
 }
+
+// Test that GCM mode function signatures are registered
+TEST_F(TestFunctionRegistry, TestAesEncryptGcmSignatures) {
+  // AES_ENCRYPT(BINARY, BINARY, UTF8, BINARY) -> BINARY (without AAD)
+  FunctionSignature aes_encrypt_gcm_no_aad("aes_encrypt",
+                                           {arrow::binary(), arrow::binary(), arrow::utf8(), arrow::binary()},
+                                           arrow::binary());
+  const NativeFunction* function = registry_->LookupSignature(aes_encrypt_gcm_no_aad);
+  EXPECT_NE(function, nullptr) << "AES_ENCRYPT(BINARY, BINARY, UTF8, BINARY) not found";
+  EXPECT_EQ(function->pc_name(), "gdv_fn_aes_encrypt_gcm");
+
+  // AES_ENCRYPT(BINARY, BINARY, UTF8, BINARY, BINARY) -> BINARY (with AAD)
+  FunctionSignature aes_encrypt_gcm_with_aad("aes_encrypt",
+                                             {arrow::binary(), arrow::binary(), arrow::utf8(), arrow::binary(), arrow::binary()},
+                                             arrow::binary());
+  function = registry_->LookupSignature(aes_encrypt_gcm_with_aad);
+  EXPECT_NE(function, nullptr) << "AES_ENCRYPT(BINARY, BINARY, UTF8, BINARY, BINARY) not found";
+  EXPECT_EQ(function->pc_name(), "gdv_fn_aes_encrypt_gcm");
+}
+
+TEST_F(TestFunctionRegistry, TestAesDecryptGcmSignatures) {
+  // AES_DECRYPT(BINARY, BINARY, UTF8, BINARY, INT32) -> BINARY (without AAD)
+  FunctionSignature aes_decrypt_gcm_no_aad("aes_decrypt",
+                                           {arrow::binary(), arrow::binary(), arrow::utf8(), arrow::binary(), arrow::int32()},
+                                           arrow::binary());
+  const NativeFunction* function = registry_->LookupSignature(aes_decrypt_gcm_no_aad);
+  EXPECT_NE(function, nullptr) << "AES_DECRYPT(BINARY, BINARY, UTF8, BINARY, INT32) not found";
+  EXPECT_EQ(function->pc_name(), "gdv_fn_aes_decrypt_gcm");
+
+  // AES_DECRYPT(BINARY, BINARY, UTF8, BINARY, INT32, BINARY) -> BINARY (with AAD)
+  FunctionSignature aes_decrypt_gcm_with_aad("aes_decrypt",
+                                             {arrow::binary(), arrow::binary(), arrow::utf8(), arrow::binary(), arrow::int32(), arrow::binary()},
+                                             arrow::binary());
+  function = registry_->LookupSignature(aes_decrypt_gcm_with_aad);
+  EXPECT_NE(function, nullptr) << "AES_DECRYPT(BINARY, BINARY, UTF8, BINARY, INT32, BINARY) not found";
+  EXPECT_EQ(function->pc_name(), "gdv_fn_aes_decrypt_gcm");
+}
 }  // namespace gandiva
