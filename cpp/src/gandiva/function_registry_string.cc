@@ -514,12 +514,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // CBC mode specific functions
-      // Binary-based signatures (BINARY, BINARY, BINARY, UTF8, UTF8) -> BINARY
-      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), binary(), utf8(), utf8()}, binary(),
+      // Binary-based signatures (BINARY, BINARY, UTF8, BINARY, UTF8) -> BINARY
+      // Parameters: data, key, mode, iv, padding
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), utf8()}, binary(),
                      kResultNullIfNull, "gdv_fn_aes_encrypt_cbc",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), binary(), utf8(), utf8()}, binary(),
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), utf8()}, binary(),
                      kResultNullIfNull, "gdv_fn_aes_decrypt_cbc",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 

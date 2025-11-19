@@ -1474,7 +1474,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
   gdv_fn_aes_decrypt_ecb(ctx_ptr, cipher.c_str(), cipher_len_val, key16.c_str(), key16_len,
                          invalid_mode.c_str(), invalid_mode_len, &decrypted_len);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("AES decryption mode mismatch"));
+              ::testing::HasSubstr("AES encryption mode mismatch"));
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("CBC"));
   ctx.Reset();
@@ -1607,7 +1607,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeCbcInvalidKey) {
   gdv_fn_aes_encrypt_cbc(ctx_ptr, data.c_str(), data_len, key.c_str(), key_len,
                          mode.c_str(), mode_len, iv.c_str(), iv_len, padding.c_str(),
                          padding_len, &cipher_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid key length"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unsupported key length"));
   ctx.Reset();
 }
 
