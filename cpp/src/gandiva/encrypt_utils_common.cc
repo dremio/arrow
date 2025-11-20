@@ -15,26 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <openssl/aes.h>
-#include <openssl/evp.h>
-#include "gandiva/visibility.h"
+#include "gandiva/encrypt_utils_common.h"
+#include <openssl/err.h>
+#include <string>
+#include <cstring>
 
 namespace gandiva {
 
-/**
- * Encrypt data using aes algorithm
- **/
-GANDIVA_EXPORT
-int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
-                    int32_t key_len, unsigned char* cipher);
+std::string get_openssl_error_string() {
+  std::string error_string;
+  unsigned long error_code;
+  char error_buffer[256];
 
-/**
- * Decrypt data using aes algorithm
- **/
-GANDIVA_EXPORT
-int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                    int32_t key_len, unsigned char* plaintext);
+  // Loop through all errors in the queue
+  while ((error_code = ERR_get_error()) != 0) {
+    if (!error_string.empty()) {
+      error_string += "; ";
+    }
+    ERR_error_string(error_code, error_buffer);
+    error_string += std::string(error_buffer);
+  }
+
+  if (error_string.empty()) {
+    return "Unknown OpenSSL error";
+  }
+  return error_string;
+}
 
 }  // namespace gandiva
+

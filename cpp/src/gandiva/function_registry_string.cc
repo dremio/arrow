@@ -494,12 +494,41 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      // ECB mode specific functions
+      // String-based signatures (UTF8, UTF8) -> UTF8
       NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_aes_encrypt",
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_ecb_legacy",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_aes_decrypt",
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_ecb_legacy",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Parameters: data, key, mode (e.g. ECB mode)
+      NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_encrypt_dispatcher_3args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_decrypt_dispatcher_3args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Parameters: data, key, mode, iv (e.g. CBC mode)
+      NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_encrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_decrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Parameters: data, key, mode, iv, fifth_argument (e.g. GCM mode)
+      NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_encrypt_dispatcher_5args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_decrypt_dispatcher_5args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),

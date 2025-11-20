@@ -23,6 +23,9 @@
 
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
+#include "gandiva/encrypt_utils_ecb.h"
+#include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_utils_gcm.h"
 
 namespace gandiva {
 
@@ -1353,15 +1356,20 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key16.c_str(),
-                                          key16_len, &cipher_len);
-  const char* decrypted_value = gdv_fn_aes_decrypt(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, &decrypted_len);
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &cipher_len);
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
@@ -1372,16 +1380,21 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key24.c_str(),
-                                          key24_len, &cipher_len);
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key24.c_str(), key24_len, mode.c_str(),
+      mode_len, &cipher_len);
 
-  const char* decrypted_value = gdv_fn_aes_decrypt(
-      ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, &decrypted_len);
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, mode.c_str(),
+      mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
@@ -1392,16 +1405,21 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key32.c_str(),
-                                          key32_len, &cipher_len);
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key32.c_str(), key32_len, mode.c_str(),
+      mode_len, &cipher_len);
 
-  const char* decrypted_value = gdv_fn_aes_decrypt(
-      ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, &decrypted_len);
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, mode.c_str(),
+      mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
@@ -1411,18 +1429,285 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   std::string cipher = "12345678abcdefgh12345678abcdefghb";
   auto cipher_len = static_cast<int32_t>(cipher.length());
 
-  gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key33.c_str(), key33_len,
-                     &cipher_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid key length"));
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
+                                      key33.c_str(), key33_len, mode.c_str(),
+                                      mode_len, &cipher_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
 
-  gdv_fn_aes_decrypt(ctx_ptr, cipher.c_str(), cipher_len, key33.c_str(), key33_len,
-                     &decrypted_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid key length"));
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len,
+                                      key33.c_str(), key33_len, mode.c_str(),
+                                      mode_len, &decrypted_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
 }
+
+// Tests for new mode-aware AES functions
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeEcb) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &decrypted_len);
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string invalid_mode = "AES-INVALID";
+  auto invalid_mode_len = static_cast<int32_t>(invalid_mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test encrypt with invalid mode
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
+                                      key16.c_str(), key16_len,
+                                      invalid_mode.c_str(), invalid_mode_len,
+                                      &cipher_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Unsupported encryption mode"));
+  ctx.Reset();
+
+  // Test decrypt with invalid mode
+  std::string cipher = "12345678abcdefgh12345678abcdefgh";
+  auto cipher_len_val = static_cast<int32_t>(cipher.length());
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len_val,
+                                      key16.c_str(), key16_len,
+                                      invalid_mode.c_str(), invalid_mode_len,
+                                      &decrypted_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Unsupported decryption mode"));
+  ctx.Reset();
+}
+
+// Tests for AES-GCM mode
+TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmIvOnly) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_GCM_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string iv = "123456789012";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_5args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, nullptr, 0, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, nullptr, 0, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_GCM_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string iv = "123456789012";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  std::string aad = "additional authenticated data";
+  auto aad_len = static_cast<int32_t>(aad.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_5args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Tests for shorthand mode: AES-ECB (defaults to PKCS7)
+TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandEcb) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;  // Shorthand mode
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Tests for explicit mode: AES-ECB-PKCS7
+TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitEcbPkcs7) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_PKCS7_MODE;  // Explicit mode
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Tests for shorthand mode: AES-CBC (defaults to PKCS7)
+TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandCbc) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_CBC_MODE;  // Shorthand mode
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_4args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Tests for explicit mode: AES-CBC-PKCS7
+TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitCbcPkcs7) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_CBC_PKCS7_MODE;  // Explicit mode
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_4args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Tests for explicit mode: AES-CBC-NONE (no padding)
+TEST(TestGdvFnStubs, TestAesEncryptDecryptCbcNone) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  // Use exactly 16 bytes (one block) for no-padding mode
+  std::string data = "1234567890123456";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_CBC_NONE_MODE;  // No padding mode
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string iv = "1234567890123456";
+  auto iv_len = static_cast<int32_t>(iv.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_encrypt_dispatcher_4args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, iv.c_str(), iv_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
 }  // namespace gandiva
