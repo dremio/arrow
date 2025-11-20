@@ -19,7 +19,9 @@
 
 #include <utf8proc.h>
 
+#include <algorithm>
 #include <boost/crc.hpp>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -28,7 +30,7 @@
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/value_parsing.h"
 
-#include "gandiva/encrypt_utils.h"
+#include "gandiva/encrypt_utils_ecb.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"
@@ -394,89 +396,194 @@ CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
+
+
+// ECB mode specific functions - core implementation
+// This handles both string and binary inputs (they have the same C signature)
 GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len,
-                               int32_t* out_len) {
-  if (data_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid data length to be encrypted");
+const char* gdv_fn_aes_encrypt_ecb(int64_t context, const char* data, int32_t data_len,
+                                   const char* key_data, int32_t key_data_len,
+                                   const char* mode, int32_t mode_len,
+                                   int32_t* out_len) {
+  // Validate mode parameter
+  if (mode == nullptr) {
+    std::ostringstream oss;
+    oss << "Invalid mode parameter for AES encryption";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return "";
   }
 
-  int64_t kAesBlockSize = 0;
-  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
-    kAesBlockSize = static_cast<int64_t>(key_data_len);
-  } else {
-    gdv_fn_context_set_error_msg(context, "invalid key length");
+  std::string mode_str(mode, mode_len);
+  // Convert to uppercase for comparison
+  std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::toupper);
+
+  if (mode_str != "ECB") {
+    std::ostringstream oss;
+    oss << "AES encryption mode mismatch: function signature indicates ECB mode, but '"
+        << mode_str << "' was provided instead";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  if (data_len < 0) {
+    std::ostringstream oss;
+    oss << "Invalid data length for AES encryption: " << data_len << " (must be >= 0)";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
+    std::ostringstream oss;
+    oss << "Invalid key length for AES encryption: " << key_data_len
+        << " bytes. Supported lengths: 16, 24, 32 bytes";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return nullptr;
   }
-   
+
+  // AES block size is always 16 bytes (128 bits), regardless of key length
+  int64_t kAesBlockSize = 16;
   *out_len =
-      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(static_cast<int64_t>(data_len), kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg =
-        "Could not allocate memory for returning aes encrypt cypher text";
-    gdv_fn_context_set_error_msg(context, err_msg.data());
-     *out_len = 0;
+    std::ostringstream oss;
+    oss << "Could not allocate memory for AES encryption output: " << *out_len << " bytes";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
     return nullptr;
   }
 
   try {
-    *out_len = gandiva::aes_encrypt(data, data_len, key_data, key_data_len,
-                                    reinterpret_cast<unsigned char*>(ret));
+    *out_len = gandiva::aes_encrypt_ecb(data, data_len, key_data, key_data_len,
+                                        reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
-     *out_len = 0;
+    *out_len = 0;
     return nullptr;
   }
 
   return ret;
 }
 
+// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
+// This is called by the LLVM engine with string calling convention
+// WARNING: This function is for backward compatibility only. Encrypted binary data
+// is not guaranteed to be valid UTF-8. Use binary signatures for new code.
 GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
-                               const char* key_data, int32_t key_data_len,
-                               int32_t* out_len) {
-  if (data_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid data length to be decrypted");
+const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data, int32_t data_len,
+                                          const char* key_data, int32_t key_data_len,
+                                          int32_t* out_len) {
+  // Delegate to the core implementation with ECB mode
+  const char* mode = "ECB";
+  int32_t mode_len = 3;
+  const char* result = gdv_fn_aes_encrypt_ecb(context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+
+  // Add null terminator for string compatibility
+  // Note: This may not be valid UTF-8, but it's needed for string handling
+  if (result != nullptr) {
+    char* mutable_result = const_cast<char*>(result);
+    mutable_result[*out_len] = '\0';
+  }
+
+  return result;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_ecb(int64_t context, const char* data, int32_t data_len,
+                                   const char* key_data, int32_t key_data_len,
+                                   const char* mode, int32_t mode_len,
+                                   int32_t* out_len) {
+  // Validate mode parameter
+  if (mode == nullptr) {
+    std::ostringstream oss;
+    oss << "Invalid mode parameter for AES decryption";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return "";
   }
 
-  int64_t kAesBlockSize = 0;
-  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
-    kAesBlockSize = static_cast<int64_t>(key_data_len);
-  } else {
-    gdv_fn_context_set_error_msg(context, "invalid key length");
+  std::string mode_str(mode, mode_len);
+  // Convert to uppercase for comparison
+  std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::toupper);
+
+  if (mode_str != "ECB") {
+    std::ostringstream oss;
+    oss << "AES decryption mode mismatch: function signature indicates ECB mode, but '"
+        << mode_str << "' was provided instead";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  if (data_len < 0) {
+    std::ostringstream oss;
+    oss << "Invalid data length for AES decryption: " << data_len << " (must be >= 0)";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
+    std::ostringstream oss;
+    oss << "Invalid key length for AES decryption: " << key_data_len
+        << " bytes. Supported lengths: 16, 24, 32 bytes";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return nullptr;
   }
 
+  // AES block size is always 16 bytes (128 bits), regardless of key length
+  int64_t kAesBlockSize = 16;
   *out_len =
-      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(static_cast<int64_t>(data_len), kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg =
-        "Could not allocate memory for returning aes encrypt cypher text";
-    gdv_fn_context_set_error_msg(context, err_msg.data());
-     *out_len = 0;
+    std::ostringstream oss;
+    oss << "Could not allocate memory for AES decryption output: " << *out_len << " bytes";
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
     return nullptr;
   }
 
   try {
-    *out_len = gandiva::aes_decrypt(data, data_len, key_data, key_data_len,
-                                    reinterpret_cast<unsigned char*>(ret));
+    *out_len = gandiva::aes_decrypt_ecb(data, data_len, key_data, key_data_len,
+                                        reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
-     *out_len = 0;
+    *out_len = 0;
     return nullptr;
   }
-  ret[*out_len] = '\0';
+
   return ret;
 }
+
+// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
+// This is called by the LLVM engine with string calling convention
+// WARNING: This function is for backward compatibility only. Decrypted data may not be
+// valid UTF-8. Use binary signatures for new code.
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data, int32_t data_len,
+                                          const char* key_data, int32_t key_data_len,
+                                          int32_t* out_len) {
+  // Delegate to the core implementation with ECB mode
+  const char* mode = "ECB";
+  int32_t mode_len = 3;
+  const char* result = gdv_fn_aes_decrypt_ecb(context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+
+  // Add null terminator for string compatibility
+  // Note: This may not be valid UTF-8, but it's needed for string handling
+  if (result != nullptr) {
+    char* mutable_result = const_cast<char*>(result);
+    mutable_result[*out_len] = '\0';
+  }
+
+  return result;
+}
+
 
 GANDIVA_EXPORT
 const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
@@ -1122,7 +1229,43 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_base64_decode_utf8));
 
-  // gdv_fn_aes_encrypt
+  // gdv_fn_aes_encrypt_ecb
+  // Note: The mode parameter is passed as a UTF8 string (data + length)
+  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, out_len)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (UTF8 string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt_ecb",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt_ecb));
+
+  // gdv_fn_aes_decrypt_ecb
+  // Note: The mode parameter is passed as a UTF8 string (data + length)
+  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, out_len)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (UTF8 string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt_ecb",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt_ecb));
+
+  // gdv_fn_aes_encrypt_ecb_legacy (wrapper for string-based signatures)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1132,11 +1275,11 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt",
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt_ecb_legacy",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt));
+                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt_ecb_legacy));
 
-  // gdv_fn_aes_decrypt
+  // gdv_fn_aes_decrypt_ecb_legacy (wrapper for string-based signatures)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1146,9 +1289,9 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt",
+  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt_ecb_legacy",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt));
+                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt_ecb_legacy));
 
   // gdv_mask_first_n and gdv_mask_last_n
   std::vector<llvm::Type*> mask_args = {
