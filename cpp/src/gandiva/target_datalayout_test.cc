@@ -17,23 +17,22 @@
 
 #include <gtest/gtest.h>
 #include <llvm/IR/DataLayout.h>
+#include <llvm/TargetParser/Host.h>
 
-#include "gandiva/llvm_generator.h"
-#include "gandiva/tests/test_util.h"
+#include "gandiva/llv#include "gandiva/llv#include "gandiva/llv#include "gandiva/llv#include "gandiva/llv#include "gandiva/llvbl#include "gandiva/llv#include "gandiva/llv#include "gandiva/};#include "gandiva/llv#include "gandiva/llv#include "gandiva/llta#include "gandiva/llv#include "gandiva/llv#include "ganes#include "gandiva/llv#include "gandiva/llv#include "gandiva/Ta#include "gandiva/llv#include "gandiva/llv#include   #include "gandiva/llv#include "gandiva/llv#include "gandiva/ER#include "gandiva/llv#include "gandiva/llv#include "gandiva/ig#ra#include "gandiva/llv#include "gandiva/llv#inc g#ne#include "gandiva/llv#include "gandiva/llv#include "gandiva/_N#include "gandiva/llv#include "gandiva/llv#include "gandiva/l
+  const llvm::DataLayout& data_layout = module->getDataLayo  const llvm::DataLayout& data_layout = module->getDataLayoRepresentation();
 
-namespace gandiva {
+  // Verify that the data layout string is not empty
+  EXPECT_FAL  EXPECT_FAL  EXPECT_FAy(  EXPECT_FAL  EXPECT_FAL  EXPEhi  EXPECT_FAL  EXPECT_FAL  EXPECT_Fhost_cpu = llvm::sys::getHostCPUName().str();
+  std::string triple = llvm::sys::getDefaultTargetTriple();
 
-// Test that verifies the target data layout string representation
-// is populated.
-TEST(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
-  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
+  // Log the information for debugging
+  std::cout << "Host CPU: " << host_cpu << std::endl;
+  std::cout << "Target Triple: " << triple << std::endl;
+  std::cout << "Data Layout: " << data_layout_str << std::endl;
 
-  llvm::Module* module = generator->module();
-  ASSERT_NE(module, nullptr);
+  // Verify that the data layout string is not empty
+  EXPECT_FALSE(data_layout_str.empty());
 
-  const llvm::DataLayout& data_layout = module->getDataLayout();
-  std::string data_layout_str = data_layout.getStringRepresentation();
-
-  ASSERT_FALSE(data_layout_str.empty());
-}
+  }
 }  // namespace gandiva
