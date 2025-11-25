@@ -23,7 +23,9 @@
 namespace gandiva {
 
 /// @brief Get a human-readable error string from OpenSSL's error queue.
-/// @return A string describing the most recent OpenSSL error, or "Unknown OpenSSL error"
+/// @details Retrieves all errors from the OpenSSL error queue and concatenates them
+///          with "; " as a separator. This ensures complete error information is captured.
+/// @return A string describing all OpenSSL errors in the queue, or "Unknown OpenSSL error"
 ///         if no error is available.
 std::string get_openssl_error_string();
 

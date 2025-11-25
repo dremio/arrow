@@ -18,6 +18,7 @@
 #include "gandiva/encrypt_utils_cbc.h"
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <cstring>
 
 // Test PKCS#7 padding with 16-byte key
@@ -32,12 +33,12 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_16) {
   unsigned char cipher[64];
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                iv, iv_len, "PKCS7", 5, cipher);
+                                                iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
                                                    cipher_len, key, key_len, iv, iv_len,
-                                                   "PKCS7", 5, decrypted);
+                                                   true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -55,12 +56,12 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_24) {
   unsigned char cipher[64];
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                iv, iv_len, "PKCS7", 5, cipher);
+                                                iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
                                                    cipher_len, key, key_len, iv, iv_len,
-                                                   "PKCS7", 5, decrypted);
+                                                   true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -78,12 +79,12 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_32) {
   unsigned char cipher[64];
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                iv, iv_len, "PKCS7", 5, cipher);
+                                                iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
                                                    cipher_len, key, key_len, iv, iv_len,
-                                                   "PKCS7", 5, decrypted);
+                                                   true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -101,41 +102,15 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptNoPadding_16) {
   unsigned char cipher[64];
 
   int32_t cipher_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                iv, iv_len, "NONE", 4, cipher);
+                                                iv, iv_len, false, cipher);
 
   unsigned char decrypted[64];
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
                                                    cipher_len, key, key_len, iv, iv_len,
-                                                   "NONE", 4, decrypted);
+                                                   false, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
-}
-
-// Test case-insensitive padding mode
-TEST(TestAesCbcEncryptUtils, TestCaseInsensitivePadding) {
-  auto* key = "12345678abcdefgh";
-  auto* iv = "1234567890123456";
-  auto* to_encrypt = "test";
-
-  auto key_len = static_cast<int32_t>(strlen(key));
-  auto iv_len = static_cast<int32_t>(strlen(iv));
-  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
-  unsigned char cipher1[64];
-  unsigned char cipher2[64];
-
-  // Test with "pkcs7" (lowercase)
-  int32_t cipher1_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                 iv, iv_len, "pkcs7", 5, cipher1);
-
-  // Test with "PKCS7" (uppercase)
-  int32_t cipher2_len = gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                                                 iv, iv_len, "PKCS7", 5, cipher2);
-
-  // Both should produce same ciphertext
-  EXPECT_EQ(cipher1_len, cipher2_len);
-  EXPECT_EQ(std::string(reinterpret_cast<const char*>(cipher1), cipher1_len),
-            std::string(reinterpret_cast<const char*>(cipher2), cipher2_len));
 }
 
 // Test invalid IV length
@@ -149,10 +124,13 @@ TEST(TestAesCbcEncryptUtils, TestInvalidIVLength) {
   auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
   unsigned char cipher[64];
 
-  ASSERT_THROW({
+  try {
     gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                             iv, iv_len, "PKCS7", 5, cipher);
-  }, std::runtime_error);
+                             iv, iv_len, true, cipher);
+    FAIL() << "Expected std::runtime_error";
+  } catch (const std::runtime_error& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("Invalid IV length for AES-CBC"));
+  }
 }
 
 // Test invalid key length
@@ -166,26 +144,14 @@ TEST(TestAesCbcEncryptUtils, TestInvalidKeyLength) {
   auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
   unsigned char cipher[64];
 
-  ASSERT_THROW({
+  try {
     gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                             iv, iv_len, "PKCS7", 5, cipher);
-  }, std::runtime_error);
+                             iv, iv_len, true, cipher);
+    FAIL() << "Expected std::runtime_error";
+  } catch (const std::runtime_error& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported key length for AES-CBC"));
+  }
 }
 
-// Test invalid padding mode
-TEST(TestAesCbcEncryptUtils, TestInvalidPaddingMode) {
-  auto* key = "12345678abcdefgh";
-  auto* iv = "1234567890123456";
-  auto* to_encrypt = "test";
 
-  auto key_len = static_cast<int32_t>(strlen(key));
-  auto iv_len = static_cast<int32_t>(strlen(iv));
-  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
-  unsigned char cipher[64];
-
-  ASSERT_THROW({
-    gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                             iv, iv_len, "INVALID", 7, cipher);
-  }, std::runtime_error);
-}
 

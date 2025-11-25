@@ -32,8 +32,7 @@ namespace gandiva {
  * @param key_len Length of key in bytes
  * @param iv The initialization vector (must be exactly 16 bytes)
  * @param iv_len Length of IV in bytes (must be 16)
- * @param padding Padding mode string: "PKCS7" or "NONE" (case-insensitive)
- * @param padding_len Length of padding string in bytes
+ * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param cipher Output buffer for encrypted data
  * @return Length of encrypted data in bytes
  * @throws std::runtime_error on encryption failure or invalid parameters
@@ -41,7 +40,7 @@ namespace gandiva {
 GANDIVA_EXPORT
 int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* padding, int32_t padding_len, unsigned char* cipher);
+                        bool use_padding, unsigned char* cipher);
 
 /**
  * Decrypt data using AES-CBC algorithm with explicit padding mode
@@ -52,8 +51,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
  * @param key_len Length of key in bytes
  * @param iv The initialization vector (must be exactly 16 bytes)
  * @param iv_len Length of IV in bytes (must be 16)
- * @param padding Padding mode string: "PKCS7" or "NONE" (case-insensitive)
- * @param padding_len Length of padding string in bytes
+ * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param plaintext Output buffer for decrypted data
  * @return Length of decrypted data in bytes
  * @throws std::runtime_error on decryption failure or invalid parameters
@@ -61,7 +59,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
 GANDIVA_EXPORT
 int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* padding, int32_t padding_len, unsigned char* plaintext);
+                        bool use_padding, unsigned char* plaintext);
 
 }  // namespace gandiva
 

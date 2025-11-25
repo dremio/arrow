@@ -32,6 +32,7 @@
 
 #include "gandiva/encrypt_utils_ecb.h"
 #include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_mode_dispatcher.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"
@@ -396,212 +397,7 @@ CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
-// Helper function to validate AES mode parameter
-// Throws std::runtime_error if mode is invalid
-static void ensure_mode(const char* mode, int32_t mode_len,
-                        const std::string& expected_mode) {
-  if (mode == nullptr) {
-    throw std::runtime_error("Invalid mode parameter for AES encryption");
-  }
 
-  std::string mode_str(mode, mode_len);
-  // Convert to uppercase for comparison
-  std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::toupper);
-
-  if (mode_str != expected_mode) {
-    std::ostringstream oss;
-    oss << "AES encryption mode mismatch: function signature indicates " << expected_mode
-        << " mode, but '" << mode_str << "' was provided instead";
-    throw std::runtime_error(oss.str());
-  }
-}
-
-// ECB mode specific functions - core implementation
-// This handles both string and binary inputs (they have the same C signature)
-GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_ecb(int64_t context, const char* data, int32_t data_len,
-                                   const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   int32_t* out_len) {
-  try {
-    // Validate mode parameter
-    ensure_mode(mode, mode_len, "ECB");
-
-    if (data_len < 0) {
-      throw std::runtime_error(
-          std::string("Invalid data length for AES encryption: ") + std::to_string(data_len) +
-          " (must be >= 0)");
-    }
-
-    if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
-      throw std::runtime_error(
-          std::string("Invalid key length for AES encryption: ") + std::to_string(key_data_len) +
-          " bytes. Supported lengths: 16, 24, 32 bytes");
-    }
-
-    // AES block size is always 16 bytes (128 bits), regardless of key length
-    int64_t kAesBlockSize = 16;
-    *out_len = static_cast<int32_t>(
-        arrow::bit_util::RoundUpToPowerOf2(static_cast<int64_t>(data_len), kAesBlockSize));
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-    if (ret == nullptr) {
-      throw std::runtime_error(std::string("Could not allocate memory for AES encryption output: ") +
-                               std::to_string(*out_len) + " bytes");
-    }
-
-    *out_len = gandiva::aes_encrypt_ecb(data, data_len, key_data, key_data_len,
-                                        reinterpret_cast<unsigned char*>(ret));
-    return ret;
-  } catch (const std::runtime_error& e) {
-    gdv_fn_context_set_error_msg(context, e.what());
-    *out_len = 0;
-    return nullptr;
-  }
-}
-
-// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
-// This is called by the LLVM engine with string calling convention
-// WARNING: This function is for backward compatibility only. Encrypted binary data
-// is not guaranteed to be valid UTF-8. Use binary signatures for new code.
-GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data, int32_t data_len,
-                                          const char* key_data, int32_t key_data_len,
-                                          int32_t* out_len) {
-  // Delegate to the core implementation with ECB mode
-  const char* mode = "ECB";
-  int32_t mode_len = 3;
-  const char* result = gdv_fn_aes_encrypt_ecb(context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
-
-  // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
-    char* mutable_result = const_cast<char*>(result);
-    mutable_result[*out_len] = '\0';
-  }
-
-  return result;
-}
-
-GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_ecb(int64_t context, const char* data, int32_t data_len,
-                                   const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   int32_t* out_len) {
-  try {
-    // Validate mode parameter
-    ensure_mode(mode, mode_len, "ECB");
-
-    if (data_len < 0) {
-      throw std::runtime_error(
-          std::string("Invalid data length for AES decryption: ") + std::to_string(data_len) +
-          " (must be >= 0)");
-    }
-
-    if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
-      throw std::runtime_error(
-          std::string("Invalid key length for AES decryption: ") + std::to_string(key_data_len) +
-          " bytes. Supported lengths: 16, 24, 32 bytes");
-    }
-
-    // AES block size is always 16 bytes (128 bits), regardless of key length
-    int64_t kAesBlockSize = 16;
-    *out_len = static_cast<int32_t>(
-        arrow::bit_util::RoundUpToPowerOf2(static_cast<int64_t>(data_len), kAesBlockSize));
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-    if (ret == nullptr) {
-      throw std::runtime_error(std::string("Could not allocate memory for AES decryption output: ") +
-                               std::to_string(*out_len) + " bytes");
-    }
-
-    *out_len = gandiva::aes_decrypt_ecb(data, data_len, key_data, key_data_len,
-                                        reinterpret_cast<unsigned char*>(ret));
-    return ret;
-  } catch (const std::runtime_error& e) {
-    gdv_fn_context_set_error_msg(context, e.what());
-    *out_len = 0;
-    return nullptr;
-  }
-}
-
-// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
-// This is called by the LLVM engine with string calling convention
-// WARNING: This function is for backward compatibility only. Decrypted data may not be
-// valid UTF-8. Use binary signatures for new code.
-GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data, int32_t data_len,
-                                          const char* key_data, int32_t key_data_len,
-                                          int32_t* out_len) {
-  // Delegate to the core implementation with ECB mode
-  const char* mode = "ECB";
-  int32_t mode_len = 3;
-  const char* result = gdv_fn_aes_decrypt_ecb(context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
-
-  // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
-    char* mutable_result = const_cast<char*>(result);
-    mutable_result[*out_len] = '\0';
-  }
-
-  return result;
-}
-
-// CBC mode specific functions - core implementation with explicit padding
-GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_cbc(int64_t context, const char* data, int32_t data_len,
-                                   const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   const char* iv_data, int32_t iv_data_len,
-                                   const char* padding, int32_t padding_len,
-                                   int32_t* out_len) {
-  try {
-    // Validate mode parameter
-    ensure_mode(mode, mode_len, "CBC");
-
-    // Allocate output buffer (max size: input + 16 bytes for padding)
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len + 16));
-    if (ret == nullptr) {
-      throw std::runtime_error("Could not allocate memory for AES-CBC encryption");
-    }
-
-    *out_len = gandiva::aes_encrypt_cbc(data, data_len, key_data, key_data_len, iv_data, iv_data_len,
-                                        padding, padding_len,
-                                        reinterpret_cast<unsigned char*>(ret));
-    return ret;
-  } catch (const std::runtime_error& e) {
-    gdv_fn_context_set_error_msg(context, e.what());
-    *out_len = 0;
-    return nullptr;
-  }
-}
-
-GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_cbc(int64_t context, const char* data, int32_t data_len,
-                                   const char* key_data, int32_t key_data_len,
-                                   const char* mode, int32_t mode_len,
-                                   const char* iv_data, int32_t iv_data_len,
-                                   const char* padding, int32_t padding_len,
-                                   int32_t* out_len) {
-  try {
-    // Validate mode parameter
-    ensure_mode(mode, mode_len, "CBC");
-
-    // Allocate output buffer (max size: input size, since decryption removes padding)
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
-    if (ret == nullptr) {
-      throw std::runtime_error("Could not allocate memory for AES-CBC decryption");
-    }
-
-    *out_len = gandiva::aes_decrypt_cbc(data, data_len, key_data, key_data_len, iv_data, iv_data_len,
-                                        padding, padding_len,
-                                        reinterpret_cast<unsigned char*>(ret));
-    return ret;
-  } catch (const std::runtime_error& e) {
-    gdv_fn_context_set_error_msg(context, e.what());
-    *out_len = 0;
-    return nullptr;
-  }
-}
 
 
 GANDIVA_EXPORT
@@ -1058,6 +854,158 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
 
 namespace gandiva {
 
+// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
+// This is called by the LLVM engine with string calling convention
+// WARNING: This function is for backward compatibility only. Encrypted binary
+// data is not guaranteed to be valid UTF-8. Use binary signatures for new code.
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data,
+                                          int32_t data_len,
+                                          const char* key_data,
+                                          int32_t key_data_len,
+                                          int32_t* out_len) {
+  // Delegate to the core implementation with ECB mode
+  // This function is ECB-only, so we enforce the mode
+  const char* mode = "AES-ECB";
+  int32_t mode_len = 7;
+  const char* result = gdv_fn_aes_encrypt_dispatcher_3args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+
+  // Add null terminator for string compatibility
+  // Note: This may not be valid UTF-8, but it's needed for string handling
+  if (result != nullptr) {
+    char* mutable_result = const_cast<char*>(result);
+    mutable_result[*out_len] = '\0';
+  }
+
+  return result;
+}
+
+// Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
+// This is called by the LLVM engine with string calling convention
+// WARNING: This function is for backward compatibility only. Decrypted data
+// may not be valid UTF-8. Use binary signatures for new code.
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
+                                          int32_t data_len,
+                                          const char* key_data,
+                                          int32_t key_data_len,
+                                          int32_t* out_len) {
+  // Delegate to the core implementation with ECB mode
+  // This function is ECB-only, so we enforce the mode
+  const char* mode = "AES-ECB";
+  int32_t mode_len = 7;
+  const char* result = gdv_fn_aes_decrypt_dispatcher_3args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+
+  // Add null terminator for string compatibility
+  // Note: This may not be valid UTF-8, but it's needed for string handling
+  if (result != nullptr) {
+    char* mutable_result = const_cast<char*>(result);
+    mutable_result[*out_len] = '\0';
+  }
+
+  return result;
+}
+
+// The 3- and 4-arg signatures exist to support optional IV and other arguments
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_dispatcher_3args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    int32_t* out_len) {
+  return gdv_fn_aes_encrypt_dispatcher_5args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
+      0, nullptr, 0, out_len);
+}
+
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_dispatcher_3args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    int32_t* out_len) {
+  return gdv_fn_aes_decrypt_dispatcher_5args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
+      0, nullptr, 0, out_len);
+}
+
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_dispatcher_4args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+  return gdv_fn_aes_encrypt_dispatcher_5args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
+      iv_data_len, nullptr, 0, out_len);
+}
+
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_dispatcher_4args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+  return gdv_fn_aes_decrypt_dispatcher_5args(
+      context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
+      iv_data_len, nullptr, 0, out_len);
+}
+
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt_dispatcher_5args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
+    int32_t fifth_argument_len, int32_t* out_len) {
+  try {
+    // Allocate extra 16 bytes for AES block padding (PKCS7 padding can add
+    // up to 16 bytes for a 128-bit block cipher)
+    // In cases of no-padding modes, this extra space is not used
+    auto* output = reinterpret_cast<unsigned char*>(
+        gdv_fn_context_arena_malloc(context, data_len + 16));
+    if (output == nullptr) {
+      throw std::runtime_error(
+          "Memory allocation failed for encryption output");
+    }
+
+    int32_t cipher_len = EncryptModeDispatcher::encrypt(
+        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
+        iv_data_len, fifth_argument, fifth_argument_len, output);
+
+    *out_len = cipher_len;
+    return reinterpret_cast<const char*>(output);
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
+    return nullptr;
+  }
+}
+
+extern "C" GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt_dispatcher_5args(
+    int64_t context, const char* data, int32_t data_len, const char* key_data,
+    int32_t key_data_len, const char* mode, int32_t mode_len,
+    const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
+    int32_t fifth_argument_len, int32_t* out_len) {
+  try {
+    auto* output = reinterpret_cast<unsigned char*>(
+        gdv_fn_context_arena_malloc(context, data_len));
+    if (output == nullptr) {
+      throw std::runtime_error(
+          "Memory allocation failed for decryption output");
+    }
+
+    int32_t plaintext_len = EncryptModeDispatcher::decrypt(
+        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
+        iv_data_len, fifth_argument, fifth_argument_len, output);
+
+    *out_len = plaintext_len;
+    return reinterpret_cast<const char*>(output);
+  } catch (const std::runtime_error& e) {
+    gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
+    return nullptr;
+  }
+}
+
 arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
@@ -1248,43 +1196,9 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_base64_decode_utf8));
 
-  // gdv_fn_aes_encrypt_ecb
-  // Note: The mode parameter is passed as a UTF8 string (data + length)
-  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, out_len)
-  args = {
-      types->i64_type(),     // context
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_length
-      types->i8_ptr_type(),  // key_data
-      types->i32_type(),     // key_data_length
-      types->i8_ptr_type(),  // mode (UTF8 string)
-      types->i32_type(),     // mode_length
-      types->i32_ptr_type()  // out_length
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt_ecb",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt_ecb));
-
-  // gdv_fn_aes_decrypt_ecb
-  // Note: The mode parameter is passed as a UTF8 string (data + length)
-  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, out_len)
-  args = {
-      types->i64_type(),     // context
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_length
-      types->i8_ptr_type(),  // key_data
-      types->i32_type(),     // key_data_length
-      types->i8_ptr_type(),  // mode (UTF8 string)
-      types->i32_type(),     // mode_length
-      types->i32_ptr_type()  // out_length
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt_ecb",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt_ecb));
-
   // gdv_fn_aes_encrypt_ecb_legacy (wrapper for string-based signatures)
+  // Note: Mode is hardcoded internally as "ECB", not passed as parameter
+  // Function signature: (context, data, data_len, key_data, key_data_len, out_len)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1312,9 +1226,6 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_aes_decrypt_ecb_legacy));
 
-  // gdv_fn_aes_encrypt_cbc
-  // Note: The mode, IV and padding parameters are passed as binary/UTF8 strings (data + length)
-  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, iv, iv_len, padding, padding_len, out_len)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1325,18 +1236,46 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // mode_length
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
-      types->i8_ptr_type(),  // padding (binary string)
-      types->i32_type(),     // padding_length
+      types->i8_ptr_type(),  // fifth_argument (binary string)
+      types->i32_type(),     // fifth_argument_length
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_encrypt_cbc",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_encrypt_cbc));
+  // gdv_fn_aes_encrypt_dispatcher_3args (data, key, mode)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
 
-  // gdv_fn_aes_decrypt_cbc
-  // Note: The mode, IV and padding parameters are passed as binary/UTF8 strings (data + length)
-  // Function signature: (context, data, data_len, key_data, key_data_len, mode, mode_len, iv, iv_len, padding, padding_len, out_len)
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_encrypt_dispatcher_3args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_3args));
+
+  // gdv_fn_aes_decrypt_dispatcher_3args (data, key, mode)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_decrypt_dispatcher_3args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_3args));
+
+  // gdv_fn_aes_encrypt_dispatcher_4args (data, key, mode, iv)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1347,14 +1286,76 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // mode_length
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
-      types->i8_ptr_type(),  // padding (binary string)
-      types->i32_type(),     // padding_length
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_aes_decrypt_cbc",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_aes_decrypt_cbc));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_encrypt_dispatcher_4args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_4args));
+
+  // gdv_fn_aes_decrypt_dispatcher_4args (data, key, mode, iv)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_decrypt_dispatcher_4args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_4args));
+
+  // gdv_fn_aes_encrypt_dispatcher_5args (data, key, mode, iv,
+  // fifth_argument)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i8_ptr_type(),  // fifth_argument (binary string)
+      types->i32_type(),     // fifth_argument_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_encrypt_dispatcher_5args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_5args));
+
+  // gdv_fn_aes_decrypt_dispatcher_5args (data, key, mode, iv,
+  // fifth_argument)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i8_ptr_type(),  // fifth_argument (binary string)
+      types->i32_type(),     // fifth_argument_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_aes_decrypt_dispatcher_5args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_5args));
 
   // gdv_mask_first_n and gdv_mask_last_n
   std::vector<llvm::Type*> mask_args = {
@@ -1453,7 +1454,8 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_cast_intervalday_utf8_int32", types->i64_type() /*return_type*/, args,
+      "gdv_fn_cast_intervalday_utf8_int32",
+      types->i64_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalday_utf8_int32));
 
   // gdv_fn_cast_intervalyear_utf8
@@ -1470,12 +1472,15 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8));
 
-#define ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(LLVM_TYPE, DATA_TYPE)      \
-  args = {types->i64_type(), types->i8_ptr_type(),          types->i32_ptr_type(),     \
-          types->i64_type(), types->LLVM_TYPE##_ptr_type(), types->i32_type(), types->i32_ptr_type()};        \
-  engine->AddGlobalMappingForFunc(                                                     \
-      "gdv_fn_populate_list_" #DATA_TYPE "_vector", types->i32_type() /*return_type*/, \
-      args, reinterpret_cast<void*>(gdv_fn_populate_list_##DATA_TYPE##_vector));
+#define ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(                  \
+    LLVM_TYPE, DATA_TYPE)                                                      \
+  args = {types->i64_type(), types->i8_ptr_type(), types->i32_ptr_type(),     \
+          types->i64_type(), types->LLVM_TYPE##_ptr_type(),                   \
+          types->i32_type(), types->i32_ptr_type()};                           \
+  engine->AddGlobalMappingForFunc(                                             \
+      "gdv_fn_populate_list_" #DATA_TYPE "_vector",                           \
+      types->i32_type() /*return_type*/, args,                                 \
+      reinterpret_cast<void*>(gdv_fn_populate_list_##DATA_TYPE##_vector));
 
   ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i32, int32_t)
   ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i64, int64_t)

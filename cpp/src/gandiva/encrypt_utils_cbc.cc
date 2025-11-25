@@ -28,12 +28,6 @@ namespace gandiva {
 
 namespace {
 
-// Padding mode enum
-enum class PaddingMode {
-  PKCS7,
-  NONE
-};
-
 const EVP_CIPHER* get_cbc_cipher_algo(int32_t key_length) {
   switch (key_length) {
     case 16:
@@ -51,30 +45,12 @@ const EVP_CIPHER* get_cbc_cipher_algo(int32_t key_length) {
   }
 }
 
-PaddingMode get_padding_mode(const char* padding_str, int32_t padding_len) {
-  if (padding_str == nullptr || padding_len <= 0) {
-    throw std::runtime_error("Invalid padding parameter: null or empty");
-  }
-
-  // Case-insensitive comparison using strncasecmp
-  if (strncasecmp(padding_str, "PKCS7", padding_len) == 0 && padding_len == 5) {
-    return PaddingMode::PKCS7;
-  } else if (strncasecmp(padding_str, "NONE", padding_len) == 0 && padding_len == 4) {
-    return PaddingMode::NONE;
-  } else {
-    std::ostringstream oss;
-    oss << "Invalid padding mode: '" << std::string(padding_str, padding_len)
-        << "'. Supported modes: PKCS7, NONE (case-insensitive)";
-    throw std::runtime_error(oss.str());
-  }
-}
-
 }  // namespace
 
 GANDIVA_EXPORT
 int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* padding, int32_t padding_len, unsigned char* cipher) {
+                        bool use_padding, unsigned char* cipher) {
   // Validate IV length
   if (iv_len != 16) {
     std::ostringstream oss;
@@ -82,8 +58,6 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
         << " bytes. IV must be exactly 16 bytes";
     throw std::runtime_error(oss.str());
   }
-
-  PaddingMode padding_mode = get_padding_mode(padding, padding_len);
 
   int32_t cipher_len = 0;
   int32_t len = 0;
@@ -103,7 +77,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
                              get_openssl_error_string());
   }
 
-  int padding_flag = (padding_mode == PaddingMode::PKCS7) ? 1 : 0;
+  int padding_flag = use_padding ? 1 : 0;
   if (!EVP_CIPHER_CTX_set_padding(en_ctx, padding_flag)) {
     EVP_CIPHER_CTX_free(en_ctx);
     throw std::runtime_error("Could not set padding mode for encryption: " +
@@ -135,7 +109,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
 GANDIVA_EXPORT
 int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* padding, int32_t padding_len, unsigned char* plaintext) {
+                        bool use_padding, unsigned char* plaintext) {
   // Validate IV length
   if (iv_len != 16) {
     std::ostringstream oss;
@@ -143,8 +117,6 @@ int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const ch
         << " bytes. IV must be exactly 16 bytes";
     throw std::runtime_error(oss.str());
   }
-
-  PaddingMode padding_mode = get_padding_mode(padding, padding_len);
 
   int32_t plaintext_len = 0;
   int32_t len = 0;
@@ -164,7 +136,7 @@ int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const ch
                              get_openssl_error_string());
   }
 
-  int padding_flag = (padding_mode == PaddingMode::PKCS7) ? 1 : 0;
+  int padding_flag = use_padding ? 1 : 0;
   if (!EVP_CIPHER_CTX_set_padding(de_ctx, padding_flag)) {
     EVP_CIPHER_CTX_free(de_ctx);
     throw std::runtime_error("Could not set padding mode for decryption: " +
