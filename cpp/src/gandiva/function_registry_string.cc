@@ -504,13 +504,31 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_aes_decrypt_ecb_legacy",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      // Binary-based signatures (BINARY, BINARY, UTF8) -> BINARY
+      // Parameters: data, key, mode (e.g. ECB mode)
       NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
-                     kResultNullIfNull, "gdv_fn_aes_encrypt_ecb",
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_dispatcher_3args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
-                     kResultNullIfNull, "gdv_fn_aes_decrypt_ecb",
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_dispatcher_3args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Parameters: data, key, mode, iv (e.g. CBC mode)
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // Parameters: data, key, mode, iv, fifth_argument (e.g. GCM mode)
+      NativeFunction("aes_encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt_dispatcher_5args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt_dispatcher_5args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
