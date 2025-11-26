@@ -23,6 +23,9 @@
 
 namespace gandiva {
 
+// GCM mode identifier
+constexpr const char* AES_GCM_MODE = "AES-GCM";
+
 // GCM authentication tag length in bytes
 constexpr int32_t GCM_TAG_LENGTH = 16;
 

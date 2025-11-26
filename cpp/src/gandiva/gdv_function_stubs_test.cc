@@ -23,6 +23,9 @@
 
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
+#include "gandiva/encrypt_utils_ecb.h"
+#include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_utils_gcm.h"
 
 namespace gandiva {
 
@@ -1353,7 +1356,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-ECB";
+  std::string mode = AES_ECB_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
@@ -1377,7 +1380,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-ECB";
+  std::string mode = AES_ECB_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
@@ -1402,7 +1405,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-ECB";
+  std::string mode = AES_ECB_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
@@ -1426,7 +1429,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-ECB";
+  std::string mode = AES_ECB_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   std::string cipher = "12345678abcdefgh12345678abcdefghb";
@@ -1456,7 +1459,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeEcb) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-ECB";
+  std::string mode = AES_ECB_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
@@ -1515,7 +1518,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmIvOnly) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-GCM";
+  std::string mode = AES_GCM_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   std::string iv = "123456789012";
   auto iv_len = static_cast<int32_t>(iv.length());
@@ -1543,7 +1546,7 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
   int32_t decrypted_len = 0;
   std::string data = "test string";
   auto data_len = static_cast<int32_t>(data.length());
-  std::string mode = "AES-GCM";
+  std::string mode = AES_GCM_MODE;
   auto mode_len = static_cast<int32_t>(mode.length());
   std::string iv = "123456789012";
   auto iv_len = static_cast<int32_t>(iv.length());

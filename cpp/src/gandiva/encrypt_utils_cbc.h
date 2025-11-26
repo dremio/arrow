@@ -23,6 +23,10 @@
 
 namespace gandiva {
 
+// CBC mode identifiers
+constexpr const char* AES_CBC_PKCS7_MODE = "AES-CBC-PKCS7";
+constexpr const char* AES_CBC_NONE_MODE = "AES-CBC-NONE";
+
 /**
  * Encrypt data using AES-CBC algorithm with explicit padding mode
  *
