@@ -868,7 +868,7 @@ const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
-  const char* result = gdv_fn_aes_encrypt_dispatcher_3args(
+  const char* result = gdv_fn_encrypt_dispatcher_3args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
 
   // Add null terminator for string compatibility
@@ -895,7 +895,7 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
-  const char* result = gdv_fn_aes_decrypt_dispatcher_3args(
+  const char* result = gdv_fn_decrypt_dispatcher_3args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
 
   // Add null terminator for string compatibility
@@ -910,47 +910,47 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
 
 // The 3- and 4-arg signatures exist to support optional IV and other arguments
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_dispatcher_3args(
+const char* gdv_fn_encrypt_dispatcher_3args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     int32_t* out_len) {
-  return gdv_fn_aes_encrypt_dispatcher_5args(
+  return gdv_fn_encrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
       0, nullptr, 0, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_dispatcher_3args(
+const char* gdv_fn_decrypt_dispatcher_3args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     int32_t* out_len) {
-  return gdv_fn_aes_decrypt_dispatcher_5args(
+  return gdv_fn_decrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
       0, nullptr, 0, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_dispatcher_4args(
+const char* gdv_fn_encrypt_dispatcher_4args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
-  return gdv_fn_aes_encrypt_dispatcher_5args(
+  return gdv_fn_encrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
       iv_data_len, nullptr, 0, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_dispatcher_4args(
+const char* gdv_fn_decrypt_dispatcher_4args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
-  return gdv_fn_aes_decrypt_dispatcher_5args(
+  return gdv_fn_decrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
       iv_data_len, nullptr, 0, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_encrypt_dispatcher_5args(
+const char* gdv_fn_encrypt_dispatcher_5args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
@@ -980,7 +980,7 @@ const char* gdv_fn_aes_encrypt_dispatcher_5args(
 }
 
 extern "C" GANDIVA_EXPORT
-const char* gdv_fn_aes_decrypt_dispatcher_5args(
+const char* gdv_fn_decrypt_dispatcher_5args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
@@ -1241,7 +1241,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  // gdv_fn_aes_encrypt_dispatcher_3args (data, key, mode)
+  // gdv_fn_encrypt_dispatcher_3args (data, key, mode)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1254,11 +1254,11 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_encrypt_dispatcher_3args",
+      "gdv_fn_encrypt_dispatcher_3args",
       types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_3args));
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_3args));
 
-  // gdv_fn_aes_decrypt_dispatcher_3args (data, key, mode)
+  // gdv_fn_decrypt_dispatcher_3args (data, key, mode)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1271,30 +1271,11 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_decrypt_dispatcher_3args",
+      "gdv_fn_decrypt_dispatcher_3args",
       types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_3args));
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_3args));
 
-  // gdv_fn_aes_encrypt_dispatcher_4args (data, key, mode, iv)
-  args = {
-      types->i64_type(),     // context
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_length
-      types->i8_ptr_type(),  // key_data
-      types->i32_type(),     // key_data_length
-      types->i8_ptr_type(),  // mode (binary string)
-      types->i32_type(),     // mode_length
-      types->i8_ptr_type(),  // iv (binary string)
-      types->i32_type(),     // iv_length
-      types->i32_ptr_type()  // out_length
-  };
-
-  engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_encrypt_dispatcher_4args",
-      types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_4args));
-
-  // gdv_fn_aes_decrypt_dispatcher_4args (data, key, mode, iv)
+  // gdv_fn_encrypt_dispatcher_4args (data, key, mode, iv)
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1309,11 +1290,30 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_decrypt_dispatcher_4args",
+      "gdv_fn_encrypt_dispatcher_4args",
       types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_4args));
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_4args));
 
-  // gdv_fn_aes_encrypt_dispatcher_5args (data, key, mode, iv,
+  // gdv_fn_decrypt_dispatcher_4args (data, key, mode, iv)
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i8_ptr_type(),  // key_data
+      types->i32_type(),     // key_data_length
+      types->i8_ptr_type(),  // mode (binary string)
+      types->i32_type(),     // mode_length
+      types->i8_ptr_type(),  // iv (binary string)
+      types->i32_type(),     // iv_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_decrypt_dispatcher_4args",
+      types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_4args));
+
+  // gdv_fn_encrypt_dispatcher_5args (data, key, mode, iv,
   // fifth_argument)
   args = {
       types->i64_type(),     // context
@@ -1331,11 +1331,11 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_encrypt_dispatcher_5args",
+      "gdv_fn_encrypt_dispatcher_5args",
       types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_encrypt_dispatcher_5args));
+      reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_5args));
 
-  // gdv_fn_aes_decrypt_dispatcher_5args (data, key, mode, iv,
+  // gdv_fn_decrypt_dispatcher_5args (data, key, mode, iv,
   // fifth_argument)
   args = {
       types->i64_type(),     // context
@@ -1353,9 +1353,9 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_aes_decrypt_dispatcher_5args",
+      "gdv_fn_decrypt_dispatcher_5args",
       types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(gdv_fn_aes_decrypt_dispatcher_5args));
+      reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_5args));
 
   // gdv_mask_first_n and gdv_mask_last_n
   std::vector<llvm::Type*> mask_args = {
