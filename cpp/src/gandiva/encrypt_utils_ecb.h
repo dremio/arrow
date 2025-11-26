@@ -23,6 +23,9 @@
 
 namespace gandiva {
 
+// ECB mode identifier
+constexpr const char* AES_ECB_MODE = "AES-ECB";
+
 /**
  * Encrypt data using AES-ECB algorithm (legacy, insecure)
  *

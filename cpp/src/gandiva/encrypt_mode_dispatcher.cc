@@ -18,6 +18,7 @@
 #include "gandiva/encrypt_mode_dispatcher.h"
 #include "gandiva/encrypt_utils_ecb.h"
 #include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_utils_gcm.h"
 #include "arrow/util/string.h"
 #include <string>
 #include <sstream>
@@ -33,20 +34,22 @@ int32_t EncryptModeDispatcher::encrypt(
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
-  if (mode_str == "AES-ECB") {
+  if (mode_str == AES_ECB_MODE) {
     return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
-  } else if (mode_str == "AES-CBC-PKCS7") {
+  } else if (mode_str == AES_CBC_PKCS7_MODE) {
     return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                            iv, iv_len, true, cipher);
-  } else if (mode_str == "AES-CBC-NONE") {
+  } else if (mode_str == AES_CBC_NONE_MODE) {
     return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                            iv, iv_len, false, cipher);
-  } else if (mode_str == "AES-GCM") {
-    throw std::runtime_error("AES-GCM encryption mode is not yet implemented");
+  } else if (mode_str == AES_GCM_MODE) {
+    return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
+                           iv, iv_len, fifth_argument, fifth_argument_len, cipher);
   } else {
     std::ostringstream oss;
     oss << "Unsupported encryption mode: " << mode_str
-        << ". Supported modes: AES-ECB, AES-CBC-PKCS7, AES-CBC-NONE";
+        << ". Supported modes: " << AES_ECB_MODE << ", " << AES_CBC_PKCS7_MODE
+        << ", " << AES_CBC_NONE_MODE << ", " << AES_GCM_MODE;
     throw std::runtime_error(oss.str());
   }
 }
@@ -59,20 +62,22 @@ int32_t EncryptModeDispatcher::decrypt(
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
-  if (mode_str == "AES-ECB") {
+  if (mode_str == AES_ECB_MODE) {
     return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
-  } else if (mode_str == "AES-CBC-PKCS7") {
+  } else if (mode_str == AES_CBC_PKCS7_MODE) {
     return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                            iv, iv_len, true, plaintext);
-  } else if (mode_str == "AES-CBC-NONE") {
+  } else if (mode_str == AES_CBC_NONE_MODE) {
     return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                            iv, iv_len, false, plaintext);
-  } else if (mode_str == "AES-GCM") {
-    throw std::runtime_error("AES-GCM decryption mode is not yet implemented");
+  } else if (mode_str == AES_GCM_MODE) {
+    return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
+                           iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
   } else {
     std::ostringstream oss;
     oss << "Unsupported decryption mode: " << mode_str
-        << ". Supported modes: AES-ECB, AES-CBC-PKCS7, AES-CBC-NONE";
+        << ". Supported modes: " << AES_ECB_MODE << ", " << AES_CBC_PKCS7_MODE
+        << ", " << AES_CBC_NONE_MODE << ", " << AES_GCM_MODE;
     throw std::runtime_error(oss.str());
   }
 }

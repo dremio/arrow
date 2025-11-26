@@ -23,47 +23,51 @@
 
 namespace gandiva {
 
-// CBC mode identifiers
-constexpr const char* AES_CBC_PKCS7_MODE = "AES-CBC-PKCS7";
-constexpr const char* AES_CBC_NONE_MODE = "AES-CBC-NONE";
+// GCM mode identifier
+constexpr const char* AES_GCM_MODE = "AES-GCM";
+
+// GCM authentication tag length in bytes
+constexpr int32_t GCM_TAG_LENGTH = 16;
 
 /**
- * Encrypt data using AES-CBC algorithm with explicit padding mode
+ * Encrypt data using AES-GCM algorithm
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (must be exactly 16 bytes)
- * @param iv_len Length of IV in bytes (must be 16)
- * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
- * @param cipher Output buffer for encrypted data
- * @return Length of encrypted data in bytes
+ * @param iv The initialization vector (variable length, typically 12 bytes)
+ * @param iv_len Length of IV in bytes
+ * @param aad Optional additional authenticated data (can be null)
+ * @param aad_len Length of AAD in bytes (0 if aad is null)
+ * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 16 bytes)
+ * @return Length of encrypted data in bytes (plaintext_len + 16 for the tag)
  * @throws std::runtime_error on encryption failure or invalid parameters
  */
 GANDIVA_EXPORT
-int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char* key,
+int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* cipher);
+                        const char* aad, int32_t aad_len, unsigned char* cipher);
 
 /**
- * Decrypt data using AES-CBC algorithm with explicit padding mode
+ * Decrypt data using AES-GCM algorithm
  *
- * @param ciphertext The data to decrypt
- * @param ciphertext_len Length of ciphertext in bytes
+ * @param ciphertext The data to decrypt (includes 16-byte authentication tag at the end)
+ * @param ciphertext_len Length of ciphertext in bytes (includes tag)
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (must be exactly 16 bytes)
- * @param iv_len Length of IV in bytes (must be 16)
- * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
+ * @param iv The initialization vector (variable length, typically 12 bytes)
+ * @param iv_len Length of IV in bytes
+ * @param aad Optional additional authenticated data (can be null)
+ * @param aad_len Length of AAD in bytes (0 if aad is null)
  * @param plaintext Output buffer for decrypted data
- * @return Length of decrypted data in bytes
- * @throws std::runtime_error on decryption failure or invalid parameters
+ * @return Length of decrypted data in bytes (ciphertext_len - 16)
+ * @throws std::runtime_error on decryption failure, invalid parameters, or tag verification failure
  */
 GANDIVA_EXPORT
-int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const char* key,
+int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len, const char* key,
                         int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* plaintext);
+                        const char* aad, int32_t aad_len, unsigned char* plaintext);
 
 }  // namespace gandiva
 
