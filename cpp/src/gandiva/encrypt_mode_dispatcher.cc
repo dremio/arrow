@@ -34,6 +34,28 @@ static const std::vector<std::string_view> SUPPORTED_MODES = {
     AES_GCM_MODE
 };
 
+enum class EncryptionMode {
+  ECB,
+  ECB_PKCS7,
+  ECB_NONE,
+  CBC,
+  CBC_PKCS7,
+  CBC_NONE,
+  GCM,
+  UNKNOWN
+};
+
+EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
+  if (mode_str == AES_ECB_MODE) return EncryptionMode::ECB;
+  if (mode_str == AES_ECB_PKCS7_MODE) return EncryptionMode::ECB_PKCS7;
+  if (mode_str == AES_ECB_NONE_MODE) return EncryptionMode::ECB_NONE;
+  if (mode_str == AES_CBC_MODE) return EncryptionMode::CBC;
+  if (mode_str == AES_CBC_PKCS7_MODE) return EncryptionMode::CBC_PKCS7;
+  if (mode_str == AES_CBC_NONE_MODE) return EncryptionMode::CBC_NONE;
+  if (mode_str == AES_GCM_MODE) return EncryptionMode::GCM;
+  return EncryptionMode::UNKNOWN;
+}
+
 int32_t EncryptModeDispatcher::encrypt(
     const char* plaintext, int32_t plaintext_len, const char* key,
     int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
@@ -42,27 +64,35 @@ int32_t EncryptModeDispatcher::encrypt(
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
-  if (mode_str == AES_ECB_MODE || mode_str == AES_ECB_PKCS7_MODE) {
-    return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
-  } else if (mode_str == AES_ECB_NONE_MODE) {
-    // ECB mode doesn't use padding, but we still call the same function
-    // since ECB doesn't have padding options
-    return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
-  } else if (mode_str == AES_CBC_MODE || mode_str == AES_CBC_PKCS7_MODE) {
-    return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                           iv, iv_len, true, cipher);
-  } else if (mode_str == AES_CBC_NONE_MODE) {
-    return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                           iv, iv_len, false, cipher);
-  } else if (mode_str == AES_GCM_MODE) {
-    return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
-                           iv, iv_len, fifth_argument, fifth_argument_len, cipher);
-  } else {
-    std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
-    std::ostringstream oss;
-    oss << "Unsupported encryption mode: " << mode_str
-        << ". Supported modes: " << modes_str;
-    throw std::runtime_error(oss.str());
+  switch (ParseEncryptionMode(mode_str)) {
+    case EncryptionMode::ECB:
+    case EncryptionMode::ECB_PKCS7:
+      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7
+      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
+    case EncryptionMode::ECB_NONE:
+      // ECB mode doesn't use padding, but we still call the same function
+      // since ECB doesn't have padding options
+      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
+    case EncryptionMode::CBC:
+    case EncryptionMode::CBC_PKCS7:
+      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
+      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
+                             iv, iv_len, true, cipher);
+    case EncryptionMode::CBC_NONE:
+      // CBC without padding
+      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
+                             iv, iv_len, false, cipher);
+    case EncryptionMode::GCM:
+      return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
+                             iv, iv_len, fifth_argument, fifth_argument_len, cipher);
+    case EncryptionMode::UNKNOWN:
+    default: {
+      std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
+      std::ostringstream oss;
+      oss << "Unsupported encryption mode: " << mode_str
+          << ". Supported modes: " << modes_str;
+      throw std::runtime_error(oss.str());
+    }
   }
 }
 
@@ -74,28 +104,35 @@ int32_t EncryptModeDispatcher::decrypt(
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
-  // Handle shorthand modes: AES-ECB and AES-CBC default to PKCS7 padding
-  if (mode_str == AES_ECB_MODE || mode_str == AES_ECB_PKCS7_MODE) {
-    return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
-  } else if (mode_str == AES_ECB_NONE_MODE) {
-    // ECB mode doesn't use padding, but we still call the same function
-    // since ECB doesn't have padding options
-    return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
-  } else if (mode_str == AES_CBC_MODE || mode_str == AES_CBC_PKCS7_MODE) {
-    return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                           iv, iv_len, true, plaintext);
-  } else if (mode_str == AES_CBC_NONE_MODE) {
-    return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                           iv, iv_len, false, plaintext);
-  } else if (mode_str == AES_GCM_MODE) {
-    return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
-                           iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
-  } else {
-    std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
-    std::ostringstream oss;
-    oss << "Unsupported decryption mode: " << mode_str
-        << ". Supported modes: " << modes_str;
-    throw std::runtime_error(oss.str());
+  switch (ParseEncryptionMode(mode_str)) {
+    case EncryptionMode::ECB:
+    case EncryptionMode::ECB_PKCS7:
+      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7
+      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
+    case EncryptionMode::ECB_NONE:
+      // ECB mode doesn't use padding, but we still call the same function
+      // since ECB doesn't have padding options
+      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
+    case EncryptionMode::CBC:
+    case EncryptionMode::CBC_PKCS7:
+      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
+      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
+                             iv, iv_len, true, plaintext);
+    case EncryptionMode::CBC_NONE:
+      // CBC without padding
+      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
+                             iv, iv_len, false, plaintext);
+    case EncryptionMode::GCM:
+      return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
+                             iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
+    case EncryptionMode::UNKNOWN:
+    default: {
+      std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
+      std::ostringstream oss;
+      oss << "Unsupported decryption mode: " << mode_str
+          << ". Supported modes: " << modes_str;
+      throw std::runtime_error(oss.str());
+    }
   }
 }
 
