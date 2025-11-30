@@ -48,7 +48,7 @@ const EVP_CIPHER* get_ecb_cipher_algo(int32_t key_length) {
 
 GANDIVA_EXPORT
 int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char* key,
-                        int32_t key_len, unsigned char* cipher) {
+                        int32_t key_len, bool use_padding, unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
@@ -63,6 +63,13 @@ int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     EVP_CIPHER_CTX_free(en_ctx);
     throw std::runtime_error("Could not initialize EVP cipher context for encryption: " +
+                             get_openssl_error_string());
+  }
+
+  int padding_flag = use_padding ? 1 : 0;
+  if (!EVP_CIPHER_CTX_set_padding(en_ctx, padding_flag)) {
+    EVP_CIPHER_CTX_free(en_ctx);
+    throw std::runtime_error("Could not set padding mode for encryption: " +
                              get_openssl_error_string());
   }
 
@@ -90,7 +97,7 @@ int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char
 
 GANDIVA_EXPORT
 int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                        int32_t key_len, unsigned char* plaintext) {
+                        int32_t key_len, bool use_padding, unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
@@ -105,6 +112,13 @@ int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const ch
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     EVP_CIPHER_CTX_free(de_ctx);
     throw std::runtime_error("Could not initialize EVP cipher context for decryption: " +
+                             get_openssl_error_string());
+  }
+
+  int padding_flag = use_padding ? 1 : 0;
+  if (!EVP_CIPHER_CTX_set_padding(de_ctx, padding_flag)) {
+    EVP_CIPHER_CTX_free(de_ctx);
+    throw std::runtime_error("Could not set padding mode for decryption: " +
                              get_openssl_error_string());
   }
 

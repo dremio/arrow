@@ -38,13 +38,14 @@ constexpr const char* AES_ECB_NONE_MODE = "AES-ECB-NONE";
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
+ * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param cipher Output buffer for encrypted data
  * @return Length of encrypted data in bytes
  * @throws std::runtime_error on encryption failure
  */
 GANDIVA_EXPORT
 int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char* key,
-                        int32_t key_len, unsigned char* cipher);
+                        int32_t key_len, bool use_padding, unsigned char* cipher);
 
 /**
  * Decrypt data using AES-ECB algorithm (legacy, insecure)
@@ -56,13 +57,14 @@ int32_t aes_encrypt_ecb(const char* plaintext, int32_t plaintext_len, const char
  * @param ciphertext_len Length of ciphertext in bytes
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
+ * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param plaintext Output buffer for decrypted data
  * @return Length of decrypted data in bytes
  * @throws std::runtime_error on decryption failure
  */
 GANDIVA_EXPORT
 int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                        int32_t key_len, unsigned char* plaintext);
+                        int32_t key_len, bool use_padding, unsigned char* plaintext);
 
 }  // namespace gandiva
 

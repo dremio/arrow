@@ -67,12 +67,11 @@ int32_t EncryptModeDispatcher::encrypt(
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
-      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7
-      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
+      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
+      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, true, cipher);
     case EncryptionMode::ECB_NONE:
-      // ECB mode doesn't use padding, but we still call the same function
-      // since ECB doesn't have padding options
-      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, cipher);
+      // ECB without padding
+      return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, false, cipher);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
@@ -107,12 +106,11 @@ int32_t EncryptModeDispatcher::decrypt(
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
-      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7
-      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
+      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
+      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, true, plaintext);
     case EncryptionMode::ECB_NONE:
-      // ECB mode doesn't use padding, but we still call the same function
-      // since ECB doesn't have padding options
-      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, plaintext);
+      // ECB without padding
+      return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, false, plaintext);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
