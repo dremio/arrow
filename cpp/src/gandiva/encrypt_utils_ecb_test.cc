@@ -30,11 +30,11 @@ TEST(TestAesEcbEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_1[64];
 
-  int32_t cipher_1_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, cipher_1);
+  int32_t cipher_1_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, true, cipher_1);
 
   unsigned char decrypted_1[64];
   int32_t decrypted_1_len = gandiva::aes_decrypt_ecb(reinterpret_cast<const char*>(cipher_1),
-                                                     cipher_1_len, key, key_len, decrypted_1);
+                                                     cipher_1_len, key, key_len, true, decrypted_1);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_1), decrypted_1_len));
@@ -48,11 +48,11 @@ TEST(TestAesEcbEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_2[64];
 
-  int32_t cipher_2_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, cipher_2);
+  int32_t cipher_2_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, true, cipher_2);
 
   unsigned char decrypted_2[64];
   int32_t decrypted_2_len = gandiva::aes_decrypt_ecb(reinterpret_cast<const char*>(cipher_2),
-                                                     cipher_2_len, key, key_len, decrypted_2);
+                                                     cipher_2_len, key, key_len, true, decrypted_2);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_2), decrypted_2_len));
@@ -66,11 +66,11 @@ TEST(TestAesEcbEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_3[64];
 
-  int32_t cipher_3_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, cipher_3);
+  int32_t cipher_3_len = gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, true, cipher_3);
 
   unsigned char decrypted_3[64];
   int32_t decrypted_3_len = gandiva::aes_decrypt_ecb(reinterpret_cast<const char*>(cipher_3),
-                                                     cipher_3_len, key, key_len, decrypted_3);
+                                                     cipher_3_len, key, key_len, true, decrypted_3);
 
   EXPECT_EQ(std::string(reinterpret_cast<const char*>(to_encrypt), to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted_3), decrypted_3_len));
@@ -88,11 +88,11 @@ TEST(TestAesEcbEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_4[64];
   ASSERT_THROW({
-        gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, cipher_4);
+        gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, true, cipher_4);
     }, std::runtime_error);
 
   ASSERT_THROW({
-        gandiva::aes_decrypt_ecb(cipher, cipher_len, key, key_len, plain_text);
+        gandiva::aes_decrypt_ecb(cipher, cipher_len, key, key_len, true, plain_text);
     }, std::runtime_error);
 
   key = "12345678";
@@ -103,10 +103,10 @@ TEST(TestAesEcbEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_5[64];
   ASSERT_THROW({
-        gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, cipher_5);
+        gandiva::aes_encrypt_ecb(to_encrypt, to_encrypt_len, key, key_len, true, cipher_5);
     }, std::runtime_error);
   ASSERT_THROW({
-        gandiva::aes_decrypt_ecb(cipher, cipher_len, key, key_len, plain_text);
+        gandiva::aes_decrypt_ecb(cipher, cipher_len, key, key_len, true, plain_text);
     }, std::runtime_error);
 }
 
