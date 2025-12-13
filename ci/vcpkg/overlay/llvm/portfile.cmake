@@ -2,6 +2,8 @@
 set(VCPKG_POLICY_ALLOW_EMPTY_FOLDERS enabled)
 
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
+# Only build release configuration to speed up build time
+set(VCPKG_BUILD_TYPE release)
 
 # [BOLT] Allow to compile with MSVC (#151189)
 vcpkg_download_distfile(
