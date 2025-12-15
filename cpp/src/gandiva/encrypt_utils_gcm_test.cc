@@ -1,0 +1,162 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "gandiva/encrypt_utils_gcm.h"
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <cstring>
+
+// Test IV-only GCM with 16-byte key
+TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_16) {
+  auto* key = "12345678abcdefgh";
+  auto* iv = "123456789012";  // 12-byte IV
+  auto* to_encrypt = "some test string";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  unsigned char cipher[128];
+
+  int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                                iv, iv_len, nullptr, 0, cipher);
+
+  // Ciphertext should be plaintext_len + 16 (tag)
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
+
+  unsigned char decrypted[128];
+  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
+                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   nullptr, 0, decrypted);
+
+  EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
+            std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
+}
+
+// Test IV + AAD GCM with 16-byte key
+TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptWithAad_16) {
+  auto* key = "12345678abcdefgh";
+  auto* iv = "123456789012";
+  auto* to_encrypt = "some test string";
+  auto* aad = "additional authenticated data";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  auto aad_len = static_cast<int32_t>(strlen(aad));
+  unsigned char cipher[128];
+
+  int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                                iv, iv_len, aad, aad_len, cipher);
+
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
+
+  unsigned char decrypted[128];
+  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
+                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   aad, aad_len, decrypted);
+
+  EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
+            std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
+}
+
+// Test IV-only GCM with 24-byte key
+TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_24) {
+  auto* key = "12345678abcdefgh12345678";
+  auto* iv = "123456789012";
+  auto* to_encrypt = "test data";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  unsigned char cipher[128];
+
+  int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                                iv, iv_len, nullptr, 0, cipher);
+
+  unsigned char decrypted[128];
+  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
+                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   nullptr, 0, decrypted);
+
+  EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
+            std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
+}
+
+// Test IV-only GCM with 32-byte key
+TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_32) {
+  auto* key = "12345678abcdefgh12345678abcdefgh";
+  auto* iv = "123456789012";
+  auto* to_encrypt = "another test";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  unsigned char cipher[128];
+
+  int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                                iv, iv_len, nullptr, 0, cipher);
+
+  unsigned char decrypted[128];
+  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
+                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   nullptr, 0, decrypted);
+
+  EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
+            std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
+}
+
+// Test tag verification failure
+TEST(TestAesGcmEncryptUtils, TestTagVerificationFailure) {
+  auto* key = "12345678abcdefgh";
+  auto* iv = "123456789012";
+  auto* to_encrypt = "some test string";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  unsigned char cipher[128];
+
+  int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                                iv, iv_len, nullptr, 0, cipher);
+
+  // Corrupt the tag (last byte)
+  cipher[cipher_len - 1] ^= 0xFF;
+
+  unsigned char decrypted[128];
+  EXPECT_THROW(gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
+                                        cipher_len, key, key_len, iv, iv_len,
+                                        nullptr, 0, decrypted),
+               std::runtime_error);
+}
+
+// Test invalid IV length
+TEST(TestAesGcmEncryptUtils, TestInvalidIvLength) {
+  auto* key = "12345678abcdefgh";
+  auto* iv = "";  // Empty IV
+  auto* to_encrypt = "some test string";
+
+  auto key_len = static_cast<int32_t>(strlen(key));
+  auto iv_len = static_cast<int32_t>(strlen(iv));
+  auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
+  unsigned char cipher[128];
+
+  EXPECT_THROW(gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
+                                        iv, iv_len, nullptr, 0, cipher),
+               std::runtime_error);
+}
+
