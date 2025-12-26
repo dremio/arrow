@@ -23,10 +23,6 @@
 
 namespace gandiva {
 
-// IV length constants for different encryption modes
-constexpr int32_t GCM_IV_LENGTH = 12;  // 12 bytes (96 bits) - recommended for GCM
-constexpr int32_t CBC_IV_LENGTH = 16;  // 16 bytes (128 bits) - required for CBC
-
 /**
  * Generate a cryptographically secure random initialization vector (IV)
  * using OpenSSL's RAND_bytes.

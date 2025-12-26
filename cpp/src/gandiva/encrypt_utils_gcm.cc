@@ -17,6 +17,7 @@
 
 #include "gandiva/encrypt_utils_gcm.h"
 #include "gandiva/encrypt_utils_common.h"
+#include "gandiva/encrypt_utils_iv.h"
 #include <openssl/aes.h>
 #include <openssl/err.h>
 #include <stdexcept>
@@ -51,9 +52,23 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
                         const char* key, int32_t key_len, const char* iv,
                         int32_t iv_len, const char* aad, int32_t aad_len,
                         unsigned char* cipher) {
-  if (iv_len <= 0) {
-    throw std::runtime_error(
-        "Invalid IV length for AES-GCM: IV length must be greater than 0");
+  // Buffer for IV (either user-supplied or auto-generated)
+  unsigned char iv_buffer[GCM_IV_LENGTH];
+  const unsigned char* actual_iv = nullptr;
+
+  // Handle NULL IV: generate random IV
+  if (iv == nullptr || iv_len == 0) {
+    generate_random_iv(iv_buffer, GCM_IV_LENGTH);
+    actual_iv = iv_buffer;
+  } else {
+    // Validate user-supplied IV length - GCM requires exactly 12 bytes
+    if (iv_len != GCM_IV_LENGTH) {
+      std::ostringstream oss;
+      oss << "Invalid IV length for AES-GCM: " << iv_len
+          << " bytes. IV must be exactly " << GCM_IV_LENGTH << " bytes";
+      throw std::runtime_error(oss.str());
+    }
+    actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }
 
   int32_t cipher_len = 0;
@@ -67,16 +82,20 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
   }
 
   try {
+    // Prepend IV to output: [12-byte IV][ciphertext][16-byte tag]
+    std::memcpy(cipher, actual_iv, GCM_IV_LENGTH);
+    cipher_len = GCM_IV_LENGTH;
+
     if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
                             reinterpret_cast<const unsigned char*>(key),
-                            reinterpret_cast<const unsigned char*>(iv))) {
+                            actual_iv)) {
       throw std::runtime_error(
           "Could not initialize EVP cipher context for encryption: " +
           get_openssl_error_string());
     }
 
     // Set IV length for GCM mode
-    if (!EVP_CIPHER_CTX_ctrl(en_ctx, EVP_CTRL_GCM_SET_IVLEN, iv_len, nullptr)) {
+    if (!EVP_CIPHER_CTX_ctrl(en_ctx, EVP_CTRL_GCM_SET_IVLEN, GCM_IV_LENGTH, nullptr)) {
       throw std::runtime_error("Could not set GCM IV length: " +
                                get_openssl_error_string());
     }
@@ -90,8 +109,8 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
       }
     }
 
-    // Encrypt plaintext
-    if (!EVP_EncryptUpdate(en_ctx, cipher, &len,
+    // Encrypt plaintext (write after IV)
+    if (!EVP_EncryptUpdate(en_ctx, cipher + cipher_len, &len,
                            reinterpret_cast<const unsigned char*>(plaintext),
                            plaintext_len)) {
       throw std::runtime_error("Could not update EVP cipher context for encryption: " +
@@ -101,7 +120,7 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
     cipher_len += len;
 
     // Finalize encryption
-    if (!EVP_EncryptFinal_ex(en_ctx, cipher + len, &len)) {
+    if (!EVP_EncryptFinal_ex(en_ctx, cipher + cipher_len, &len)) {
       throw std::runtime_error("Could not finalize EVP cipher context for encryption: " +
                                get_openssl_error_string());
     }
@@ -129,14 +148,44 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
                         const char* key, int32_t key_len, const char* iv,
                         int32_t iv_len, const char* aad, int32_t aad_len,
                         unsigned char* plaintext) {
-  if (iv_len <= 0) {
-    throw std::runtime_error(
-        "Invalid IV length for AES-GCM: IV length must be greater than 0");
-  }
+  // Buffer for extracted IV (if needed)
+  unsigned char iv_buffer[GCM_IV_LENGTH];
+  const unsigned char* actual_iv = nullptr;
+  const char* actual_ciphertext = ciphertext;
+  int32_t actual_ciphertext_with_tag_len = ciphertext_len;
 
-  if (ciphertext_len < GCM_TAG_LENGTH) {
-    throw std::runtime_error(
-        "Ciphertext too short for AES-GCM: must be at least 16 bytes for tag");
+  // Handle NULL IV: extract from beginning of ciphertext
+  if (iv == nullptr || iv_len == 0) {
+    // Validate ciphertext length: must have IV (12) + tag (16) = 28 bytes minimum
+    if (ciphertext_len < GCM_IV_LENGTH + GCM_TAG_LENGTH) {
+      std::ostringstream oss;
+      oss << "Ciphertext too short for AES-GCM with embedded IV: " << ciphertext_len
+          << " bytes. Must be at least " << (GCM_IV_LENGTH + GCM_TAG_LENGTH)
+          << " bytes (12-byte IV + 16-byte tag)";
+      throw std::runtime_error(oss.str());
+    }
+
+    // Extract IV from beginning of ciphertext
+    extract_iv_from_ciphertext(ciphertext, ciphertext_len, GCM_IV_LENGTH,
+                               iv_buffer, &actual_ciphertext,
+                               &actual_ciphertext_with_tag_len);
+    actual_iv = iv_buffer;
+  } else {
+    // Validate user-supplied IV length
+    if (iv_len != GCM_IV_LENGTH) {
+      std::ostringstream oss;
+      oss << "Invalid IV length for AES-GCM: " << iv_len
+          << " bytes. IV must be exactly " << GCM_IV_LENGTH << " bytes";
+      throw std::runtime_error(oss.str());
+    }
+
+    // Validate ciphertext length for user-supplied IV case
+    if (ciphertext_len < GCM_TAG_LENGTH) {
+      throw std::runtime_error(
+          "Ciphertext too short for AES-GCM: must be at least 16 bytes for tag");
+    }
+
+    actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }
 
   int32_t plaintext_len = 0;
@@ -152,14 +201,14 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
   try {
     if (!EVP_DecryptInit_ex(de_ctx, cipher_algo, nullptr,
                             reinterpret_cast<const unsigned char*>(key),
-                            reinterpret_cast<const unsigned char*>(iv))) {
+                            actual_iv)) {
       throw std::runtime_error(
           "Could not initialize EVP cipher context for decryption: " +
           get_openssl_error_string());
     }
 
     // Set IV length for GCM mode
-    if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_IVLEN, iv_len, nullptr)) {
+    if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_IVLEN, GCM_IV_LENGTH, nullptr)) {
       throw std::runtime_error("Could not set GCM IV length: " +
                                get_openssl_error_string());
     }
@@ -173,10 +222,10 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
       }
     }
 
-    // Extract tag from end of ciphertext
-    int32_t actual_ciphertext_len = ciphertext_len - GCM_TAG_LENGTH;
+    // Extract tag from end of actual ciphertext (after IV if it was embedded)
+    int32_t ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
     const unsigned char* tag =
-        reinterpret_cast<const unsigned char*>(ciphertext + actual_ciphertext_len);
+        reinterpret_cast<const unsigned char*>(actual_ciphertext + ciphertext_without_tag_len);
 
     // Set the authentication tag
     if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LENGTH,
@@ -187,8 +236,8 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
 
     // Decrypt ciphertext
     if (!EVP_DecryptUpdate(de_ctx, plaintext, &len,
-                           reinterpret_cast<const unsigned char*>(ciphertext),
-                           actual_ciphertext_len)) {
+                           reinterpret_cast<const unsigned char*>(actual_ciphertext),
+                           ciphertext_without_tag_len)) {
       throw std::runtime_error("Could not update EVP cipher context for decryption: " +
                                get_openssl_error_string());
     }

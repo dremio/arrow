@@ -16,6 +16,8 @@
 // under the License.
 
 #include "gandiva/encrypt_utils_iv.h"
+#include "gandiva/encrypt_utils_gcm.h"
+#include "gandiva/encrypt_utils_cbc.h"
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
