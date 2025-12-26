@@ -46,6 +46,26 @@ const EVP_CIPHER* get_cbc_cipher_algo(int32_t key_length) {
   }
 }
 
+void validate_iv_length_cbc(int32_t iv_len) {
+  if (iv_len != CBC_IV_LENGTH) {
+    std::ostringstream oss;
+    oss << "Invalid IV length for AES-CBC: " << iv_len
+        << " bytes. IV must be exactly " << CBC_IV_LENGTH << " bytes";
+    throw std::runtime_error(oss.str());
+  }
+}
+
+void validate_ciphertext_with_embedded_iv_cbc(int32_t ciphertext_len) {
+  constexpr int32_t MIN_CIPHERTEXT_LEN = CBC_IV_LENGTH + 16;  // IV + minimum one block
+  if (ciphertext_len < MIN_CIPHERTEXT_LEN) {
+    std::ostringstream oss;
+    oss << "Ciphertext too short for AES-CBC with embedded IV: " << ciphertext_len
+        << " bytes. Must be at least " << MIN_CIPHERTEXT_LEN
+        << " bytes (16-byte IV + minimum 16-byte block)";
+    throw std::runtime_error(oss.str());
+  }
+}
+
 }  // namespace
 
 GANDIVA_EXPORT
@@ -133,30 +153,17 @@ int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const ch
   const char* actual_ciphertext = ciphertext;
   int32_t actual_ciphertext_len = ciphertext_len;
 
-  // Handle NULL IV: extract from beginning of ciphertext
-  if (iv == nullptr || iv_len == 0) {
-    // Validate ciphertext length: must have IV (16) + at least one block (16) = 32 bytes minimum
-    if (ciphertext_len < CBC_IV_LENGTH + 16) {
-      std::ostringstream oss;
-      oss << "Ciphertext too short for AES-CBC with embedded IV: " << ciphertext_len
-          << " bytes. Must be at least " << (CBC_IV_LENGTH + 16)
-          << " bytes (16-byte IV + minimum 16-byte block)";
-      throw std::runtime_error(oss.str());
-    }
-
-    // Extract IV from beginning of ciphertext
+  // Handle IV: either extract from ciphertext or use user-supplied IV
+  if (iv == nullptr) {
+    // Extract IV from beginning of ciphertext: [16-byte IV][ciphertext]
+    validate_ciphertext_with_embedded_iv_cbc(ciphertext_len);
     extract_iv_from_ciphertext(ciphertext, ciphertext_len, CBC_IV_LENGTH,
                                iv_buffer, &actual_ciphertext,
                                &actual_ciphertext_len);
     actual_iv = iv_buffer;
   } else {
-    // Validate user-supplied IV length
-    if (iv_len != CBC_IV_LENGTH) {
-      std::ostringstream oss;
-      oss << "Invalid IV length for AES-CBC: " << iv_len
-          << " bytes. IV must be exactly " << CBC_IV_LENGTH << " bytes";
-      throw std::runtime_error(oss.str());
-    }
+    // Use user-supplied IV
+    validate_iv_length_cbc(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }
 

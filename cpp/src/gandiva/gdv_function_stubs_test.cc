@@ -1529,9 +1529,10 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmIvOnly) {
       mode_len, iv.c_str(), iv_len, nullptr, 0, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
       ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, nullptr, 0, &decrypted_len);
+      mode_len, nullptr, 0, nullptr, 0, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1559,9 +1560,10 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
       mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
       ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &decrypted_len);
+      mode_len, nullptr, 0, aad.c_str(), aad_len, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1642,9 +1644,10 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandCbc) {
       mode_len, iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
       ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      mode_len, nullptr, 0, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1671,9 +1674,10 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitCbcPkcs7) {
       mode_len, iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
       ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      mode_len, nullptr, 0, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1701,9 +1705,10 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptCbcNone) {
       mode_len, iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
       ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      mode_len, nullptr, 0, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),

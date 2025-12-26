@@ -45,6 +45,33 @@ const EVP_CIPHER* get_gcm_cipher_algo(int32_t key_length) {
   }
 }
 
+void validate_iv_length_gcm(int32_t iv_len) {
+  if (iv_len != GCM_IV_LENGTH) {
+    std::ostringstream oss;
+    oss << "Invalid IV length for AES-GCM: " << iv_len
+        << " bytes. IV must be exactly " << GCM_IV_LENGTH << " bytes";
+    throw std::runtime_error(oss.str());
+  }
+}
+
+void validate_ciphertext_with_embedded_iv_gcm(int32_t ciphertext_len) {
+  constexpr int32_t MIN_CIPHERTEXT_LEN = GCM_IV_LENGTH + GCM_TAG_LENGTH;  // IV + tag
+  if (ciphertext_len < MIN_CIPHERTEXT_LEN) {
+    std::ostringstream oss;
+    oss << "Ciphertext too short for AES-GCM with embedded IV: " << ciphertext_len
+        << " bytes. Must be at least " << MIN_CIPHERTEXT_LEN
+        << " bytes (12-byte IV + 16-byte tag)";
+    throw std::runtime_error(oss.str());
+  }
+}
+
+void validate_ciphertext_with_tag(int32_t ciphertext_len) {
+  if (ciphertext_len < GCM_TAG_LENGTH) {
+    throw std::runtime_error(
+        "Ciphertext too short for AES-GCM: must be at least 16 bytes for tag");
+  }
+}
+
 }  // namespace
 
 GANDIVA_EXPORT
@@ -56,18 +83,14 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
   unsigned char iv_buffer[GCM_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
 
-  // Handle NULL IV: generate random IV
+  // Handle IV: either generate random IV or use user-supplied IV
   if (iv == nullptr || iv_len == 0) {
+    // Generate random IV
     generate_random_iv(iv_buffer, GCM_IV_LENGTH);
     actual_iv = iv_buffer;
   } else {
-    // Validate user-supplied IV length - GCM requires exactly 12 bytes
-    if (iv_len != GCM_IV_LENGTH) {
-      std::ostringstream oss;
-      oss << "Invalid IV length for AES-GCM: " << iv_len
-          << " bytes. IV must be exactly " << GCM_IV_LENGTH << " bytes";
-      throw std::runtime_error(oss.str());
-    }
+    // Use user-supplied IV
+    validate_iv_length_gcm(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }
 
@@ -154,37 +177,18 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
   const char* actual_ciphertext = ciphertext;
   int32_t actual_ciphertext_with_tag_len = ciphertext_len;
 
-  // Handle NULL IV: extract from beginning of ciphertext
-  if (iv == nullptr || iv_len == 0) {
-    // Validate ciphertext length: must have IV (12) + tag (16) = 28 bytes minimum
-    if (ciphertext_len < GCM_IV_LENGTH + GCM_TAG_LENGTH) {
-      std::ostringstream oss;
-      oss << "Ciphertext too short for AES-GCM with embedded IV: " << ciphertext_len
-          << " bytes. Must be at least " << (GCM_IV_LENGTH + GCM_TAG_LENGTH)
-          << " bytes (12-byte IV + 16-byte tag)";
-      throw std::runtime_error(oss.str());
-    }
-
-    // Extract IV from beginning of ciphertext
+  // Handle IV: either extract from ciphertext or use user-supplied IV
+  if (iv == nullptr) {
+    // Extract IV from beginning of ciphertext: [12-byte IV][ciphertext][16-byte tag]
+    validate_ciphertext_with_embedded_iv_gcm(ciphertext_len);
     extract_iv_from_ciphertext(ciphertext, ciphertext_len, GCM_IV_LENGTH,
                                iv_buffer, &actual_ciphertext,
                                &actual_ciphertext_with_tag_len);
     actual_iv = iv_buffer;
   } else {
-    // Validate user-supplied IV length
-    if (iv_len != GCM_IV_LENGTH) {
-      std::ostringstream oss;
-      oss << "Invalid IV length for AES-GCM: " << iv_len
-          << " bytes. IV must be exactly " << GCM_IV_LENGTH << " bytes";
-      throw std::runtime_error(oss.str());
-    }
-
-    // Validate ciphertext length for user-supplied IV case
-    if (ciphertext_len < GCM_TAG_LENGTH) {
-      throw std::runtime_error(
-          "Ciphertext too short for AES-GCM: must be at least 16 bytes for tag");
-    }
-
+    // Use user-supplied IV
+    validate_iv_length_gcm(iv_len);
+    validate_ciphertext_with_tag(ciphertext_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }
 

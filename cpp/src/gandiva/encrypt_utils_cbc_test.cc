@@ -43,8 +43,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_16) {
   EXPECT_EQ(0, std::memcmp(cipher, iv, 16));
 
   unsigned char decrypted[128];
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   cipher_len, key, key_len, nullptr, 0,
                                                    true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -72,8 +73,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_24) {
   EXPECT_EQ(0, std::memcmp(cipher, iv, 16));
 
   unsigned char decrypted[128];
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   cipher_len, key, key_len, nullptr, 0,
                                                    true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -101,8 +103,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_32) {
   EXPECT_EQ(0, std::memcmp(cipher, iv, 16));
 
   unsigned char decrypted[128];
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   cipher_len, key, key_len, nullptr, 0,
                                                    true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -131,8 +134,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptNoPadding_16) {
   EXPECT_EQ(0, std::memcmp(cipher, iv, 16));
 
   unsigned char decrypted[128];
+  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
   int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
+                                                   cipher_len, key, key_len, nullptr, 0,
                                                    false, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
