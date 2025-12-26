@@ -866,11 +866,15 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
     int32_t fifth_argument_len, int32_t* out_len) {
   try {
-    // Allocate extra 16 bytes for AES block padding (PKCS7 padding can add
-    // up to 16 bytes for a 128-bit block cipher)
-    // In cases of no-padding modes, this extra space is not used
+    // Calculate buffer size based on mode:
+    // - ECB: data_len + 16 (padding only, no IV)
+    // - CBC: data_len + 16 (IV) + 16 (padding) = data_len + 32
+    // - GCM: data_len + 12 (IV) + 16 (tag) = data_len + 28
+    // Use maximum to handle all modes safely
+    int32_t buffer_size = data_len + 32;
+
     auto* output = reinterpret_cast<unsigned char*>(
-        gdv_fn_context_arena_malloc(context, data_len + 16));
+        gdv_fn_context_arena_malloc(context, buffer_size));
     if (output == nullptr) {
       throw std::runtime_error(
           "Memory allocation failed for encryption output");
@@ -896,6 +900,10 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
     int32_t fifth_argument_len, int32_t* out_len) {
   try {
+    // Buffer size for decryption output is data_len:
+    // - Input may contain IV + ciphertext + tag/padding
+    // - Output is plaintext only (IV and tag/padding are removed)
+    // - Plaintext is always <= input size, so data_len is sufficient
     auto* output = reinterpret_cast<unsigned char*>(
         gdv_fn_context_arena_malloc(context, data_len));
     if (output == nullptr) {
