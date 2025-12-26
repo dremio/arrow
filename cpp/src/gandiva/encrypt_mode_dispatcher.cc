@@ -61,27 +61,34 @@ int32_t EncryptModeDispatcher::encrypt(
     int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
     int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
     unsigned char* cipher) {
+  // Convert mode string to uppercase for case-insensitive comparison
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
+      // ECB mode: No IV used, output is [ciphertext]
       // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, true, cipher);
     case EncryptionMode::ECB_NONE:
-      // ECB without padding
+      // ECB mode without padding
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, false, cipher);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
-      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
+      // CBC mode: IV is prepended to output, format is [16-byte IV][ciphertext]
+      // If iv is NULL, a random IV is auto-generated
+      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7 padding
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, true, cipher);
     case EncryptionMode::CBC_NONE:
-      // CBC without padding
+      // CBC mode without padding
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, false, cipher);
     case EncryptionMode::GCM:
+      // GCM mode: IV is prepended to output, format is [12-byte IV][ciphertext][16-byte tag]
+      // If iv is NULL, a random IV is auto-generated
+      // fifth_argument is AAD (Additional Authenticated Data)
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, cipher);
     case EncryptionMode::UNKNOWN:
@@ -100,27 +107,36 @@ int32_t EncryptModeDispatcher::decrypt(
     int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
     int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
     unsigned char* plaintext) {
+  // Convert mode string to uppercase for case-insensitive comparison
   std::string mode_str =
       arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
+      // ECB mode: No IV used, input is [ciphertext]
       // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
       return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, true, plaintext);
     case EncryptionMode::ECB_NONE:
-      // ECB without padding
+      // ECB mode without padding
       return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, false, plaintext);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
-      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
+      // CBC mode: If iv is NULL, IV is extracted from first 16 bytes of ciphertext
+      // Expected format with NULL IV: [16-byte IV][ciphertext]
+      // Expected format with provided IV: [ciphertext]
+      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7 padding
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, true, plaintext);
     case EncryptionMode::CBC_NONE:
-      // CBC without padding
+      // CBC mode without padding
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, false, plaintext);
     case EncryptionMode::GCM:
+      // GCM mode: If iv is NULL, IV is extracted from first 12 bytes of ciphertext
+      // Expected format with NULL IV: [12-byte IV][ciphertext][16-byte tag]
+      // Expected format with provided IV: [ciphertext][16-byte tag]
+      // fifth_argument is AAD (Additional Authenticated Data)
       return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
     case EncryptionMode::UNKNOWN:
