@@ -1443,8 +1443,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_cast_intervalday_utf8_int32",
-      types->i64_type() /*return_type*/, args,
+      "gdv_fn_cast_intervalday_utf8_int32", types->i64_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalday_utf8_int32));
 
   // gdv_fn_cast_intervalyear_utf8
@@ -1460,21 +1459,6 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_cast_intervalyear_utf8",
                                   types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8));
-
-#define ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(                  \
-    LLVM_TYPE, DATA_TYPE)                                                      \
-  args = {types->i64_type(), types->i8_ptr_type(), types->i32_ptr_type(),     \
-          types->i64_type(), types->LLVM_TYPE##_ptr_type(),                   \
-          types->i32_type(), types->i32_ptr_type()};                           \
-  engine->AddGlobalMappingForFunc(                                             \
-      "gdv_fn_populate_list_" #DATA_TYPE "_vector",                           \
-      types->i32_type() /*return_type*/, args,                                 \
-      reinterpret_cast<void*>(gdv_fn_populate_list_##DATA_TYPE##_vector));
-
-  ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i32, int32_t)
-  ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(i64, int64_t)
-  ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(float, float)
-  ADD_MAPPING_FOR_NUMERIC_LIST_TYPE_POPULATE_FUNCTION(double, double)
 
   // gdv_fn_cast_intervalyear_utf8_int32
   args = {
