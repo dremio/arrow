@@ -1715,4 +1715,126 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptCbcNone) {
                         decrypted_len));
 }
 
+// Test that ENCRYPT(plaintext, key, 'AES-GCM', NULL) works (NULL IV should auto-generate)
+TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIv4Args) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_GCM_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test 4-arg version with NULL IV (should auto-generate IV)
+  const char* cipher = gdv_fn_encrypt_dispatcher_4args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+  EXPECT_TRUE(cipher != nullptr);
+
+  // Decrypt with NULL IV (should extract from ciphertext)
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Test that ENCRYPT(plaintext, key, 'AES-GCM', NULL, NULL) works (NULL IV and NULL AAD)
+TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIvAndNullAad) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_GCM_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test 5-arg version with NULL IV and NULL AAD
+  const char* cipher = gdv_fn_encrypt_dispatcher_5args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, nullptr, 0, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+  EXPECT_TRUE(cipher != nullptr);
+
+  // Decrypt with NULL IV and NULL AAD
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, nullptr, 0, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Test that ENCRYPT(plaintext, key, 'AES-CBC', NULL) works (NULL IV should auto-generate)
+TEST(TestGdvFnStubs, TestAesEncryptCbcWithNullIv4Args) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_CBC_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test 4-arg version with NULL IV (should auto-generate IV)
+  const char* cipher = gdv_fn_encrypt_dispatcher_4args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+  EXPECT_TRUE(cipher != nullptr);
+
+  // Decrypt with NULL IV (should extract from ciphertext)
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
+// Test that ENCRYPT(plaintext, key, 'AES-GCM', NULL, aad) works (NULL IV with non-NULL AAD)
+TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIvButWithAad) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_GCM_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  std::string aad = "additional authenticated data";
+  auto aad_len = static_cast<int32_t>(aad.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Test 5-arg version with NULL IV but non-NULL AAD
+  const char* cipher = gdv_fn_encrypt_dispatcher_5args(
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, aad.c_str(), aad_len, &cipher_len);
+  EXPECT_GT(cipher_len, 0);
+  EXPECT_TRUE(cipher != nullptr);
+
+  // Decrypt with NULL IV and same AAD
+  const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
+      mode_len, nullptr, 0, aad.c_str(), aad_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value),
+                        decrypted_len));
+}
+
 }  // namespace gandiva
