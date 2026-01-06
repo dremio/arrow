@@ -823,40 +823,40 @@ extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_3args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
-    int32_t* out_len) {
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_encrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
-      0, nullptr, 0, out_len);
+      0, nullptr, 0, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_3args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
-    int32_t* out_len) {
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_decrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
-      0, nullptr, 0, out_len);
+      0, nullptr, 0, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_4args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+    const char* iv_data, int32_t iv_data_len, bool* out_valid, int32_t* out_len) {
   return gdv_fn_encrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-      iv_data_len, nullptr, 0, out_len);
+      iv_data_len, nullptr, 0, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_4args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+    const char* iv_data, int32_t iv_data_len, bool* out_valid, int32_t* out_len) {
   return gdv_fn_decrypt_dispatcher_5args(
       context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-      iv_data_len, nullptr, 0, out_len);
+      iv_data_len, nullptr, 0, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
@@ -864,7 +864,23 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
-    int32_t fifth_argument_len, int32_t* out_len) {
+    int32_t fifth_argument_len, bool* out_valid, int32_t* out_len) {
+  // We use kResultNullInternal to handle NULL inputs selectively:
+  // - NULL plaintext → return NULL (set out_valid = false)
+  // - NULL key → call function, it will throw validation error
+  // - NULL mode → call function, it will throw validation error
+  // - NULL IV → call function, auto-generates IV
+  // - NULL AAD → call function, no AAD used
+
+  // Check if plaintext is NULL - this is the only case where we return NULL
+  if (data == nullptr) {
+    *out_valid = false;
+    *out_len = 0;
+    return nullptr;
+  }
+
+  *out_valid = true;
+
   try {
     // Calculate buffer size based on mode:
     // - ECB: data_len + 16 (padding only, no IV)
@@ -898,7 +914,23 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     int64_t context, const char* data, int32_t data_len, const char* key_data,
     int32_t key_data_len, const char* mode, int32_t mode_len,
     const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
-    int32_t fifth_argument_len, int32_t* out_len) {
+    int32_t fifth_argument_len, bool* out_valid, int32_t* out_len) {
+  // We use kResultNullInternal to handle NULL inputs selectively:
+  // - NULL ciphertext → return NULL (set out_valid = false)
+  // - NULL key → call function, it will throw validation error
+  // - NULL mode → call function, it will throw validation error
+  // - NULL IV → call function, auto-extracts IV from ciphertext
+  // - NULL AAD → call function, no AAD used
+
+  // Check if ciphertext is NULL - this is the only case where we return NULL
+  if (data == nullptr) {
+    *out_valid = false;
+    *out_len = 0;
+    return nullptr;
+  }
+
+  *out_valid = true;
+
   try {
     // Buffer size for decryption output is data_len:
     // - Input may contain IV + ciphertext + tag/padding
@@ -1168,6 +1200,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // key_data_length
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1185,6 +1218,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // key_data_length
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 

@@ -505,16 +505,18 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // Parameters: data, key, mode (e.g. ECB mode)
+      // Uses kResultNullInternal to allow NULL data while failing on NULL key/mode
       NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
-                     kResultNullIfNull, "gdv_fn_encrypt_dispatcher_3args",
+                     kResultNullInternal, "gdv_fn_encrypt_dispatcher_3args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
-                     kResultNullIfNull, "gdv_fn_decrypt_dispatcher_3args",
+                     kResultNullInternal, "gdv_fn_decrypt_dispatcher_3args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // Parameters: data, key, mode, iv (e.g. CBC mode)
       // Note: IV can be NULL for CBC/GCM modes (auto-generates random IV)
+      // Uses kResultNullInternal to allow NULL IV while failing on NULL key/mode
       NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()}, binary(),
                      kResultNullInternal, "gdv_fn_encrypt_dispatcher_4args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
@@ -525,6 +527,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       // Parameters: data, key, mode, iv, fifth_argument (e.g. GCM mode)
       // Note: IV and AAD can be NULL (auto-generates random IV, no AAD)
+      // Uses kResultNullInternal to allow NULL IV/AAD while failing on NULL key/mode
       NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary(), binary()}, binary(),
                      kResultNullInternal, "gdv_fn_encrypt_dispatcher_5args",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
