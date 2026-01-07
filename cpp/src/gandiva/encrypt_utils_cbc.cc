@@ -75,11 +75,13 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
   // Buffer for IV (either user-supplied or auto-generated)
   unsigned char iv_buffer[CBC_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
+  bool iv_auto_generated = false;
 
   // Handle NULL IV: generate random IV
   if (iv == nullptr || iv_len == 0) {
     generate_random_iv(iv_buffer, CBC_IV_LENGTH);
     actual_iv = iv_buffer;
+    iv_auto_generated = true;
   } else {
     // Validate user-supplied IV length - CBC requires exactly 16 bytes
     if (iv_len != CBC_IV_LENGTH) {
@@ -89,6 +91,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
       throw std::runtime_error(oss.str());
     }
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
+    iv_auto_generated = false;
   }
 
   int32_t cipher_len = 0;
@@ -101,9 +104,13 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
                              get_openssl_error_string());
   }
 
-  // Prepend IV to output: [16-byte IV][ciphertext]
-  std::memcpy(cipher, actual_iv, CBC_IV_LENGTH);
-  cipher_len = CBC_IV_LENGTH;
+  // Only prepend IV to output if it was auto-generated
+  // Auto-generated IV: [16-byte IV][ciphertext]
+  // User-supplied IV: [ciphertext]
+  if (iv_auto_generated) {
+    std::memcpy(cipher, actual_iv, CBC_IV_LENGTH);
+    cipher_len = CBC_IV_LENGTH;
+  }
 
   if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
                           reinterpret_cast<const unsigned char*>(key),

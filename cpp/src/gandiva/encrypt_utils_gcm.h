@@ -35,13 +35,14 @@ constexpr int32_t GCM_TAG_LENGTH = 16;
 /**
  * Encrypt data using AES-GCM algorithm
  *
- * Output format: [12-byte IV][ciphertext][16-byte authentication tag]
- * The IV is always prepended to the output.
+ * Output format:
+ * - With NULL IV (auto-generated): [12-byte IV][ciphertext][16-byte authentication tag]
+ * - With user-supplied IV: [ciphertext][16-byte authentication tag]
  *
  * IV Handling:
  * - If iv is NULL or iv_len is 0: A cryptographically secure random 12-byte IV
- *   is automatically generated using OpenSSL RAND_bytes
- * - If iv is provided: It must be exactly 12 bytes, and will be used as-is
+ *   is automatically generated using OpenSSL RAND_bytes and prepended to output
+ * - If iv is provided: It must be exactly 12 bytes, will be used as-is, and NOT prepended
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes

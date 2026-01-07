@@ -76,8 +76,9 @@ int32_t EncryptModeDispatcher::encrypt(
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, false, cipher);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
-      // CBC mode: IV is prepended to output, format is [16-byte IV][ciphertext]
-      // If iv is NULL, a random IV is auto-generated
+      // CBC mode: If iv is NULL, a random IV is auto-generated and prepended to output
+      // Auto-generated IV format: [16-byte IV][ciphertext]
+      // User-supplied IV format: [ciphertext]
       // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7 padding
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, true, cipher);
@@ -86,8 +87,9 @@ int32_t EncryptModeDispatcher::encrypt(
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, false, cipher);
     case EncryptionMode::GCM:
-      // GCM mode: IV is prepended to output, format is [12-byte IV][ciphertext][16-byte tag]
-      // If iv is NULL, a random IV is auto-generated
+      // GCM mode: If iv is NULL, a random IV is auto-generated and prepended to output
+      // Auto-generated IV format: [12-byte IV][ciphertext][16-byte tag]
+      // User-supplied IV format: [ciphertext][16-byte tag]
       // fifth_argument is AAD (Additional Authenticated Data)
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, cipher);

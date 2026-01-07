@@ -34,13 +34,14 @@ constexpr int32_t CBC_IV_LENGTH = 16;  // 16 bytes (128 bits) - required for CBC
 /**
  * Encrypt data using AES-CBC algorithm with explicit padding mode
  *
- * Output format: [16-byte IV][ciphertext]
- * The IV is always prepended to the output.
+ * Output format:
+ * - With NULL IV (auto-generated): [16-byte IV][ciphertext]
+ * - With user-supplied IV: [ciphertext]
  *
  * IV Handling:
  * - If iv is NULL or iv_len is 0: A cryptographically secure random 16-byte IV
- *   is automatically generated using OpenSSL RAND_bytes
- * - If iv is provided: It must be exactly 16 bytes, and will be used as-is
+ *   is automatically generated using OpenSSL RAND_bytes and prepended to output
+ * - If iv is provided: It must be exactly 16 bytes, will be used as-is, and NOT prepended
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes

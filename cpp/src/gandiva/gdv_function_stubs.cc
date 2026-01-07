@@ -778,12 +778,13 @@ const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
+  bool out_valid = true;
   const char* result = gdv_fn_encrypt_dispatcher_3args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+      context, data, data_len, key_data, key_data_len, mode, mode_len, &out_valid, out_len);
 
   // Add null terminator for string compatibility
   // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
+  if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
   }
@@ -805,12 +806,13 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
+  bool out_valid = true;
   const char* result = gdv_fn_decrypt_dispatcher_3args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+      context, data, data_len, key_data, key_data_len, mode, mode_len, &out_valid, out_len);
 
   // Add null terminator for string compatibility
   // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
+  if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
   }
@@ -1238,6 +1240,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // mode_length
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1257,6 +1260,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // mode_length
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1279,6 +1283,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // iv_length
       types->i8_ptr_type(),  // fifth_argument (binary string)
       types->i32_type(),     // fifth_argument_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1301,6 +1306,7 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),     // iv_length
       types->i8_ptr_type(),  // fifth_argument (binary string)
       types->i32_type(),     // fifth_argument_length
+      types->i32_ptr_type(), // out_valid
       types->i32_ptr_type()  // out_length
   };
 

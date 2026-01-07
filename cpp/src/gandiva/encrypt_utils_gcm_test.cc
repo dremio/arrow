@@ -35,16 +35,16 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_16) {
   int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
                                                 iv, iv_len, nullptr, 0, cipher);
 
-  // Output format: [12-byte IV][ciphertext][16-byte tag]
-  EXPECT_EQ(cipher_len, to_encrypt_len + 12 + 16);
+  // Output format with user-supplied IV: [ciphertext][16-byte tag] (IV NOT prepended)
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
-  // Verify IV is prepended
-  EXPECT_EQ(0, std::memcmp(cipher, iv, 12));
+  // Verify IV is NOT prepended (ciphertext should not match IV)
+  EXPECT_NE(0, std::memcmp(cipher, iv, 12));
 
   unsigned char decrypted[128];
-  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
+  // Pass the same IV to decrypt (since encrypt did NOT prepend it)
   int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, nullptr, 0,
+                                                   cipher_len, key, key_len, iv, iv_len,
                                                    nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -67,16 +67,16 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptWithAad_16) {
   int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
                                                 iv, iv_len, aad, aad_len, cipher);
 
-  // Output format: [12-byte IV][ciphertext][16-byte tag]
-  EXPECT_EQ(cipher_len, to_encrypt_len + 12 + 16);
+  // Output format with user-supplied IV: [ciphertext][16-byte tag] (IV NOT prepended)
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
-  // Verify IV is prepended
-  EXPECT_EQ(0, std::memcmp(cipher, iv, 12));
+  // Verify IV is NOT prepended
+  EXPECT_NE(0, std::memcmp(cipher, iv, 12));
 
   unsigned char decrypted[128];
-  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
+  // Pass the same IV to decrypt (since encrypt did NOT prepend it)
   int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, nullptr, 0,
+                                                   cipher_len, key, key_len, iv, iv_len,
                                                    aad, aad_len, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -97,16 +97,16 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_24) {
   int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
                                                 iv, iv_len, nullptr, 0, cipher);
 
-  // Output format: [12-byte IV][ciphertext][16-byte tag]
-  EXPECT_EQ(cipher_len, to_encrypt_len + 12 + 16);
+  // Output format with user-supplied IV: [ciphertext][16-byte tag] (IV NOT prepended)
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
-  // Verify IV is prepended
-  EXPECT_EQ(0, std::memcmp(cipher, iv, 12));
+  // Verify IV is NOT prepended
+  EXPECT_NE(0, std::memcmp(cipher, iv, 12));
 
   unsigned char decrypted[128];
-  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
+  // Pass the same IV to decrypt (since encrypt did NOT prepend it)
   int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, nullptr, 0,
+                                                   cipher_len, key, key_len, iv, iv_len,
                                                    nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -127,16 +127,16 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_32) {
   int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
                                                 iv, iv_len, nullptr, 0, cipher);
 
-  // Output format: [12-byte IV][ciphertext][16-byte tag]
-  EXPECT_EQ(cipher_len, to_encrypt_len + 12 + 16);
+  // Output format with user-supplied IV: [ciphertext][16-byte tag] (IV NOT prepended)
+  EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
-  // Verify IV is prepended
-  EXPECT_EQ(0, std::memcmp(cipher, iv, 12));
+  // Verify IV is NOT prepended
+  EXPECT_NE(0, std::memcmp(cipher, iv, 12));
 
   unsigned char decrypted[128];
-  // Pass NULL IV to extract from ciphertext (since encrypt prepended it)
+  // Pass the same IV to decrypt (since encrypt did NOT prepend it)
   int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, nullptr, 0,
+                                                   cipher_len, key, key_len, iv, iv_len,
                                                    nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
@@ -237,8 +237,8 @@ TEST(TestAesGcmEncryptUtils, TestNullIvWithAad) {
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
 }
 
-// Test NULL IV decrypt with user-supplied IV encrypt (backward compatibility)
-TEST(TestAesGcmEncryptUtils, TestNullIvDecryptWithSuppliedIvEncrypt) {
+// Test that user-supplied IV encrypt requires same IV for decrypt
+TEST(TestAesGcmEncryptUtils, TestSuppliedIvEncryptRequiresSameIvDecrypt) {
   auto* key = "12345678abcdefgh";
   auto* iv = "123456789012";
   auto* to_encrypt = "some test string";
@@ -248,14 +248,14 @@ TEST(TestAesGcmEncryptUtils, TestNullIvDecryptWithSuppliedIvEncrypt) {
   auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
   unsigned char cipher[128];
 
-  // Encrypt with user-supplied IV (IV will be prepended)
+  // Encrypt with user-supplied IV (IV will NOT be prepended)
   int32_t cipher_len = gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
                                                 iv, iv_len, nullptr, 0, cipher);
 
-  // Decrypt with NULL IV (extract IV from ciphertext)
+  // Decrypt with the same IV (required since IV was not prepended)
   unsigned char decrypted[128];
   int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, nullptr, 0,
+                                                   cipher_len, key, key_len, iv, iv_len,
                                                    nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),

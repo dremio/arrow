@@ -82,16 +82,19 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
   // Buffer for IV (either user-supplied or auto-generated)
   unsigned char iv_buffer[GCM_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
+  bool iv_auto_generated = false;
 
   // Handle IV: either generate random IV or use user-supplied IV
   if (iv == nullptr || iv_len == 0) {
     // Generate random IV
     generate_random_iv(iv_buffer, GCM_IV_LENGTH);
     actual_iv = iv_buffer;
+    iv_auto_generated = true;
   } else {
     // Use user-supplied IV
     validate_iv_length_gcm(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
+    iv_auto_generated = false;
   }
 
   int32_t cipher_len = 0;
@@ -105,9 +108,13 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
   }
 
   try {
-    // Prepend IV to output: [12-byte IV][ciphertext][16-byte tag]
-    std::memcpy(cipher, actual_iv, GCM_IV_LENGTH);
-    cipher_len = GCM_IV_LENGTH;
+    // Only prepend IV to output if it was auto-generated
+    // Auto-generated IV: [12-byte IV][ciphertext][16-byte tag]
+    // User-supplied IV: [ciphertext][16-byte tag]
+    if (iv_auto_generated) {
+      std::memcpy(cipher, actual_iv, GCM_IV_LENGTH);
+      cipher_len = GCM_IV_LENGTH;
+    }
 
     if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
                             reinterpret_cast<const unsigned char*>(key),

@@ -38,14 +38,16 @@ class EncryptModeDispatcher {
    *
    * Output format:
    * - ECB: [ciphertext]
-   * - CBC: [16-byte IV][ciphertext]
-   * - GCM: [12-byte IV][ciphertext][16-byte authentication tag]
+   * - CBC with auto-generated IV: [16-byte IV][ciphertext]
+   * - CBC with user-supplied IV: [ciphertext]
+   * - GCM with auto-generated IV: [12-byte IV][ciphertext][16-byte authentication tag]
+   * - GCM with user-supplied IV: [ciphertext][16-byte authentication tag]
    *
    * IV Handling (CBC and GCM modes):
    * - If iv is NULL or iv_len is 0: A cryptographically secure random IV is
    *   automatically generated and prepended to the output
    * - If iv is provided: It must be the exact required length (12 for GCM, 16 for CBC),
-   *   and will be prepended to the output
+   *   and will NOT be prepended to the output (only ciphertext is returned)
    *
    * @param plaintext The data to encrypt
    * @param plaintext_len Length of plaintext in bytes
@@ -58,7 +60,7 @@ class EncryptModeDispatcher {
    * @param fifth_argument Additional parameter (AAD for GCM mode, ignored for others)
    * @param fifth_argument_len Length of fifth_argument in bytes
    * @param cipher Output buffer for encrypted data (must be large enough for output format)
-   * @return Length of encrypted data in bytes (includes prepended IV for CBC/GCM)
+   * @return Length of encrypted data in bytes (includes prepended IV only if auto-generated)
    * @throws std::runtime_error on encryption failure, unsupported mode, or invalid parameters
    */
   static int32_t encrypt(const char* plaintext, int32_t plaintext_len,
