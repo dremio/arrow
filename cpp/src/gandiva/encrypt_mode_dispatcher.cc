@@ -41,12 +41,13 @@ enum class EncryptionMode {
   CBC_PKCS7,
   CBC_NONE,
   GCM,
+  NULL_VALUE,
   UNKNOWN
 };
 
 EncryptionMode ParseEncryptionMode(const char* mode, int32_t mode_len, bool mode_validity) {
   if (!mode_validity) {
-    return EncryptionMode::UNKNOWN;
+    return EncryptionMode::NULL_VALUE;
   }
 
   // Convert mode string to uppercase for case-insensitive comparison
@@ -99,6 +100,8 @@ int32_t EncryptModeDispatcher::encrypt(
     case EncryptionMode::GCM:
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, cipher);
+    case EncryptionMode::NULL_VALUE:
+      throw std::runtime_error(BuildUnsupportedModeError("encryption", "NULL", 4));
     case EncryptionMode::UNKNOWN:
     default:
       throw std::runtime_error(BuildUnsupportedModeError("encryption", mode, mode_len));
@@ -136,6 +139,9 @@ int32_t EncryptModeDispatcher::decrypt(
                              iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
     case EncryptionMode::UNKNOWN:
     default:
+      if (!mode_validity) {
+        throw std::runtime_error(BuildUnsupportedModeError("decryption", "NULL", 4));
+      }
       throw std::runtime_error(BuildUnsupportedModeError("decryption", mode, mode_len));
   }
 }

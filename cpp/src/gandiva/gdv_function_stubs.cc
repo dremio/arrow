@@ -918,6 +918,7 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     return reinterpret_cast<const char*>(output);
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_valid = false;
     *out_len = 0;
     return nullptr;
   }
@@ -961,6 +962,7 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     return reinterpret_cast<const char*>(output);
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_valid = false;
     *out_len = 0;
     return nullptr;
   }
