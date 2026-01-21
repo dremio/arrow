@@ -226,7 +226,6 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
     int32_t ciphertext_without_tag_len;
     const unsigned char* tag = nullptr;
 
-    // Extract and set the authentication tag only if AAD is provided
     if (aad != nullptr && aad_len > 0) {
       ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
       tag = reinterpret_cast<const unsigned char*>(actual_ciphertext + ciphertext_without_tag_len);

@@ -889,11 +889,11 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len) {
   // We use kResultNullInternal to handle NULL inputs selectively:
-  // - NULL plaintext → return NULL (set out_valid = false)
-  // - NULL key → call function, it will throw validation error
-  // - NULL mode → call function, it will throw validation error
-  // - NULL IV → call function, auto-generates IV
-  // - NULL AAD → call function, no AAD used
+  // - NULL plaintext → return NULL (set out_valid = false) - handled in stub
+  // - NULL key → dispatcher throws validation error
+  // - NULL mode → dispatcher throws validation error
+  // - NULL IV → dispatcher auto-generates IV
+  // - NULL AAD → dispatcher treats as no AAD
 
   // Check if plaintext is NULL - this is the only case where we return NULL
   if (!data_validity) {
@@ -920,8 +920,9 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     }
 
     int32_t cipher_len = EncryptModeDispatcher::encrypt(
-        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-        iv_data_len, fifth_argument, fifth_argument_len, output);
+        data, data_len, key_data, key_data_len, key_validity,
+        mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+        fifth_argument, fifth_argument_len, fifth_argument_validity, output);
 
     *out_len = cipher_len;
     return reinterpret_cast<const char*>(output);
@@ -941,15 +942,14 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len) {
   // We use kResultNullInternal to handle NULL inputs selectively:
-  // - NULL ciphertext → return NULL (set out_valid = false)
-  // - NULL key → call function, it will throw validation error
-  // - NULL mode → call function, it will throw validation error
-  // - NULL IV → call function, auto-extracts IV from ciphertext
-  // - NULL AAD → call function, no AAD used
-  // Note: validity parameters are ignored here - NULL handling is done by kResultNullInternal logic
+  // - NULL ciphertext → return NULL (set out_valid = false) - handled in stub
+  // - NULL key → dispatcher throws validation error
+  // - NULL mode → dispatcher throws validation error
+  // - NULL IV → dispatcher auto-extracts IV from ciphertext
+  // - NULL AAD → dispatcher treats as no AAD
 
   // Check if ciphertext is NULL - this is the only case where we return NULL
-  if (data == nullptr) {
+  if (!data_validity) {
     *out_valid = false;
     *out_len = 0;
     return nullptr;
@@ -970,8 +970,9 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     }
 
     int32_t plaintext_len = EncryptModeDispatcher::decrypt(
-        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-        iv_data_len, fifth_argument, fifth_argument_len, output);
+        data, data_len, key_data, key_data_len, key_validity,
+        mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+        fifth_argument, fifth_argument_len, fifth_argument_validity, output);
 
     *out_len = plaintext_len;
     return reinterpret_cast<const char*>(output);

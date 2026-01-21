@@ -44,7 +44,15 @@ enum class EncryptionMode {
   UNKNOWN
 };
 
-EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
+EncryptionMode ParseEncryptionMode(const char* mode, int32_t mode_len, bool mode_validity) {
+  if (!mode_validity) {
+    return EncryptionMode::UNKNOWN;
+  }
+
+  // Convert mode string to uppercase for case-insensitive comparison
+  std::string mode_str =
+      arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
+
   if (mode_str == AES_ECB_MODE) return EncryptionMode::ECB;
   if (mode_str == AES_ECB_PKCS7_MODE) return EncryptionMode::ECB_PKCS7;
   if (mode_str == AES_ECB_NONE_MODE) return EncryptionMode::ECB_NONE;
@@ -52,19 +60,30 @@ EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
   if (mode_str == AES_CBC_PKCS7_MODE) return EncryptionMode::CBC_PKCS7;
   if (mode_str == AES_CBC_NONE_MODE) return EncryptionMode::CBC_NONE;
   if (mode_str == AES_GCM_MODE) return EncryptionMode::GCM;
+
   return EncryptionMode::UNKNOWN;
 }
 
-int32_t EncryptModeDispatcher::encrypt(
-    const char* plaintext, int32_t plaintext_len, const char* key,
-    int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
-    int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
-    unsigned char* cipher) {
-  // Convert mode string to uppercase for case-insensitive comparison
-  std::string mode_str =
-      arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
+std::string BuildUnsupportedModeError(const char* operation, const char* mode, int32_t mode_len) {
+  std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
+  std::ostringstream oss;
+  oss << "Unsupported " << operation << " mode: " << std::string_view(mode, mode_len)
+      << ". Supported modes: " << modes_str;
+  return oss.str();
+}
 
-  switch (ParseEncryptionMode(mode_str)) {
+int32_t EncryptModeDispatcher::encrypt(
+    const char* plaintext, int32_t plaintext_len,
+    const char* key, int32_t key_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv, int32_t iv_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len,
+    bool fifth_argument_validity, unsigned char* cipher) {
+  if (!key_validity) {
+    throw std::runtime_error("Encryption key cannot be NULL");
+  }
+
+  switch (ParseEncryptionMode(mode, mode_len, mode_validity)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, true, cipher);
@@ -81,26 +100,24 @@ int32_t EncryptModeDispatcher::encrypt(
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, cipher);
     case EncryptionMode::UNKNOWN:
-    default: {
-      std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
-      std::ostringstream oss;
-      oss << "Unsupported encryption mode: " << mode_str
-          << ". Supported modes: " << modes_str;
-      throw std::runtime_error(oss.str());
-    }
+    default:
+      throw std::runtime_error(BuildUnsupportedModeError("encryption", mode, mode_len));
   }
 }
 
 int32_t EncryptModeDispatcher::decrypt(
-    const char* ciphertext, int32_t ciphertext_len, const char* key,
-    int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
-    int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
-    unsigned char* plaintext) {
-  // Convert mode string to uppercase for case-insensitive comparison
-  std::string mode_str =
-      arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
+    const char* ciphertext, int32_t ciphertext_len,
+    const char* key, int32_t key_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv, int32_t iv_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len,
+    bool fifth_argument_validity, unsigned char* plaintext) {
+  // If key is NULL (validity flag is false), throw error
+  if (!key_validity) {
+    throw std::runtime_error("Decryption key cannot be NULL");
+  }
 
-  switch (ParseEncryptionMode(mode_str)) {
+  switch (ParseEncryptionMode(mode, mode_len, mode_validity)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
       return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, true, plaintext);
@@ -118,13 +135,8 @@ int32_t EncryptModeDispatcher::decrypt(
       return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
     case EncryptionMode::UNKNOWN:
-    default: {
-      std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
-      std::ostringstream oss;
-      oss << "Unsupported decryption mode: " << mode_str
-          << ". Supported modes: " << modes_str;
-      throw std::runtime_error(oss.str());
-    }
+    default:
+      throw std::runtime_error(BuildUnsupportedModeError("decryption", mode, mode_len));
   }
 }
 

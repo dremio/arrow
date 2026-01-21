@@ -1894,4 +1894,162 @@ TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIvButWithAad) {
                         decrypted_len));
 }
 
+// Test that NULL mode (mode_validity = false) throws an error
+TEST(TestGdvFnStubs, TestAesEncryptWithNullMode) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  // Mode has garbage data but validity is false
+  std::string mode = "GARBAGE_MODE";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool encrypt_valid = true;
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, false,  // mode_validity = false (NULL mode)
+      &encrypt_valid, &cipher_len);
+
+  // Should fail with error message about NULL mode
+  EXPECT_FALSE(encrypt_valid);
+  EXPECT_EQ(cipher, nullptr);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_NE(std::string(ctx.get_error()).find("Unsupported encryption mode: NULL"),
+            std::string::npos);
+}
+
+// Test that NULL mode (mode_validity = false) throws an error for decrypt
+TEST(TestGdvFnStubs, TestAesDecryptWithNullMode) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t decrypted_len = 0;
+  std::string data = "some ciphertext";
+  auto data_len = static_cast<int32_t>(data.length());
+  // Mode has garbage data but validity is false
+  std::string mode = "GARBAGE_MODE";
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool decrypt_valid = true;
+  const char* plaintext = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, false,  // mode_validity = false (NULL mode)
+      &decrypt_valid, &decrypted_len);
+
+  // Should fail with error message about NULL mode
+  EXPECT_FALSE(decrypt_valid);
+  EXPECT_EQ(plaintext, nullptr);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_NE(std::string(ctx.get_error()).find("Unsupported decryption mode: NULL"),
+            std::string::npos);
+}
+
+// Test that NULL plaintext (plaintext_validity = false) returns NULL
+TEST(TestGdvFnStubs, TestAesEncryptWithNullPlaintext) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool encrypt_valid = true;
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, false,  // plaintext_validity = false (NULL plaintext)
+      key16.c_str(), key16_len, true, mode.c_str(), mode_len, true,
+      &encrypt_valid, &cipher_len);
+
+  // Should return NULL without error
+  EXPECT_FALSE(encrypt_valid);
+  EXPECT_EQ(cipher, nullptr);
+  EXPECT_EQ(cipher_len, 0);
+  EXPECT_FALSE(ctx.has_error());
+}
+
+// Test that NULL ciphertext (ciphertext_validity = false) returns NULL
+TEST(TestGdvFnStubs, TestAesDecryptWithNullCiphertext) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t decrypted_len = 0;
+  std::string data = "some ciphertext";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool decrypt_valid = true;
+  const char* plaintext = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, false,  // ciphertext_validity = false (NULL ciphertext)
+      key16.c_str(), key16_len, true, mode.c_str(), mode_len, true,
+      &decrypt_valid, &decrypted_len);
+
+  // Should return NULL without error
+  EXPECT_FALSE(decrypt_valid);
+  EXPECT_EQ(plaintext, nullptr);
+  EXPECT_EQ(decrypted_len, 0);
+  EXPECT_FALSE(ctx.has_error());
+}
+
+// Test that NULL key (key_validity = false) throws an error for encrypt
+TEST(TestGdvFnStubs, TestAesEncryptWithNullKey) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool encrypt_valid = true;
+  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, true,
+      key16.c_str(), key16_len, false,  // key_validity = false (NULL key)
+      mode.c_str(), mode_len, true,
+      &encrypt_valid, &cipher_len);
+
+  // Should fail with error message about NULL key
+  EXPECT_FALSE(encrypt_valid);
+  EXPECT_EQ(cipher, nullptr);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_NE(std::string(ctx.get_error()).find("Encryption key cannot be NULL"),
+            std::string::npos);
+}
+
+// Test that NULL key (key_validity = false) throws an error for decrypt
+TEST(TestGdvFnStubs, TestAesDecryptWithNullKey) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t decrypted_len = 0;
+  std::string data = "some ciphertext";
+  auto data_len = static_cast<int32_t>(data.length());
+  std::string mode = AES_ECB_MODE;
+  auto mode_len = static_cast<int32_t>(mode.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  bool decrypt_valid = true;
+  const char* plaintext = gdv_fn_decrypt_dispatcher_3args(
+      ctx_ptr, data.c_str(), data_len, true,
+      key16.c_str(), key16_len, false,  // key_validity = false (NULL key)
+      mode.c_str(), mode_len, true,
+      &decrypt_valid, &decrypted_len);
+
+  // Should fail with error message about NULL key
+  EXPECT_FALSE(decrypt_valid);
+  EXPECT_EQ(plaintext, nullptr);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_NE(std::string(ctx.get_error()).find("Decryption key cannot be NULL"),
+            std::string::npos);
+}
+
 }  // namespace gandiva
