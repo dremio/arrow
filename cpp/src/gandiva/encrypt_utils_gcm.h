@@ -40,18 +40,18 @@ constexpr int32_t GCM_TAG_LENGTH = 16;
  * - With user-supplied IV: [ciphertext][16-byte authentication tag]
  *
  * IV Handling:
- * - If iv is NULL or iv_len is 0: A cryptographically secure random 12-byte IV
+ * - If iv is NULL: A cryptographically secure random 12-byte IV
  *   is automatically generated using OpenSSL RAND_bytes and prepended to output
- * - If iv is provided: It must be exactly 12 bytes, will be used as-is, and NOT prepended
+ * - If iv is provided: It must be exactly 12 bytes, will be used as-is, and not prepended
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
  * @param iv The initialization vector (NULL for auto-generation, or exactly 12 bytes)
- * @param iv_len Length of IV in bytes (0 for auto-generation, or 12)
+ * @param iv_len Length of IV in bytes
  * @param aad Optional additional authenticated data (can be null)
- * @param aad_len Length of AAD in bytes (0 if aad is null)
+ * @param aad_len Length of AAD in bytes
  * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 28 bytes)
  * @return Length of encrypted data in bytes (12 + plaintext_len + 16)
  * @throws std::runtime_error on encryption failure or invalid parameters

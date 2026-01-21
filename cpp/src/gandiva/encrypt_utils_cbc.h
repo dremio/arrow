@@ -39,19 +39,19 @@ constexpr int32_t CBC_IV_LENGTH = 16;  // 16 bytes (128 bits) - required for CBC
  * - With user-supplied IV: [ciphertext]
  *
  * IV Handling:
- * - If iv is NULL or iv_len is 0: A cryptographically secure random 16-byte IV
+ * - If iv is NULL: A cryptographically secure random 16-byte IV
  *   is automatically generated using OpenSSL RAND_bytes and prepended to output
- * - If iv is provided: It must be exactly 16 bytes, will be used as-is, and NOT prepended
+ * - If iv is provided: It must be exactly 16 bytes, will be used as-is, and not prepended
  *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
  * @param iv The initialization vector (NULL for auto-generation, or exactly 16 bytes)
- * @param iv_len Length of IV in bytes (0 for auto-generation, or 16)
+ * @param iv_len Length of IV in bytes
  * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 32 bytes)
- * @return Length of encrypted data in bytes (16 + ciphertext_len)
+ * @return Length of encrypted data in bytes
  * @throws std::runtime_error on encryption failure or invalid parameters
  */
 GANDIVA_EXPORT
@@ -63,7 +63,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
  * Decrypt data using AES-CBC algorithm with explicit padding mode
  *
  * IV Handling:
- * - If iv is NULL or iv_len is 0: IV is extracted from the first 16 bytes of ciphertext
+ * - If iv is NULL: IV is extracted from the first 16 bytes of ciphertext
  *   (expects format: [16-byte IV][ciphertext])
  * - If iv is provided: It must be exactly 16 bytes, and ciphertext should be
  *   [ciphertext] without embedded IV
@@ -75,7 +75,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
  * @param iv The initialization vector (NULL for extraction, or exactly 16 bytes)
- * @param iv_len Length of IV in bytes (0 for extraction, or 16)
+ * @param iv_len Length of IV in bytes
  * @param use_padding Whether to use PKCS7 padding (true) or no padding (false)
  * @param plaintext Output buffer for decrypted data
  * @return Length of decrypted data in bytes

@@ -77,19 +77,12 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
   const unsigned char* actual_iv = nullptr;
   bool iv_auto_generated = false;
 
-  // Handle NULL IV: generate random IV
   if (iv == nullptr || iv_len == 0) {
     generate_random_iv(iv_buffer, CBC_IV_LENGTH);
     actual_iv = iv_buffer;
     iv_auto_generated = true;
   } else {
-    // Validate user-supplied IV length - CBC requires exactly 16 bytes
-    if (iv_len != CBC_IV_LENGTH) {
-      std::ostringstream oss;
-      oss << "Invalid IV length for AES-CBC: " << iv_len
-          << " bytes. IV must be exactly " << CBC_IV_LENGTH << " bytes";
-      throw std::runtime_error(oss.str());
-    }
+    validate_iv_length_cbc(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
     iv_auto_generated = false;
   }
@@ -160,16 +153,13 @@ int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const ch
   const char* actual_ciphertext = ciphertext;
   int32_t actual_ciphertext_len = ciphertext_len;
 
-  // Handle IV: either extract from ciphertext or use user-supplied IV
   if (iv == nullptr) {
-    // Extract IV from beginning of ciphertext: [16-byte IV][ciphertext]
     validate_ciphertext_with_embedded_iv_cbc(ciphertext_len);
     extract_iv_from_ciphertext(ciphertext, ciphertext_len, CBC_IV_LENGTH,
                                iv_buffer, &actual_ciphertext,
                                &actual_ciphertext_len);
     actual_iv = iv_buffer;
   } else {
-    // Use user-supplied IV
     validate_iv_length_cbc(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
   }

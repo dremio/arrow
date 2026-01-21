@@ -54,8 +54,15 @@ void validate_iv_length_gcm(int32_t iv_len) {
   }
 }
 
+void validate_aad_length_gcm(int32_t aad_len) {
+  if (aad_len <= 0) {
+    throw std::runtime_error("AAD length must be positive when AAD is provided");
+  }
+}
+
 void validate_ciphertext_with_embedded_iv_gcm(int32_t ciphertext_len) {
-  constexpr int32_t MIN_CIPHERTEXT_LEN = GCM_IV_LENGTH + GCM_TAG_LENGTH;  // IV + tag
+  constexpr int32_t MIN_CIPHERTEXT_LEN = GCM_IV_LENGTH + GCM_TAG_LENGTH;
+
   if (ciphertext_len < MIN_CIPHERTEXT_LEN) {
     std::ostringstream oss;
     oss << "Ciphertext too short for AES-GCM with embedded IV: " << ciphertext_len
@@ -81,7 +88,7 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
                         unsigned char* cipher) {
   unsigned char iv_buffer[GCM_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
-  bool iv_auto_generated = iv == nullptr || iv_len == 0;
+  bool iv_auto_generated = iv == nullptr;
 
   if (iv_auto_generated) {
     generate_random_iv(iv_buffer, GCM_IV_LENGTH);
@@ -125,7 +132,9 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
     }
 
     // Process AAD if provided
-    if (aad != nullptr && aad_len > 0) {
+    if (aad != nullptr) {
+      validate_aad_length_gcm(aad_len);
+
       if (!EVP_EncryptUpdate(en_ctx, nullptr, &len,
                              reinterpret_cast<const unsigned char*>(aad), aad_len)) {
         throw std::runtime_error("Could not process AAD for encryption: " +
@@ -215,7 +224,9 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
     }
 
     // Process AAD if provided
-    if (aad != nullptr && aad_len > 0) {
+    if (aad != nullptr) {
+      validate_aad_length_gcm(aad_len);
+
       if (!EVP_DecryptUpdate(de_ctx, nullptr, &len,
                              reinterpret_cast<const unsigned char*>(aad), aad_len)) {
         throw std::runtime_error("Could not process AAD for decryption: " +
@@ -223,22 +234,16 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
       }
     }
 
-    int32_t ciphertext_without_tag_len;
-    const unsigned char* tag = nullptr;
+    // GCM always has a tag appended, regardless of whether AAD was used
+    int32_t ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
+    const unsigned char* tag = reinterpret_cast<const unsigned char*>(
+        actual_ciphertext + ciphertext_without_tag_len);
 
-    if (aad != nullptr && aad_len > 0) {
-      ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
-      tag = reinterpret_cast<const unsigned char*>(actual_ciphertext + ciphertext_without_tag_len);
-
-      // Set the authentication tag
-      if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LENGTH,
-                               const_cast<unsigned char*>(tag))) {
-        throw std::runtime_error("Could not set GCM authentication tag: " +
-                                 get_openssl_error_string());
-      }
-    } else {
-      // No AAD means no tag appended
-      ciphertext_without_tag_len = actual_ciphertext_with_tag_len;
+    // Set the authentication tag
+    if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LENGTH,
+                             const_cast<unsigned char*>(tag))) {
+      throw std::runtime_error("Could not set GCM authentication tag: " +
+                               get_openssl_error_string());
     }
 
     // Decrypt ciphertext

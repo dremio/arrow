@@ -787,7 +787,6 @@ const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data,
       &out_valid, out_len);
 
   // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
   if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
@@ -819,7 +818,6 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
       &out_valid, out_len);
 
   // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
   if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
@@ -829,7 +827,6 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
 }
 
 // The 3- and 4-arg signatures exist to support optional IV and other arguments
-// Note: kResultNullInternal functions receive validity for each argument
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_3args(
     int64_t context, const char* data, int32_t data_len, bool data_validity,
@@ -888,13 +885,6 @@ const char* gdv_fn_encrypt_dispatcher_5args(
     const char* iv_data, int32_t iv_data_len, bool iv_validity,
     const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len) {
-  // We use kResultNullInternal to handle NULL inputs selectively:
-  // - NULL plaintext → return NULL (set out_valid = false) - handled in stub
-  // - NULL key → dispatcher throws validation error
-  // - NULL mode → dispatcher throws validation error
-  // - NULL IV → dispatcher auto-generates IV
-  // - NULL AAD → dispatcher treats as no AAD
-
   // Check if plaintext is NULL - this is the only case where we return NULL
   if (!data_validity) {
     *out_valid = false;
@@ -941,13 +931,6 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     const char* iv_data, int32_t iv_data_len, bool iv_validity,
     const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len) {
-  // We use kResultNullInternal to handle NULL inputs selectively:
-  // - NULL ciphertext → return NULL (set out_valid = false) - handled in stub
-  // - NULL key → dispatcher throws validation error
-  // - NULL mode → dispatcher throws validation error
-  // - NULL IV → dispatcher auto-extracts IV from ciphertext
-  // - NULL AAD → dispatcher treats as no AAD
-
   // Check if ciphertext is NULL - this is the only case where we return NULL
   if (!data_validity) {
     *out_valid = false;

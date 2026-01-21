@@ -31,40 +31,22 @@ class EncryptModeDispatcher {
   /**
    * Encrypt data using the specified mode
    *
-   * Supported modes:
-   * - AES-ECB, AES-ECB-PKCS7, AES-ECB-NONE: ECB mode (no IV)
-   * - AES-CBC, AES-CBC-PKCS7, AES-CBC-NONE: CBC mode (requires 16-byte IV)
-   * - AES-GCM: GCM mode (requires 12-byte IV)
-   *
-   * Output format:
-   * - ECB: [ciphertext]
-   * - CBC with auto-generated IV: [16-byte IV][ciphertext]
-   * - CBC with user-supplied IV: [ciphertext]
-   * - GCM with auto-generated IV: [12-byte IV][ciphertext][16-byte authentication tag]
-   * - GCM with user-supplied IV: [ciphertext][16-byte authentication tag]
-   *
-   * IV Handling (CBC and GCM modes):
-   * - If iv is NULL or iv_len is 0 or iv_validity is false: A cryptographically secure random IV is
-   *   automatically generated and prepended to the output
-   * - If iv is provided and iv_validity is true: It must be the exact required length (12 for GCM, 16 for CBC),
-   *   and will NOT be prepended to the output (only ciphertext is returned)
-   *
    * @param plaintext The data to encrypt
    * @param plaintext_len Length of plaintext in bytes
    * @param key The encryption key (16, 24, or 32 bytes for AES-128/192/256)
    * @param key_len Length of key in bytes
-   * @param key_validity Whether key is valid (if false, throws error)
+   * @param key_validity Whether key is valid
    * @param mode Mode string (case-insensitive)
    * @param mode_len Length of mode string in bytes
-   * @param mode_validity Whether mode is valid (if false, treated as NULL/UNKNOWN)
-   * @param iv The initialization vector (NULL for auto-generation in CBC/GCM, ignored for ECB)
-   * @param iv_len Length of the IV in bytes (0 for auto-generation, 12 for GCM, 16 for CBC)
-   * @param iv_validity Whether IV is valid (if false, treated as NULL)
-   * @param fifth_argument Additional parameter (AAD for GCM mode, ignored for others)
+   * @param mode_validity Whether mode is valid
+   * @param iv The initialization vector
+   * @param iv_len Length of the IV in bytes
+   * @param iv_validity Whether IV is valid
+   * @param fifth_argument Additional parameter (e.g. AAD for the GCM mode)
    * @param fifth_argument_len Length of fifth_argument in bytes
-   * @param fifth_argument_validity Whether fifth_argument is valid (if false, treated as NULL)
-   * @param cipher Output buffer for encrypted data (must be large enough for output format)
-   * @return Length of encrypted data in bytes (includes prepended IV only if auto-generated)
+   * @param fifth_argument_validity Whether fifth_argument is valid
+   * @param cipher Output buffer for encrypted data
+   * @return Length of encrypted data in bytes
    * @throws std::runtime_error on encryption failure, unsupported mode, or invalid parameters
    */
   static int32_t encrypt(const char* plaintext, int32_t plaintext_len,
@@ -78,37 +60,20 @@ class EncryptModeDispatcher {
   /**
    * Decrypt data using the specified mode
    *
-   * Supported modes:
-   * - AES-ECB, AES-ECB-PKCS7, AES-ECB-NONE: ECB mode (no IV)
-   * - AES-CBC, AES-CBC-PKCS7, AES-CBC-NONE: CBC mode (requires 16-byte IV)
-   * - AES-GCM: GCM mode (requires 12-byte IV)
-   *
-   * Expected input format:
-   * - ECB: [ciphertext]
-   * - CBC with NULL IV: [16-byte IV][ciphertext]
-   * - CBC with provided IV: [ciphertext] (IV provided separately)
-   * - GCM with NULL IV: [12-byte IV][ciphertext][16-byte authentication tag]
-   * - GCM with provided IV: [ciphertext][16-byte authentication tag] (IV provided separately)
-   *
-   * IV Handling (CBC and GCM modes):
-   * - If iv is NULL or iv_len is 0 or iv_validity is false: IV is extracted from the beginning of ciphertext
-   * - If iv is provided and iv_validity is true: It must be the exact required length (12 for GCM, 16 for CBC),
-   *   and ciphertext should not include the IV
-   *
    * @param ciphertext The data to decrypt (format depends on mode and IV parameter)
-   * @param ciphertext_len Length of ciphertext in bytes (includes IV if embedded)
+   * @param ciphertext_len Length of ciphertext in bytes
    * @param key The decryption key (16, 24, or 32 bytes for AES-128/192/256)
    * @param key_len Length of key in bytes
-   * @param key_validity Whether key is valid (if false, throws error)
+   * @param key_validity Whether key is valid
    * @param mode Mode string (case-insensitive)
    * @param mode_len Length of mode string in bytes
-   * @param mode_validity Whether mode is valid (if false, treated as NULL/UNKNOWN)
-   * @param iv The initialization vector (NULL for extraction from ciphertext, ignored for ECB)
-   * @param iv_len Length of the IV in bytes (0 for extraction, 12 for GCM, 16 for CBC)
-   * @param iv_validity Whether IV is valid (if false, treated as NULL)
-   * @param fifth_argument Additional parameter (AAD for GCM mode, ignored for others)
+   * @param mode_validity Whether mode is valid
+   * @param iv The initialization vector
+   * @param iv_len Length of the IV in bytes
+   * @param iv_validity Whether IV is valid
+   * @param fifth_argument Additional parameter (e.g. AAD for the GCM mode)
    * @param fifth_argument_len Length of fifth_argument in bytes
-   * @param fifth_argument_validity Whether fifth_argument is valid (if false, treated as NULL)
+   * @param fifth_argument_validity Whether fifth_argument is valid
    * @param plaintext Output buffer for decrypted data
    * @return Length of decrypted data in bytes (plaintext only, IV and tag removed)
    * @throws std::runtime_error on decryption failure, unsupported mode, invalid parameters, or authentication failure
