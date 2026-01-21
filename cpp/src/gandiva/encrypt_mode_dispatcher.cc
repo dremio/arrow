@@ -27,7 +27,6 @@
 
 namespace gandiva {
 
-// Supported encryption modes
 static const std::vector<std::string_view> SUPPORTED_MODES = {
     AES_ECB_MODE, AES_ECB_PKCS7_MODE, AES_ECB_NONE_MODE,
     AES_CBC_MODE, AES_CBC_PKCS7_MODE, AES_CBC_NONE_MODE,
@@ -68,29 +67,17 @@ int32_t EncryptModeDispatcher::encrypt(
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
-      // ECB mode: No IV used, output is [ciphertext]
-      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, true, cipher);
     case EncryptionMode::ECB_NONE:
-      // ECB mode without padding
       return aes_encrypt_ecb(plaintext, plaintext_len, key, key_len, false, cipher);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
-      // CBC mode: If iv is NULL, a random IV is auto-generated and prepended to output
-      // Auto-generated IV format: [16-byte IV][ciphertext]
-      // User-supplied IV format: [ciphertext]
-      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7 padding
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, true, cipher);
     case EncryptionMode::CBC_NONE:
-      // CBC mode without padding
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, false, cipher);
     case EncryptionMode::GCM:
-      // GCM mode: If iv is NULL, a random IV is auto-generated and prepended to output
-      // Auto-generated IV format: [12-byte IV][ciphertext][16-byte tag]
-      // User-supplied IV format: [ciphertext][16-byte tag]
-      // fifth_argument is AAD (Additional Authenticated Data)
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, cipher);
     case EncryptionMode::UNKNOWN:
@@ -116,18 +103,11 @@ int32_t EncryptModeDispatcher::decrypt(
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
-      // ECB mode: No IV used, input is [ciphertext]
-      // Shorthand AES-ECB and explicit AES-ECB-PKCS7 both use ECB with PKCS7 padding
       return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, true, plaintext);
     case EncryptionMode::ECB_NONE:
-      // ECB mode without padding
       return aes_decrypt_ecb(ciphertext, ciphertext_len, key, key_len, false, plaintext);
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
-      // CBC mode: If iv is NULL, IV is extracted from first 16 bytes of ciphertext
-      // Expected format with NULL IV: [16-byte IV][ciphertext]
-      // Expected format with provided IV: [ciphertext]
-      // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7 padding
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, true, plaintext);
     case EncryptionMode::CBC_NONE:
@@ -135,10 +115,6 @@ int32_t EncryptModeDispatcher::decrypt(
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, false, plaintext);
     case EncryptionMode::GCM:
-      // GCM mode: If iv is NULL, IV is extracted from first 12 bytes of ciphertext
-      // Expected format with NULL IV: [12-byte IV][ciphertext][16-byte tag]
-      // Expected format with provided IV: [ciphertext][16-byte tag]
-      // fifth_argument is AAD (Additional Authenticated Data)
       return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
                              iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
     case EncryptionMode::UNKNOWN:

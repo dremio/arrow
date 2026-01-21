@@ -205,48 +205,57 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
                                           int32_t* out_len);
 
 // 3-argument dispatcher: (data, key, mode)
+// Note: kResultNullInternal functions receive validity for each argument
 GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_3args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, bool* out_valid, int32_t* out_len);
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    bool* out_valid, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_3args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, bool* out_valid, int32_t* out_len);
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    bool* out_valid, int32_t* out_len);
 
 // 4-argument dispatcher: (data, key, mode, iv)
+// Note: kResultNullInternal functions receive validity for each argument
 GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_4args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, const char* iv_data, int32_t iv_data_len,
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
     bool* out_valid, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_4args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, const char* iv_data, int32_t iv_data_len,
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
     bool* out_valid, int32_t* out_len);
 
 // 5-argument dispatcher: (data, key, mode, iv, fifth_argument)
+// Note: kResultNullInternal functions receive validity for each argument
 GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_5args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, const char* iv_data, int32_t iv_data_len,
-    const char* fifth_argument, int32_t fifth_argument_len,
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_5args(
-    int64_t context, const char* data, int32_t data_len,
-    const char* key_data, int32_t key_data_len, const char* mode,
-    int32_t mode_len, const char* iv_data, int32_t iv_data_len,
-    const char* fifth_argument, int32_t fifth_argument_len,
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
     bool* out_valid, int32_t* out_len);
 
 GANDIVA_EXPORT

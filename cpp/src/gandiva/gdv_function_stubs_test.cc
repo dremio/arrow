@@ -1362,12 +1362,12 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid, &cipher_len);
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1388,13 +1388,13 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key24.c_str(), key24_len, mode.c_str(),
-      mode_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key24.c_str(), key24_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid, &cipher_len);
 
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, mode.c_str(),
-      mode_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key24.c_str(), key24_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1415,13 +1415,13 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key32.c_str(), key32_len, mode.c_str(),
-      mode_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key32.c_str(), key32_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid, &cipher_len);
 
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, mode.c_str(),
-      mode_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key32.c_str(), key32_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1442,17 +1442,17 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
   auto cipher_len = static_cast<int32_t>(cipher.length());
 
   bool encrypt_valid = true;
-  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
-                                      key33.c_str(), key33_len, mode.c_str(),
-                                      mode_len, &encrypt_valid, &cipher_len);
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, true,
+                                      key33.c_str(), key33_len, true, mode.c_str(),
+                                      mode_len, true, &encrypt_valid, &cipher_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
 
   bool decrypt_valid = true;
-  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len,
-                                      key33.c_str(), key33_len, mode.c_str(),
-                                      mode_len, &decrypt_valid, &decrypted_len);
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len, true,
+                                      key33.c_str(), key33_len, true, mode.c_str(),
+                                      mode_len, true, &decrypt_valid, &decrypted_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
@@ -1473,14 +1473,14 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeEcb) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid, &decrypted_len);
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
                         decrypted_len));
@@ -1500,9 +1500,9 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
 
   // Test encrypt with invalid mode
   bool encrypt_valid = true;
-  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
-                                      key16.c_str(), key16_len,
-                                      invalid_mode.c_str(), invalid_mode_len,
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, true,
+                                      key16.c_str(), key16_len, true,
+                                      invalid_mode.c_str(), invalid_mode_len, true,
                                       &encrypt_valid, &cipher_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported encryption mode"));
@@ -1512,9 +1512,9 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
   std::string cipher = "12345678abcdefgh12345678abcdefgh";
   auto cipher_len_val = static_cast<int32_t>(cipher.length());
   bool decrypt_valid = true;
-  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len_val,
-                                      key16.c_str(), key16_len,
-                                      invalid_mode.c_str(), invalid_mode_len,
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len_val, true,
+                                      key16.c_str(), key16_len, true,
+                                      invalid_mode.c_str(), invalid_mode_len, true,
                                       &decrypt_valid, &decrypted_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported decryption mode"));
@@ -1538,16 +1538,18 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmIvOnly) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, nullptr, 0, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      nullptr, 0, false, &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   // When IV is supplied to encrypt, it must also be supplied to decrypt
   // (IV is only prepended when auto-generated)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, nullptr, 0, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      nullptr, 0, false, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1572,16 +1574,18 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      aad.c_str(), aad_len, true, &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   // When IV is supplied to encrypt, it must also be supplied to decrypt
   // (IV is only prepended when auto-generated)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      aad.c_str(), aad_len, true, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1603,14 +1607,14 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandEcb) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1632,14 +1636,14 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitEcbPkcs7) {
 
   bool encrypt_valid2 = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &encrypt_valid2, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &encrypt_valid2, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   bool decrypt_valid2 = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypt_valid2, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, &decrypt_valid2, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1663,16 +1667,18 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandCbc) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   // When IV is supplied to encrypt, it must also be supplied to decrypt
   // (IV is only prepended when auto-generated)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1696,16 +1702,18 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitCbcPkcs7) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   // When IV is supplied to encrypt, it must also be supplied to decrypt
   // (IV is only prepended when auto-generated)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1730,16 +1738,18 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptCbcNone) {
 
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   // When IV is supplied to encrypt, it must also be supplied to decrypt
   // (IV is only prepended when auto-generated)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, iv.c_str(), iv_len, true,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1762,16 +1772,18 @@ TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIv4Args) {
   // Test 4-arg version with NULL IV (should auto-generate IV)
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
   EXPECT_TRUE(cipher != nullptr);
 
   // Decrypt with NULL IV (should extract from ciphertext)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1794,16 +1806,18 @@ TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIvAndNullAad) {
   // Test 5-arg version with NULL IV and NULL AAD
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, nullptr, 0, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false, nullptr, 0, false,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
   EXPECT_TRUE(cipher != nullptr);
 
   // Decrypt with NULL IV and NULL AAD
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, nullptr, 0, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false, nullptr, 0, false,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1826,16 +1840,18 @@ TEST(TestGdvFnStubs, TestAesEncryptCbcWithNullIv4Args) {
   // Test 4-arg version with NULL IV (should auto-generate IV)
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
   EXPECT_TRUE(cipher != nullptr);
 
   // Decrypt with NULL IV (should extract from ciphertext)
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),
@@ -1860,16 +1876,18 @@ TEST(TestGdvFnStubs, TestAesEncryptGcmWithNullIvButWithAad) {
   // Test 5-arg version with NULL IV but non-NULL AAD
   bool encrypt_valid = true;
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, aad.c_str(), aad_len, &encrypt_valid, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false, aad.c_str(), aad_len, true,
+      &encrypt_valid, &cipher_len);
   EXPECT_GT(cipher_len, 0);
   EXPECT_TRUE(cipher != nullptr);
 
   // Decrypt with NULL IV and same AAD
   bool decrypt_valid = true;
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, nullptr, 0, aad.c_str(), aad_len, &decrypt_valid, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, true, key16.c_str(), key16_len, true,
+      mode.c_str(), mode_len, true, nullptr, 0, false, aad.c_str(), aad_len, true,
+      &decrypt_valid, &decrypted_len);
 
   EXPECT_EQ(data,
             std::string(reinterpret_cast<const char*>(decrypted_value),

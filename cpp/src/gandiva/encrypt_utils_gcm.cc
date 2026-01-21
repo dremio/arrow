@@ -79,22 +79,16 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
                         const char* key, int32_t key_len, const char* iv,
                         int32_t iv_len, const char* aad, int32_t aad_len,
                         unsigned char* cipher) {
-  // Buffer for IV (either user-supplied or auto-generated)
   unsigned char iv_buffer[GCM_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
-  bool iv_auto_generated = false;
+  bool iv_auto_generated = iv == nullptr || iv_len == 0;
 
-  // Handle IV: either generate random IV or use user-supplied IV
-  if (iv == nullptr || iv_len == 0) {
-    // Generate random IV
+  if (iv_auto_generated) {
     generate_random_iv(iv_buffer, GCM_IV_LENGTH);
     actual_iv = iv_buffer;
-    iv_auto_generated = true;
   } else {
-    // Use user-supplied IV
     validate_iv_length_gcm(iv_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
-    iv_auto_generated = false;
   }
 
   int32_t cipher_len = 0;
@@ -178,22 +172,18 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
                         const char* key, int32_t key_len, const char* iv,
                         int32_t iv_len, const char* aad, int32_t aad_len,
                         unsigned char* plaintext) {
-  // Buffer for extracted IV (if needed)
   unsigned char iv_buffer[GCM_IV_LENGTH];
   const unsigned char* actual_iv = nullptr;
   const char* actual_ciphertext = ciphertext;
   int32_t actual_ciphertext_with_tag_len = ciphertext_len;
 
-  // Handle IV: either extract from ciphertext or use user-supplied IV
   if (iv == nullptr) {
-    // Extract IV from beginning of ciphertext: [12-byte IV][ciphertext][16-byte tag]
     validate_ciphertext_with_embedded_iv_gcm(ciphertext_len);
     extract_iv_from_ciphertext(ciphertext, ciphertext_len, GCM_IV_LENGTH,
                                iv_buffer, &actual_ciphertext,
                                &actual_ciphertext_with_tag_len);
     actual_iv = iv_buffer;
   } else {
-    // Use user-supplied IV
     validate_iv_length_gcm(iv_len);
     validate_ciphertext_with_tag(ciphertext_len);
     actual_iv = reinterpret_cast<const unsigned char*>(iv);
@@ -233,16 +223,23 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
       }
     }
 
-    // Extract tag from end of actual ciphertext (after IV if it was embedded)
-    int32_t ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
-    const unsigned char* tag =
-        reinterpret_cast<const unsigned char*>(actual_ciphertext + ciphertext_without_tag_len);
+    int32_t ciphertext_without_tag_len;
+    const unsigned char* tag = nullptr;
 
-    // Set the authentication tag
-    if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LENGTH,
-                             const_cast<unsigned char*>(tag))) {
-      throw std::runtime_error("Could not set GCM authentication tag: " +
-                               get_openssl_error_string());
+    // Extract and set the authentication tag only if AAD is provided
+    if (aad != nullptr && aad_len > 0) {
+      ciphertext_without_tag_len = actual_ciphertext_with_tag_len - GCM_TAG_LENGTH;
+      tag = reinterpret_cast<const unsigned char*>(actual_ciphertext + ciphertext_without_tag_len);
+
+      // Set the authentication tag
+      if (!EVP_CIPHER_CTX_ctrl(de_ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LENGTH,
+                               const_cast<unsigned char*>(tag))) {
+        throw std::runtime_error("Could not set GCM authentication tag: " +
+                                 get_openssl_error_string());
+      }
+    } else {
+      // No AAD means no tag appended
+      ciphertext_without_tag_len = actual_ciphertext_with_tag_len;
     }
 
     // Decrypt ciphertext
