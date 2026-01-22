@@ -84,6 +84,14 @@ int32_t EncryptModeDispatcher::encrypt(
     throw std::runtime_error("Encryption key cannot be NULL");
   }
 
+  // Handle NULL IV: pass nullptr and 0 to trigger auto-generation
+  const char* actual_iv = iv_validity ? iv : nullptr;
+  int32_t actual_iv_len = iv_validity ? iv_len : 0;
+
+  // Handle NULL fifth_argument (e.g., AAD for GCM)
+  const char* actual_fifth_arg = fifth_argument_validity ? fifth_argument : nullptr;
+  int32_t actual_fifth_arg_len = fifth_argument_validity ? fifth_argument_len : 0;
+
   switch (ParseEncryptionMode(mode, mode_len, mode_validity)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
@@ -93,13 +101,13 @@ int32_t EncryptModeDispatcher::encrypt(
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, true, cipher);
+                             actual_iv, actual_iv_len, true, cipher);
     case EncryptionMode::CBC_NONE:
       return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, false, cipher);
+                             actual_iv, actual_iv_len, false, cipher);
     case EncryptionMode::GCM:
       return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, fifth_argument, fifth_argument_len, cipher);
+                             actual_iv, actual_iv_len, actual_fifth_arg, actual_fifth_arg_len, cipher);
     case EncryptionMode::NULL_VALUE:
       throw std::runtime_error(BuildUnsupportedModeError("encryption", "NULL", 4));
     case EncryptionMode::UNKNOWN:
@@ -120,6 +128,14 @@ int32_t EncryptModeDispatcher::decrypt(
     throw std::runtime_error("Decryption key cannot be NULL");
   }
 
+  // Handle NULL IV: pass nullptr and 0 to extract IV from ciphertext
+  const char* actual_iv = iv_validity ? iv : nullptr;
+  int32_t actual_iv_len = iv_validity ? iv_len : 0;
+
+  // Handle NULL fifth_argument (e.g., AAD for GCM)
+  const char* actual_fifth_arg = fifth_argument_validity ? fifth_argument : nullptr;
+  int32_t actual_fifth_arg_len = fifth_argument_validity ? fifth_argument_len : 0;
+
   switch (ParseEncryptionMode(mode, mode_len, mode_validity)) {
     case EncryptionMode::ECB:
     case EncryptionMode::ECB_PKCS7:
@@ -129,14 +145,14 @@ int32_t EncryptModeDispatcher::decrypt(
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, true, plaintext);
+                             actual_iv, actual_iv_len, true, plaintext);
     case EncryptionMode::CBC_NONE:
       // CBC mode without padding
       return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, false, plaintext);
+                             actual_iv, actual_iv_len, false, plaintext);
     case EncryptionMode::GCM:
       return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
+                             actual_iv, actual_iv_len, actual_fifth_arg, actual_fifth_arg_len, plaintext);
     case EncryptionMode::UNKNOWN:
     default:
       if (!mode_validity) {
