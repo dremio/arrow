@@ -357,6 +357,25 @@ gdv_int64 weekOfYear(const EpochTimePoint& tp) {
   return weekOfCurrentYear(tp);
 }
 
+FORCE_INLINE
+void isoYearWeek(const EpochTimePoint& tp, int* iso_year, int* iso_week) {
+  const int week = static_cast<int>(weekOfYear(tp));
+  int year = 1900 + tp.TmYear();
+
+  // If we're in late December and week resolves to 1, that week belongs to the next ISO year.
+  if ((tp.TmMon() == 11) && (tp.TmMday() >= 29) && (week == 1)) {
+    year += 1;
+  }
+
+  // If we're in early January and week resolves to 52/53, that week belongs to the previous ISO year.
+  if ((tp.TmMon() == 0) && (tp.TmMday() <= 3) && (week >= 52)) {
+    year -= 1;
+  }
+
+  *iso_year = year;
+  *iso_week = week;
+}
+
 #define EXTRACT_WEEK(TYPE)                            \
   FORCE_INLINE                                        \
   gdv_int64 extractWeek##_##TYPE(gdv_##TYPE millis) { \
@@ -365,6 +384,18 @@ gdv_int64 weekOfYear(const EpochTimePoint& tp) {
   }
 
 DATE_TYPES(EXTRACT_WEEK)
+
+#define EXTRACT_YEARWEEK(TYPE)                            \
+  FORCE_INLINE                                            \
+  gdv_int64 extractYearweek##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                            \
+    int iso_year = 0;                                     \
+    int iso_week = 0;                                     \
+    isoYearWeek(tp, &iso_year, &iso_week);                \
+    return static_cast<gdv_int64>(iso_year) * 100 + iso_week; \
+  }
+
+DATE_TYPES(EXTRACT_YEARWEEK)
 
 #define EXTRACT_DOW(TYPE)                            \
   FORCE_INLINE                                       \

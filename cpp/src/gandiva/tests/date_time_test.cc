@@ -828,4 +828,55 @@ TEST_F(DateTimeTestProjector, TestFromUtcTimestamp) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
+
+TEST_F(DateTimeTestProjector, TestIsoWeekOfYearAndYearWeek) {
+  auto field0 = field("ts", timestamp(arrow::TimeUnit::MILLI));
+  auto schema = arrow::schema({field0});
+
+  auto field_week = field("wk", int64());
+  auto field_yearweek = field("yw", int64());
+
+  auto week_expr = TreeExprBuilder::MakeExpression("weekofyear", {field0}, field_week);
+  auto yearweek_expr =
+      TreeExprBuilder::MakeExpression("yearweek", {field0}, field_yearweek);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {week_expr, yearweek_expr}, TestConfiguration(),
+                                &projector);
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+  int num_records = 6;
+  auto validity = {true, true, true, true, true, true};
+
+  std::vector<int64_t> ts_data = {
+      // 2015-W53
+      MillisSince(epoch, 2015, 12, 31, 0, 0, 0, 0),
+      MillisSince(epoch, 2016, 1, 1, 0, 0, 0, 0),
+      MillisSince(epoch, 2016, 1, 3, 0, 0, 0, 0),
+      // 2016-W01
+      MillisSince(epoch, 2016, 1, 4, 0, 0, 0, 0),
+      // 2015-W01
+      MillisSince(epoch, 2014, 12, 29, 0, 0, 0, 0),
+      // 2020-W53
+      MillisSince(epoch, 2021, 1, 1, 0, 0, 0, 0),
+  };
+
+  auto ts_array = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), ts_data, validity);
+
+  auto exp_week = MakeArrowArrayInt64({53, 53, 53, 1, 1, 53}, validity);
+  auto exp_yearweek = MakeArrowArrayInt64({201553, 201553, 201553, 201601, 201501, 202053},
+                                          validity);
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {ts_array});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_week, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_yearweek, outputs.at(1));
+}
+
 }  // namespace gandiva
