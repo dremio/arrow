@@ -747,6 +747,67 @@ TEST(TestGdvFnStubs, TestInitCap) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestNormalizeString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // NFC: compose (e + combining acute) -> é
+  {
+    const std::string in = u8"e\u0301";
+    const char* out_str = gdv_fn_normalize_string_utf8_utf8(
+        ctx_ptr, in.data(), static_cast<int32_t>(in.size()), "NFC", 3, &out_len);
+
+    if (ctx.has_error() && ctx.get_error().find("ICU is required") != std::string::npos) {
+      GTEST_SKIP() << ctx.get_error();
+    }
+
+    EXPECT_EQ(std::string(out_str, out_len), u8"\u00E9");
+    EXPECT_FALSE(ctx.has_error());
+  }
+
+  // NFD: decompose é -> e + combining acute
+  ctx.Reset();
+  {
+    const std::string in = u8"\u00E9";
+    const char* out_str = gdv_fn_normalize_string_utf8_utf8(
+        ctx_ptr, in.data(), static_cast<int32_t>(in.size()), "NFD", 3, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), u8"e\u0301");
+    EXPECT_FALSE(ctx.has_error());
+  }
+
+  // NFKC: compatibility composition (① -> 1)
+  ctx.Reset();
+  {
+    const std::string in = u8"\u2460";
+    const char* out_str = gdv_fn_normalize_string_utf8_utf8(
+        ctx_ptr, in.data(), static_cast<int32_t>(in.size()), "NFKC", 4, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), "1");
+    EXPECT_FALSE(ctx.has_error());
+  }
+
+  // NFKD: compatibility decomposition (ﬀ -> ff)
+  ctx.Reset();
+  {
+    const std::string in = u8"\uFB00";
+    const char* out_str = gdv_fn_normalize_string_utf8_utf8(
+        ctx_ptr, in.data(), static_cast<int32_t>(in.size()), "NFKD", 4, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), "ff");
+    EXPECT_FALSE(ctx.has_error());
+  }
+
+  // Invalid form should set an error
+  ctx.Reset();
+  {
+    const std::string in = "abc";
+    const char* out_str = gdv_fn_normalize_string_utf8_utf8(
+        ctx_ptr, in.data(), static_cast<int32_t>(in.size()), "BAD", 3, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), "");
+    EXPECT_TRUE(ctx.has_error());
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid normalization form"));
+  }
+}
+
 TEST(TestGdvFnStubs, TestCastVarbinaryINT) {
   gandiva::ExecutionContext ctx;
 

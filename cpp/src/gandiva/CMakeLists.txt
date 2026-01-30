@@ -32,6 +32,10 @@ provide_find_module(LLVMAlt "Gandiva")
 if(ARROW_WITH_ZSTD AND "${zstd_SOURCE}" STREQUAL "SYSTEM")
   provide_find_module(zstdAlt "Gandiva")
 endif()
+
+# ICU is required for Unicode normalization (normalize_string)
+find_package(ICU COMPONENTS uc)
+
 provide_cmake_module(GandivaAddBitcode "Gandiva")
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
@@ -121,6 +125,16 @@ if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_STATIC_LINK_LIBS utf8proc::utf8proc)
 endif()
 
+if(ICU_FOUND)
+  if(TARGET ICU::uc)
+    list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ICU::uc)
+    list(APPEND GANDIVA_STATIC_LINK_LIBS ICU::uc)
+  else()
+    list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ${ICU_UC_LIBRARIES})
+    list(APPEND GANDIVA_STATIC_LINK_LIBS ${ICU_UC_LIBRARIES})
+  endif()
+endif()
+
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
                                       ))
   list(APPEND GANDIVA_STATIC_LINK_LIBS -static-libstdc++ -static-libgcc)
@@ -170,6 +184,10 @@ add_arrow_lib(gandiva
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
+  if(ICU_FOUND)
+    target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_WITH_ICU)
+    target_include_directories(${LIB_TARGET} PRIVATE ${ICU_INCLUDE_DIRS})
+  endif()
 endforeach()
 
 if(ARROW_BUILD_STATIC AND WIN32)
