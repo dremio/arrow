@@ -466,4 +466,8 @@ BIN_INTEGER(int64)
 
 #undef BIN_INTEGER
 
+// Mathematical constant pi
+FORCE_INLINE
+gdv_float64 pi() { return M_PI; }
+
 }  // extern "C"
