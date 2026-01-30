@@ -280,4 +280,22 @@ ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
 
+
+// SQL-style convenience helpers (timestamp first, integer second)
+// add_days(timestamp, int)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, add_days, MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add_days, MILLIS_IN_DAY)
+
+// add_hours(timestamp, int)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, add_hours, MILLIS_IN_HOUR)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add_hours, MILLIS_IN_HOUR)
+
+// add_minutes(timestamp, int)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, add_minutes, MILLIS_IN_MIN)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add_minutes, MILLIS_IN_MIN)
+
+// add_seconds(timestamp, int)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, add_seconds, MILLIS_IN_SEC)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add_seconds, MILLIS_IN_SEC)
+
 }  // extern "C"

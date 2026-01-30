@@ -50,6 +50,11 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
+
+// Convenience timestamp arithmetic with fixed units.
+// Signature matches: <fn>(timestamp, int)
+#define TIMESTAMP_ADD_FIXED_UNIT_FN(name, ALIASES)                               BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int32, timestamp),       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
+
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, {}, date64, date64, float64),
@@ -75,6 +80,13 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
 
       DATE_ADD_FNS(date_add, {}),
       DATE_ADD_FNS(add, {}),
+
+      // add_<unit>(timestamp, int)
+      TIMESTAMP_ADD_FIXED_UNIT_FN(add_days, {}),
+      TIMESTAMP_ADD_FIXED_UNIT_FN(add_hours, {}),
+      TIMESTAMP_ADD_FIXED_UNIT_FN(add_minutes, {}),
+      TIMESTAMP_ADD_FIXED_UNIT_FN(add_seconds, {}),
+
 
       NativeFunction("add", {}, DataTypeVector{date64(), int64()}, timestamp(),
                      kResultNullIfNull, "add_date64_int64"),

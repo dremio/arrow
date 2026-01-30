@@ -490,6 +490,20 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_date64_int64(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
+
+  // add_<unit>
+  EXPECT_EQ(add_days_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
+            StringToTimestamp("2000-05-08 00:00:00"));
+  EXPECT_EQ(add_days_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), -7),
+            StringToTimestamp("2000-04-24 00:00:00"));
+
+  EXPECT_EQ(add_hours_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 25),
+            StringToTimestamp("2000-05-02 01:00:00"));
+  EXPECT_EQ(add_minutes_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), -1),
+            StringToTimestamp("2000-04-30 23:59:00"));
+  EXPECT_EQ(add_seconds_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 1),
+            StringToTimestamp("2000-05-01 00:00:01"));
+
   // date_sub
   EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-04-24 00:00:00"));
