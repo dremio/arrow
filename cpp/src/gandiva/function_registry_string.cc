@@ -494,6 +494,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("parse_url", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullInternal, "parse_url_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_aes_encrypt",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),

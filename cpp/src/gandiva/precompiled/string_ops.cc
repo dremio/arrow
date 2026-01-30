@@ -3014,6 +3014,288 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 }
 
 FORCE_INLINE
+const char* gdv_substr_copy_out(gdv_int64 context, const char* src, int32_t len,
+                                bool* out_valid, int32_t* out_len) {
+  if (len <= 0 || src == nullptr) {
+    *out_valid = true;
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_valid = false;
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, src, len);
+  *out_valid = true;
+  *out_len = len;
+  return ret;
+}
+
+FORCE_INLINE
+int32_t find_char(const char* data, int32_t data_len, char ch, int32_t start,
+                  int32_t end) {
+  if (data == nullptr || data_len <= 0) {
+    return -1;
+  }
+  if (start < 0) start = 0;
+  if (end > data_len) end = data_len;
+  for (int32_t i = start; i < end; ++i) {
+    if (data[i] == ch) return i;
+  }
+  return -1;
+}
+
+FORCE_INLINE
+int32_t find_substr(const char* data, int32_t data_len, const char* needle,
+                    int32_t needle_len, int32_t start, int32_t end) {
+  if (data == nullptr || needle == nullptr || data_len <= 0 || needle_len <= 0) {
+    return -1;
+  }
+  if (start < 0) start = 0;
+  if (end > data_len) end = data_len;
+  if (end - start < needle_len) return -1;
+  for (int32_t i = start; i <= end - needle_len; ++i) {
+    if (memcmp(data + i, needle, needle_len) == 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+FORCE_INLINE
+const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, int32_t url_len,
+                                bool url_validity, const char* part, int32_t part_len,
+                                bool part_validity, bool* out_valid,
+                                int32_t* out_len) {
+  if (!url_validity || !part_validity) {
+    *out_valid = false;
+    *out_len = 0;
+    return "";
+  }
+  if (url == nullptr || url_len <= 0 || part == nullptr || part_len <= 0) {
+    *out_valid = true;
+    *out_len = 0;
+    return "";
+  }
+
+  auto part_eq = [&](const char* s, int32_t s_len) {
+    return compare_lower_strings(s, s_len, part, part_len);
+  };
+
+  bool want_host = part_eq("host", 4);
+  bool want_path = part_eq("path", 4);
+  bool want_query = part_eq("query", 5);
+  bool want_ref = part_eq("ref", 3);
+  bool want_protocol = part_eq("protocol", 8);
+  bool want_file = part_eq("file", 4);
+  bool want_authority = part_eq("authority", 9);
+  bool want_userinfo = part_eq("userinfo", 8);
+
+  if (!(want_host || want_path || want_query || want_ref || want_protocol || want_file ||
+        want_authority || want_userinfo)) {
+    *out_valid = false;
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t url_end = url_len;
+
+  // Fragment (#ref)
+  int32_t hash_pos = find_char(url, url_len, '#', 0, url_end);
+  int32_t frag_start = -1;
+  int32_t frag_end = -1;
+  if (hash_pos != -1) {
+    frag_start = hash_pos + 1;
+    frag_end = url_end;
+    url_end = hash_pos;
+  }
+
+  // Query (?k=v)
+  int32_t query_pos = find_char(url, url_len, '?', 0, url_end);
+  int32_t query_start = -1;
+  int32_t query_end = -1;
+  if (query_pos != -1) {
+    query_start = query_pos + 1;
+    query_end = url_end;
+    url_end = query_pos;
+  }
+
+  // Scheme/protocol (scheme: or scheme://)
+  int32_t proto_start = 0;
+  int32_t proto_end = -1;
+  int32_t authority_start = 0;
+
+  const char* scheme_sep = "://";
+  int32_t scheme_sep_pos = find_substr(url, url_len, scheme_sep, 3, 0, url_end);
+  if (scheme_sep_pos != -1) {
+    proto_end = scheme_sep_pos;
+    authority_start = scheme_sep_pos + 3;
+  } else {
+    int32_t first_delim = url_end;
+    int32_t slash_pos = find_char(url, url_len, '/', 0, url_end);
+    if (slash_pos != -1 && slash_pos < first_delim) first_delim = slash_pos;
+
+    int32_t colon_pos = find_char(url, url_len, ':', 0, first_delim);
+    if (colon_pos != -1) {
+      proto_end = colon_pos;
+    }
+
+    if (url_len >= 2 && url[0] == '/' && url[1] == '/') {
+      authority_start = 2;
+    } else {
+      authority_start = 0;
+    }
+  }
+
+  // Authority and path
+  int32_t authority_end = url_end;
+  int32_t path_start = url_end;
+  if (authority_start < url_end) {
+    int32_t slash_pos = find_char(url, url_len, '/', authority_start, url_end);
+    if (slash_pos != -1) {
+      authority_end = slash_pos;
+      path_start = slash_pos;
+    }
+  }
+
+  bool has_authority = (scheme_sep_pos != -1) ||
+                       (url_len >= 2 && url[0] == '/' && url[1] == '/');
+  if (!has_authority) {
+    authority_start = url_end;
+    authority_end = url_end;
+    path_start = 0;
+  }
+
+  int32_t path_end = url_end;
+
+  const char* protocol_ptr = (proto_end > proto_start) ? (url + proto_start) : nullptr;
+  int32_t protocol_len = (proto_end > proto_start) ? proto_end - proto_start : 0;
+
+  const char* authority_ptr =
+      (authority_end > authority_start) ? (url + authority_start) : nullptr;
+  int32_t authority_len =
+      (authority_end > authority_start) ? authority_end - authority_start : 0;
+
+  const char* path_ptr = (path_end > path_start) ? (url + path_start) : nullptr;
+  int32_t path_len = (path_end > path_start) ? path_end - path_start : 0;
+
+  const char* query_ptr =
+      (query_start != -1 && query_end > query_start) ? (url + query_start) : nullptr;
+  int32_t query_len = (query_start != -1 && query_end > query_start)
+                          ? query_end - query_start
+                          : 0;
+
+  const char* ref_ptr =
+      (frag_start != -1 && frag_end > frag_start) ? (url + frag_start) : nullptr;
+  int32_t ref_len =
+      (frag_start != -1 && frag_end > frag_start) ? frag_end - frag_start : 0;
+
+  // Parse authority into userinfo and host (no port)
+  const char* userinfo_ptr = nullptr;
+  int32_t userinfo_len = 0;
+  const char* host_ptr = nullptr;
+  int32_t host_len = 0;
+  if (authority_len > 0 && authority_ptr != nullptr) {
+    int32_t at_pos = -1;
+    for (int32_t i = authority_len - 1; i >= 0; --i) {
+      if (authority_ptr[i] == '@') {
+        at_pos = i;
+        break;
+      }
+    }
+    const char* hostport_ptr = authority_ptr;
+    int32_t hostport_len = authority_len;
+    if (at_pos != -1) {
+      userinfo_ptr = authority_ptr;
+      userinfo_len = at_pos;
+      hostport_ptr = authority_ptr + at_pos + 1;
+      hostport_len = authority_len - at_pos - 1;
+    }
+
+    if (hostport_len > 0) {
+      if (hostport_ptr[0] == '[') {
+        int32_t close = find_char(hostport_ptr, hostport_len, ']', 0, hostport_len);
+        if (close != -1 && close > 1) {
+          host_ptr = hostport_ptr + 1;
+          host_len = close - 1;
+        } else {
+          host_ptr = hostport_ptr;
+          host_len = hostport_len;
+        }
+      } else {
+        int32_t colon = find_char(hostport_ptr, hostport_len, ':', 0, hostport_len);
+        if (colon == -1) {
+          host_ptr = hostport_ptr;
+          host_len = hostport_len;
+        } else {
+          host_ptr = hostport_ptr;
+          host_len = colon;
+        }
+      }
+    }
+  }
+
+  if (want_protocol) {
+    return gdv_substr_copy_out(context, protocol_ptr, protocol_len, out_valid, out_len);
+  }
+  if (want_authority) {
+    return gdv_substr_copy_out(context, authority_ptr, authority_len, out_valid, out_len);
+  }
+  if (want_userinfo) {
+    return gdv_substr_copy_out(context, userinfo_ptr, userinfo_len, out_valid, out_len);
+  }
+  if (want_host) {
+    return gdv_substr_copy_out(context, host_ptr, host_len, out_valid, out_len);
+  }
+  if (want_path) {
+    return gdv_substr_copy_out(context, path_ptr, path_len, out_valid, out_len);
+  }
+  if (want_query) {
+    return gdv_substr_copy_out(context, query_ptr, query_len, out_valid, out_len);
+  }
+  if (want_ref) {
+    return gdv_substr_copy_out(context, ref_ptr, ref_len, out_valid, out_len);
+  }
+
+  // FILE: path + (?query)
+  if (want_file) {
+    if (path_len <= 0 && query_len <= 0) {
+      *out_valid = true;
+      *out_len = 0;
+      return "";
+    }
+    int32_t file_len = path_len + (query_len > 0 ? (1 + query_len) : 0);
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, file_len));
+    if (ret == nullptr) {
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+      *out_valid = false;
+      *out_len = 0;
+      return "";
+    }
+    int32_t idx = 0;
+    if (path_len > 0) {
+      memcpy(ret + idx, path_ptr, path_len);
+      idx += path_len;
+    }
+    if (query_len > 0) {
+      ret[idx++] = '?';
+      memcpy(ret + idx, query_ptr, query_len);
+      idx += query_len;
+    }
+    *out_valid = true;
+    *out_len = file_len;
+    return ret;
+  }
+
+  *out_valid = false;
+  *out_len = 0;
+  return "";
+}
+
+FORCE_INLINE
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len) {
   if (substring_len == 0) {

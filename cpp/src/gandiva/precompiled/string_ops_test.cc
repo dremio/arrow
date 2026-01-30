@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <limits>
 
 #include "gandiva/execution_context.h"
@@ -2704,4 +2705,70 @@ TEST(TestStringOps, TestInstr) {
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 8);
 }
+
+TEST(TestStringOps, TestParseUrl) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  bool out_valid = false;
+  int32_t out_len = 0;
+
+  const char* url = "http://user:pass@example.com:8080/path?query=1#ref";
+  const int32_t url_len = static_cast<int32_t>(strlen(url));
+
+  const char* out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "HOST", 4, true,
+                                        &out_valid, &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "example.com");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "PATH", 4, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "/path");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "QUERY", 5, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "query=1");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "REF", 3, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "ref");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "PROTOCOL", 8, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "http");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "AUTHORITY", 9, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "user:pass@example.com:8080");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "USERINFO", 8, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "user:pass");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url, url_len, true, "FILE", 4, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "/path?query=1");
+
+  const char* url2 = "http://example.com/path";
+  const int32_t url2_len = static_cast<int32_t>(strlen(url2));
+  out = parse_url_utf8_utf8(ctx_ptr, url2, url2_len, true, "QUERY", 5, true, &out_valid,
+                            &out_len);
+  EXPECT_TRUE(out_valid);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = parse_url_utf8_utf8(ctx_ptr, url2, url2_len, true, "BAD", 3, true, &out_valid,
+                            &out_len);
+  EXPECT_FALSE(out_valid);
+
+  out = parse_url_utf8_utf8(ctx_ptr, url2, url2_len, false, "HOST", 4, true, &out_valid,
+                            &out_len);
+  EXPECT_FALSE(out_valid);
+}
+
 }  // namespace gandiva
