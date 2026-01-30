@@ -99,6 +99,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "gdv_fn_initcap_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("normalize_string", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_normalize_string_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("concat_ws", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullInternal, "concat_ws_utf8_utf8",
                      NativeFunction::kNeedsContext),

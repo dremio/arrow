@@ -18,6 +18,18 @@
 #include "gandiva/gdv_function_stubs.h"
 
 #include <utf8proc.h>
+
+#ifdef GANDIVA_WITH_ICU
+#include <unicode/unorm2.h>
+#include <unicode/ustring.h>
+#include <unicode/utypes.h>
+#endif
+
+#include <cmath>
+#include <cstring>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -539,6 +551,138 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+
+GANDIVA_EXPORT
+const char* gdv_fn_normalize_string_utf8_utf8(int64_t context, const char* data,
+                                              int32_t data_len, const char* form,
+                                              int32_t form_len, int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+#ifndef GANDIVA_WITH_ICU
+  gdv_fn_context_set_error_msg(context,
+                               "ICU is required for normalize_string but was not "
+                               "available at build time");
+  *out_len = 0;
+  return "";
+#else
+  std::string_view form_sv(form, static_cast<size_t>(form_len));
+
+  // Accept common case variants.
+  std::string form_upper;
+  form_upper.reserve(form_sv.size());
+  for (char c : form_sv) {
+    if (c >= 'a' && c <= 'z') {
+      form_upper.push_back(static_cast<char>(c - 32));
+    } else {
+      form_upper.push_back(c);
+    }
+  }
+
+  UErrorCode status = U_ZERO_ERROR;
+  const UNorm2* normalizer = nullptr;
+  if (form_upper == "NFC") {
+    normalizer = unorm2_getNFCInstance(&status);
+  } else if (form_upper == "NFD") {
+    normalizer = unorm2_getNFDInstance(&status);
+  } else if (form_upper == "NFKC") {
+    normalizer = unorm2_getNFKCInstance(&status);
+  } else if (form_upper == "NFKD") {
+    normalizer = unorm2_getNFKDInstance(&status);
+  } else {
+    gdv_fn_context_set_error_msg(
+        context,
+        "normalize_string(): invalid normalization form (expected NFC, NFD, NFKC, or "
+        "NFKD)");
+    *out_len = 0;
+    return "";
+  }
+
+  if (U_FAILURE(status) || normalizer == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "normalize_string(): failed to get ICU normalizer");
+    *out_len = 0;
+    return "";
+  }
+
+  // Convert UTF-8 -> UTF-16
+  status = U_ZERO_ERROR;
+  int32_t u16_len = 0;
+  u_strFromUTF8(nullptr, 0, &u16_len, data, data_len, &status);
+  if (status != U_BUFFER_OVERFLOW_ERROR && U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context, "normalize_string(): invalid UTF-8 input");
+    *out_len = 0;
+    return "";
+  }
+  status = U_ZERO_ERROR;
+  std::vector<UChar> u16(static_cast<size_t>(u16_len) + 1);
+  u_strFromUTF8(u16.data(), u16_len + 1, &u16_len, data, data_len, &status);
+  if (U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context, "normalize_string(): invalid UTF-8 input");
+    *out_len = 0;
+    return "";
+  }
+
+  // Normalize UTF-16
+  status = U_ZERO_ERROR;
+  int32_t norm_u16_len =
+      unorm2_normalize(normalizer, u16.data(), u16_len, nullptr, 0, &status);
+  if (status != U_BUFFER_OVERFLOW_ERROR && U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context, "normalize_string(): ICU normalization failed");
+    *out_len = 0;
+    return "";
+  }
+
+  status = U_ZERO_ERROR;
+  std::vector<UChar> norm_u16(static_cast<size_t>(norm_u16_len) + 1);
+  norm_u16_len = unorm2_normalize(normalizer, u16.data(), u16_len, norm_u16.data(),
+                                  norm_u16_len + 1, &status);
+  if (U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context, "normalize_string(): ICU normalization failed");
+    *out_len = 0;
+    return "";
+  }
+
+  // Convert UTF-16 -> UTF-8
+  status = U_ZERO_ERROR;
+  int32_t out_utf8_len = 0;
+  u_strToUTF8(nullptr, 0, &out_utf8_len, norm_u16.data(), norm_u16_len, &status);
+  if (status != U_BUFFER_OVERFLOW_ERROR && U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context,
+                                 "normalize_string(): UTF-16 to UTF-8 conversion failed");
+    *out_len = 0;
+    return "";
+  }
+
+  if (out_utf8_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, out_utf8_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  status = U_ZERO_ERROR;
+  u_strToUTF8(out, out_utf8_len, &out_utf8_len, norm_u16.data(), norm_u16_len, &status);
+  if (U_FAILURE(status)) {
+    gdv_fn_context_set_error_msg(context,
+                                 "normalize_string(): UTF-16 to UTF-8 conversion failed");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = out_utf8_len;
+  return out;
+#endif
+}
+
 GANDIVA_EXPORT
 const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in_len,
                                      const char* from, int32_t from_len, const char* to,
@@ -754,6 +898,96 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
   *out_len = result_len;
   return result;
+}
+
+// format_number(number, decimal_places)
+GANDIVA_EXPORT
+const char* gdv_fn_format_number_float64_int32(int64_t context, gdv_float64 value,
+                                               gdv_int32 decimal_places,
+                                               gdv_int32* out_len) {
+  if (out_len == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Invalid output length pointer");
+    return "";
+  }
+
+  if (decimal_places < 0) {
+    gdv_fn_context_set_error_msg(context, "Decimal places cannot be negative");
+    *out_len = 0;
+    return "";
+  }
+
+  // Doubles have limited precision; also prevents pathological allocations.
+  if (decimal_places > 18) {
+    gdv_fn_context_set_error_msg(context, "Decimal places is too large");
+    *out_len = 0;
+    return "";
+  }
+
+  // Match typical formatting conventions for NaN/Infinity.
+  if (!std::isfinite(value)) {
+    const char* s = std::isnan(value) ? "NaN" : (value < 0 ? "-Infinity" : "Infinity");
+    *out_len = static_cast<gdv_int32>(strlen(s));
+    char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+    if (out == nullptr) {
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    memcpy(out, s, *out_len);
+    return out;
+  }
+
+  std::ostringstream ss;
+  ss.imbue(std::locale::classic());
+  ss.setf(std::ios::fixed);
+  ss << std::setprecision(decimal_places) << value;
+  const std::string s = ss.str();  // [-]digits[.digits]
+
+  const bool negative = !s.empty() && s[0] == '-';
+  const size_t digits_begin = negative ? 1 : 0;
+
+  const size_t dot_pos = s.find('.');
+  std::string int_part = (dot_pos == std::string::npos)
+                             ? s.substr(digits_begin)
+                             : s.substr(digits_begin, dot_pos - digits_begin);
+  std::string frac_part = (dot_pos == std::string::npos) ? "" : s.substr(dot_pos + 1);
+
+  // Insert commas.
+  std::string grouped_int;
+  grouped_int.reserve(int_part.size() + int_part.size() / 3);
+  const int digits = static_cast<int>(int_part.size());
+  for (int i = 0; i < digits; ++i) {
+    if (i > 0 && ((digits - i) % 3 == 0)) {
+      grouped_int.push_back(',');
+    }
+    grouped_int.push_back(int_part[static_cast<size_t>(i)]);
+  }
+
+  std::string out_str;
+  out_str.reserve(s.size() + s.size() / 3);
+  if (negative) out_str.push_back('-');
+  out_str.append(grouped_int);
+
+  if (decimal_places > 0) {
+    out_str.push_back('.');
+    if (static_cast<gdv_int32>(frac_part.size()) < decimal_places) {
+      frac_part.append(static_cast<size_t>(decimal_places - frac_part.size()), '0');
+    } else if (static_cast<gdv_int32>(frac_part.size()) > decimal_places) {
+      frac_part.resize(static_cast<size_t>(decimal_places));
+    }
+    out_str.append(frac_part);
+  }
+
+  *out_len = static_cast<gdv_int32>(out_str.size());
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(out, out_str.data(), *out_len);
+  return out;
 }
 }
 
@@ -971,6 +1205,20 @@ arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
 
+  // gdv_fn_normalize_string_utf8_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i8_ptr_type(),   // form
+      types->i32_type(),      // form_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_normalize_string_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_normalize_string_utf8_utf8));
+
   // translate_utf8_utf8_utf8
   args = {
       types->i64_type(),     // context
@@ -986,6 +1234,18 @@ arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+
+  // gdv_fn_format_number_float64_int32
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // double value (passed as i64)
+      types->i32_type(),     // decimal_places
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_format_number_float64_int32",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_format_number_float64_int32));
   return arrow::Status::OK();
 }
 }  // namespace gandiva
