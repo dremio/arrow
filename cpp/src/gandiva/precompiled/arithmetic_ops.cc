@@ -542,4 +542,49 @@ SQRT(float64)
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES
 
+// Bit shift operations
+// Left shift: value << bits (logical, zero-fill on right)
+// To avoid C++ UB: bits < 0 or bits >= bitwidth returns 0
+#define LSHIFT(TYPE, UTYPE, BITS)                                              \
+  FORCE_INLINE                                                                 \
+  gdv_##TYPE lshift_##TYPE##_##TYPE(gdv_##TYPE value, gdv_##TYPE bits) {       \
+    if (bits < 0 || bits >= BITS) return 0;                                    \
+    return static_cast<gdv_##TYPE>(static_cast<UTYPE>(value) << bits);         \
+  }
+
+LSHIFT(int32, uint32_t, 32)
+LSHIFT(int64, uint64_t, 64)
+
+#undef LSHIFT
+
+// Arithmetic right shift: value >> bits (sign-extends)
+// bits < 0: no-op (return value)
+// bits >= bitwidth: returns 0 for non-negative, -1 for negative
+#define RSHIFT(TYPE, BITS)                                                     \
+  FORCE_INLINE                                                                 \
+  gdv_##TYPE rshift_##TYPE##_##TYPE(gdv_##TYPE value, gdv_##TYPE bits) {       \
+    if (bits <= 0) return value;                                               \
+    if (bits >= BITS) return (value < 0) ? -1 : 0;                             \
+    return value >> bits;                                                      \
+  }
+
+RSHIFT(int32, 32)
+RSHIFT(int64, 64)
+
+#undef RSHIFT
+
+// Logical (unsigned) right shift: value >>> bits (zero-fill on left)
+// bits < 0 or bits >= bitwidth returns 0
+#define RSHIFTUNSIGNED(TYPE, UTYPE, BITS)                                      \
+  FORCE_INLINE                                                                 \
+  gdv_##TYPE rshiftunsigned_##TYPE##_##TYPE(gdv_##TYPE value, gdv_##TYPE bits) { \
+    if (bits < 0 || bits >= BITS) return 0;                                    \
+    return static_cast<gdv_##TYPE>(static_cast<UTYPE>(value) >> bits);         \
+  }
+
+RSHIFTUNSIGNED(int32, uint32_t, 32)
+RSHIFTUNSIGNED(int64, uint64_t, 64)
+
+#undef RSHIFTUNSIGNED
+
 }  // extern "C"

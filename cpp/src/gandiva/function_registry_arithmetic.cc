@@ -226,7 +226,15 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
 
       // binary representation of integer values
       UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),
-      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8)};
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8),
+
+      // bit shift operations
+      BINARY_SAFE_NULL_IF_NULL(lshift, {}, int32, int32, int32),
+      BINARY_SAFE_NULL_IF_NULL(lshift, {}, int64, int64, int64),
+      BINARY_SAFE_NULL_IF_NULL(rshift, {}, int32, int32, int32),
+      BINARY_SAFE_NULL_IF_NULL(rshift, {}, int64, int64, int64),
+      BINARY_SAFE_NULL_IF_NULL(rshiftunsigned, {}, int32, int32, int32),
+      BINARY_SAFE_NULL_IF_NULL(rshiftunsigned, {}, int64, int64, int64)};
 
   return arithmetic_fn_registry_;
 }

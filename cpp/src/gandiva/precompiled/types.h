@@ -221,6 +221,14 @@ gdv_float64 mod_float64_float64(gdv_int64 context, gdv_float64 left, gdv_float64
 
 gdv_int64 pmod_int64_int64(int64_t context, gdv_int64 left, gdv_int64 right);
 
+// Bit shift operations
+gdv_int32 lshift_int32_int32(gdv_int32 value, gdv_int32 bits);
+gdv_int64 lshift_int64_int64(gdv_int64 value, gdv_int64 bits);
+gdv_int32 rshift_int32_int32(gdv_int32 value, gdv_int32 bits);
+gdv_int64 rshift_int64_int64(gdv_int64 value, gdv_int64 bits);
+gdv_int32 rshiftunsigned_int32_int32(gdv_int32 value, gdv_int32 bits);
+gdv_int64 rshiftunsigned_int64_int64(gdv_int64 value, gdv_int64 bits);
+
 gdv_int32 positive_int32(gdv_int32 in);
 gdv_int64 positive_int64(gdv_int64 in);
 gdv_int32 negative_int32(gdv_int64 context, gdv_int32 in);
