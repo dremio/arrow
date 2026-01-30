@@ -364,6 +364,38 @@ TEST(TestTime, TimeStampTrunc) {
             StringToTimestamp("2000-03-06 00:00:00"));
 }
 
+TEST(TestTime, DateTruncPrecisionTimestamp) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2026-01-29 15:30:45");
+
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "year", 4, ts),
+            StringToTimestamp("2026-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "quarter", 7, ts),
+            StringToTimestamp("2026-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "month", 5, ts),
+            StringToTimestamp("2026-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "week", 4, ts),
+            StringToTimestamp("2026-01-26 00:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "day", 3, ts),
+            StringToTimestamp("2026-01-29 00:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "hour", 4, ts),
+            StringToTimestamp("2026-01-29 15:00:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "minute", 6, ts),
+            StringToTimestamp("2026-01-29 15:30:00"));
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "second", 6, ts), ts);
+
+  // Case-insensitive
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "MoNtH", 5, ts),
+            StringToTimestamp("2026-01-01 00:00:00"));
+
+  // Invalid precision should set an error.
+  context.Reset();
+  EXPECT_EQ(date_trunc_utf8_timestamp(context_ptr, "millis", 6, ts), 0);
+  EXPECT_TRUE(context.has_error());
+}
+
 TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(
       timestampaddSecond_int32_timestamp(30, StringToTimestamp("2000-05-01 10:20:34")),

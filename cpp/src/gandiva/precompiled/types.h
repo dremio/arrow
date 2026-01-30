@@ -191,6 +191,10 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
                                        gdv_timestamp end_millis);
 
 gdv_int64 date_trunc_Week_timestamp(gdv_timestamp);
+
+gdv_timestamp date_trunc_utf8_timestamp(gdv_int64 context, const char* precision,
+                                       gdv_int32 precision_len, gdv_timestamp in);
+
 double months_between_timestamp_timestamp(gdv_uint64, gdv_uint64);
 
 gdv_int32 mem_compare(const char* left, gdv_int32 left_len, const char* right,
@@ -280,6 +284,8 @@ gdv_float64 log10_int32(gdv_int32);
 gdv_float64 log10_int64(gdv_int64);
 gdv_float64 log10_float32(gdv_float32);
 gdv_float64 log10_float64(gdv_float64);
+
+gdv_float64 pi();
 
 gdv_float64 sin_int32(gdv_int32);
 gdv_float64 sin_int64(gdv_int64);

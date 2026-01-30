@@ -62,6 +62,10 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       NEXT_DAY_FNS(next_day),
 
+      NativeFunction("date_trunc", {}, DataTypeVector{utf8(), timestamp()}, timestamp(),
+                     kResultNullIfNull, "date_trunc_utf8_timestamp",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),

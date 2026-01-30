@@ -21,6 +21,7 @@ extern "C" {
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -507,6 +508,60 @@ EXTRACT_HOUR_TIME(time32)
 
 DATE_TRUNC_FUNCTIONS(date64)
 DATE_TRUNC_FUNCTIONS(timestamp)
+
+FORCE_INLINE
+bool equals_ignore_case_ascii(const char* in, gdv_int32 in_len, const char* lit) {
+  gdv_int32 lit_len = static_cast<gdv_int32>(strlen(lit));
+  if (in_len != lit_len) {
+    return false;
+  }
+  for (gdv_int32 i = 0; i < in_len; ++i) {
+    unsigned char c = static_cast<unsigned char>(in[i]);
+    if (tolower(c) != lit[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// date_trunc(precision, timestamp)
+//
+// precision is one of: year, quarter, month, week, day, hour, minute, second
+//
+// On invalid precision, sets an error in the execution context.
+FORCE_INLINE
+gdv_timestamp date_trunc_utf8_timestamp(gdv_int64 context, const char* precision,
+                                       gdv_int32 precision_len, gdv_timestamp in) {
+  if (equals_ignore_case_ascii(precision, precision_len, "year")) {
+    return date_trunc_Year_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "quarter")) {
+    return date_trunc_Quarter_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "month")) {
+    return date_trunc_Month_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "week")) {
+    return date_trunc_Week_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "day")) {
+    return date_trunc_Day_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "hour")) {
+    return date_trunc_Hour_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "minute")) {
+    return date_trunc_Minute_timestamp(in);
+  }
+  if (equals_ignore_case_ascii(precision, precision_len, "second")) {
+    return date_trunc_Second_timestamp(in);
+  }
+
+  gdv_fn_context_set_error_msg(context,
+                              "Invalid precision for date_trunc. Expected one of: "
+                              "year, quarter, month, week, day, hour, minute, second");
+  return 0;
+}
 
 #define LAST_DAY_FUNC(TYPE)                                                   \
   FORCE_INLINE                                                                \
