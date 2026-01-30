@@ -26,6 +26,8 @@ extern "C" {
 #include <string.h>
 #include <time.h>
 
+#include <chrono>
+
 #include "./time_constants.h"
 #include "./time_fields.h"
 #include "./types.h"
@@ -35,6 +37,29 @@ extern "C" {
 #define SECONDS_IN_HOUR (SECONDS_IN_MINUTE) * (MINS_IN_HOUR)
 
 #define HOURS_IN_DAY 24
+
+// Return the current timestamp in milliseconds since epoch (UTC).
+gdv_timestamp current_timestamp() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
+// Alias for current_timestamp().
+gdv_timestamp now() { return current_timestamp(); }
+
+// Return the current date as milliseconds since epoch at 00:00:00 (UTC).
+gdv_date64 current_date() {
+  gdv_timestamp ts = current_timestamp();
+  return static_cast<gdv_date64>((ts / MILLIS_IN_DAY) * MILLIS_IN_DAY);
+}
+
+// Return the current time as milliseconds since midnight (UTC).
+gdv_time32 current_time() {
+  gdv_timestamp ts = current_timestamp();
+  // Note: the cast is safe; MILLIS_IN_DAY fits in int32.
+  return static_cast<gdv_time32>(ts % MILLIS_IN_DAY);
+}
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <gtest/gtest.h>
 
 #include "gandiva/execution_context.h"
@@ -1139,4 +1140,31 @@ TEST(TestTime, TestCastNullableInterval) {
   context.Reset();
 }
 
+
+
+TEST(TestTime, TestCurrentDateTime) {
+  using std::chrono::duration_cast;
+  using std::chrono::milliseconds;
+  using std::chrono::system_clock;
+
+  auto before = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  gdv_timestamp ts = current_timestamp();
+  auto after = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+  EXPECT_GE(ts, before);
+  EXPECT_LE(ts, after);
+
+  gdv_timestamp ts2 = now();
+  EXPECT_GE(ts2, before);
+  EXPECT_LE(ts2, after);
+
+  gdv_date64 d = current_date();
+  EXPECT_EQ(d % MILLIS_IN_DAY, 0);
+  EXPECT_EQ(d, (ts / MILLIS_IN_DAY) * MILLIS_IN_DAY);
+
+  gdv_time32 t = current_time();
+  EXPECT_GE(t, 0);
+  EXPECT_LT(t, MILLIS_IN_DAY);
+  EXPECT_EQ(static_cast<int64_t>(t), ts % MILLIS_IN_DAY);
+}
 }  // namespace gandiva
