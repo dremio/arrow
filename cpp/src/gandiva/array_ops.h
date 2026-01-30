@@ -55,6 +55,60 @@ bool array_float64_contains_float64(int64_t context_ptr, const double* entry_buf
                               int64_t loop_var, int64_t validity_index_var,
                               bool* valid_buf);
 
+// array_length / cardinality
+GANDIVA_EXPORT
+int32_t array_int32_length(int64_t context_ptr, const int32_t* entry_buf,
+                           int32_t entry_len, const int32_t* entry_validity,
+                           bool combined_row_validity, int64_t loop_var,
+                           int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_int64_length(int64_t context_ptr, const int64_t* entry_buf,
+                           int32_t entry_len, const int32_t* entry_validity,
+                           bool combined_row_validity, int64_t loop_var,
+                           int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_float32_length(int64_t context_ptr, const float* entry_buf,
+                             int32_t entry_len, const int32_t* entry_validity,
+                             bool combined_row_validity, int64_t loop_var,
+                             int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_float64_length(int64_t context_ptr, const double* entry_buf,
+                             int32_t entry_len, const int32_t* entry_validity,
+                             bool combined_row_validity, int64_t loop_var,
+                             int64_t validity_index_var, bool* valid_buf);
+
+// array_position
+GANDIVA_EXPORT
+int32_t array_int32_position_int32(int64_t context_ptr, const int32_t* entry_buf,
+                                   int32_t entry_len, const int32_t* entry_validity,
+                                   bool combined_row_validity, int32_t search_data,
+                                   bool search_data_valid, int64_t loop_var,
+                                   int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_int64_position_int64(int64_t context_ptr, const int64_t* entry_buf,
+                                   int32_t entry_len, const int32_t* entry_validity,
+                                   bool combined_row_validity, int64_t search_data,
+                                   bool search_data_valid, int64_t loop_var,
+                                   int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_float32_position_float32(int64_t context_ptr, const float* entry_buf,
+                                       int32_t entry_len, const int32_t* entry_validity,
+                                       bool combined_row_validity, float search_data,
+                                       bool search_data_valid, int64_t loop_var,
+                                       int64_t validity_index_var, bool* valid_buf);
+
+GANDIVA_EXPORT
+int32_t array_float64_position_float64(int64_t context_ptr, const double* entry_buf,
+                                       int32_t entry_len, const int32_t* entry_validity,
+                                       bool combined_row_validity, double search_data,
+                                       bool search_data_valid, int64_t loop_var,
+                                       int64_t validity_index_var, bool* valid_buf);
+
 GANDIVA_EXPORT
 int32_t* array_int32_remove(int64_t context_ptr, const int32_t* entry_buf,
                               int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,

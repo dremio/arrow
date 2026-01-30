@@ -109,11 +109,66 @@ bool array_contains_template(const Type* entry_buf,
       return true;
     }
   }
-  //If there is null in the input and the item is not found the result is null.
+  // If there is null in the input and the item is not found, the result is null.
   if (found_null_in_data) {
     *valid_row = false;
   }
   return false;
+}
+
+template <typename Type>
+int32_t array_length_template(const Type* entry_buf, int32_t entry_len,
+                              const int32_t* entry_validity, bool combined_row_validity,
+                              int64_t loop_var, int64_t validity_index_var,
+                              bool* valid_row) {
+  (void)entry_buf;
+  (void)entry_validity;
+  (void)loop_var;
+  (void)validity_index_var;
+
+  if (!combined_row_validity) {
+    *valid_row = false;
+    return 0;
+  }
+  *valid_row = true;
+  return entry_len;
+}
+
+template <typename Type>
+int32_t array_position_template(const Type* entry_buf,
+                                int32_t entry_len, const int32_t* entry_validity,
+                                bool combined_row_validity, Type search_data,
+                                bool search_data_valid, int64_t loop_var,
+                                int64_t validity_index_var, bool* valid_row) {
+  if (!combined_row_validity || !search_data_valid) {
+    *valid_row = false;
+    return 0;
+  }
+  *valid_row = true;
+
+  const int32_t* entry_validityAdjusted = entry_validity - (loop_var);
+  int64_t validityBitIndex = validity_index_var - entry_len;
+
+  bool found_null_in_data = false;
+  for (int i = 0; i < entry_len; i++) {
+    if (!arrow::bit_util::GetBit(reinterpret_cast<const uint8_t*>(entry_validityAdjusted),
+                                 validityBitIndex + i)) {
+      found_null_in_data = true;
+      continue;
+    }
+
+    Type entry_item = *(entry_buf + i);
+    if (entry_item == search_data) {
+      // Position is 1-indexed.
+      return i + 1;
+    }
+  }
+
+  // If there is null in the input and the item is not found, the result is null.
+  if (found_null_in_data) {
+    *valid_row = false;
+  }
+  return 0;
 }
 
 extern "C" {
@@ -158,6 +213,85 @@ bool array_float64_contains_float64(int64_t context_ptr, const double* entry_buf
                               loop_var, validity_index_var, valid_row);
 }
 
+int32_t array_int32_length(int64_t context_ptr, const int32_t* entry_buf,
+                           int32_t entry_len, const int32_t* entry_validity,
+                           bool combined_row_validity, int64_t loop_var,
+                           int64_t validity_index_var, bool* valid_row) {
+  return array_length_template<int32_t>(entry_buf, entry_len, entry_validity,
+                                       combined_row_validity, loop_var,
+                                       validity_index_var, valid_row);
+}
+
+int32_t array_int64_length(int64_t context_ptr, const int64_t* entry_buf,
+                           int32_t entry_len, const int32_t* entry_validity,
+                           bool combined_row_validity, int64_t loop_var,
+                           int64_t validity_index_var, bool* valid_row) {
+  return array_length_template<int64_t>(entry_buf, entry_len, entry_validity,
+                                       combined_row_validity, loop_var,
+                                       validity_index_var, valid_row);
+}
+
+int32_t array_float32_length(int64_t context_ptr, const float* entry_buf,
+                             int32_t entry_len, const int32_t* entry_validity,
+                             bool combined_row_validity, int64_t loop_var,
+                             int64_t validity_index_var, bool* valid_row) {
+  return array_length_template<float>(entry_buf, entry_len, entry_validity,
+                                     combined_row_validity, loop_var,
+                                     validity_index_var, valid_row);
+}
+
+int32_t array_float64_length(int64_t context_ptr, const double* entry_buf,
+                             int32_t entry_len, const int32_t* entry_validity,
+                             bool combined_row_validity, int64_t loop_var,
+                             int64_t validity_index_var, bool* valid_row) {
+  return array_length_template<double>(entry_buf, entry_len, entry_validity,
+                                      combined_row_validity, loop_var,
+                                      validity_index_var, valid_row);
+}
+
+int32_t array_int32_position_int32(int64_t context_ptr, const int32_t* entry_buf,
+                                   int32_t entry_len, const int32_t* entry_validity,
+                                   bool combined_row_validity, int32_t search_data,
+                                   bool search_data_valid, int64_t loop_var,
+                                   int64_t validity_index_var, bool* valid_row) {
+  return array_position_template<int32_t>(entry_buf, entry_len, entry_validity,
+                                         combined_row_validity, search_data,
+                                         search_data_valid, loop_var,
+                                         validity_index_var, valid_row);
+}
+
+int32_t array_int64_position_int64(int64_t context_ptr, const int64_t* entry_buf,
+                                   int32_t entry_len, const int32_t* entry_validity,
+                                   bool combined_row_validity, int64_t search_data,
+                                   bool search_data_valid, int64_t loop_var,
+                                   int64_t validity_index_var, bool* valid_row) {
+  return array_position_template<int64_t>(entry_buf, entry_len, entry_validity,
+                                         combined_row_validity, search_data,
+                                         search_data_valid, loop_var,
+                                         validity_index_var, valid_row);
+}
+
+int32_t array_float32_position_float32(int64_t context_ptr, const float* entry_buf,
+                                       int32_t entry_len, const int32_t* entry_validity,
+                                       bool combined_row_validity, float search_data,
+                                       bool search_data_valid, int64_t loop_var,
+                                       int64_t validity_index_var, bool* valid_row) {
+  return array_position_template<float>(entry_buf, entry_len, entry_validity,
+                                       combined_row_validity, search_data,
+                                       search_data_valid, loop_var,
+                                       validity_index_var, valid_row);
+}
+
+int32_t array_float64_position_float64(int64_t context_ptr, const double* entry_buf,
+                                       int32_t entry_len, const int32_t* entry_validity,
+                                       bool combined_row_validity, double search_data,
+                                       bool search_data_valid, int64_t loop_var,
+                                       int64_t validity_index_var, bool* valid_row) {
+  return array_position_template<double>(entry_buf, entry_len, entry_validity,
+                                        combined_row_validity, search_data,
+                                        search_data_valid, loop_var,
+                                        validity_index_var, valid_row);
+}
 
 
 int32_t* array_int32_remove(int64_t context_ptr, const int32_t* entry_buf,
@@ -278,6 +412,125 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("array_float64_contains_float64",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(array_float64_contains_float64));
+
+  // array_length / cardinality
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i64_ptr_type(),  // int32_t* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+
+  engine->AddGlobalMappingForFunc("array_int32_length", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_int32_length));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i64_ptr_type(),  // int64_t* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+
+  engine->AddGlobalMappingForFunc("array_int64_length", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_int64_length));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->float_ptr_type(),  // float* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+
+  engine->AddGlobalMappingForFunc("array_float32_length", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_float32_length));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->double_ptr_type(),  // double* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+
+  engine->AddGlobalMappingForFunc("array_float64_length", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_float64_length));
+
+  // array_position
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i64_ptr_type(),  // int32_t* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i32_type(),      // search value
+          types->i1_type(),       // search value validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+  engine->AddGlobalMappingForFunc("array_int32_position_int32", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_int32_position_int32));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->i64_ptr_type(),  // int64_t* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->i64_type(),      // search value
+          types->i1_type(),       // search value validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+  engine->AddGlobalMappingForFunc("array_int64_position_int64", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_int64_position_int64));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->float_ptr_type(),  // float* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->float_type(),    // search value
+          types->i1_type(),       // search value validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+  engine->AddGlobalMappingForFunc("array_float32_position_float32", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_float32_position_float32));
+
+  args = {types->i64_type(),      // int64_t execution_context
+          types->double_ptr_type(),  // double* data ptr
+          types->i32_type(),      // int32_t data length
+          types->i32_ptr_type(),  // input validity buffer
+          types->i1_type(),       // bool input row validity
+          types->double_type(),   // search value
+          types->i1_type(),       // search value validity
+          types->i64_type(),      // in loop var
+          types->i64_type(),      // in validity_index_var
+          types->i1_ptr_type()    // output validity
+  };
+  engine->AddGlobalMappingForFunc("array_float64_position_float64", types->i32_type() /*return_type*/,
+                                  args,
+                                  reinterpret_cast<void*>(array_float64_position_float64));
+
   //Array remove.
   args = {types->i64_type(),      // int64_t execution_context
           types->i32_ptr_type(),   // int8_t* input data ptr

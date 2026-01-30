@@ -344,12 +344,11 @@ TEST_F(TestList, TestListInt32Contains) {
   // Create a row-batch with some sample data
   int num_records = 5;
   ArrayPtr array_a;
-    _build_list_array<int32_t, arrow::Int32Builder>(
-      {1, 5, 19, 42, 57},
-      {1, 1, 1, 1, 1}, {true, true, true, true, true}, pool_, &array_a);
+  _build_list_array<int32_t, arrow::Int32Builder>({1, 5, 19, 42, 57}, {1, 1, 1, 1, 1},
+                                                 {true, true, true, true, true}, pool_,
+                                                 &array_a);
 
-  auto array_b =
-      MakeArrowArrayInt32({42, 42, 42, 42, 42});
+  auto array_b = MakeArrowArrayInt32({42, 42, 42, 42, 42});
 
   // expected output
   auto exp = MakeArrowArrayBool({false, false, false, true, false},
@@ -373,6 +372,121 @@ TEST_F(TestList, TestListInt32Contains) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestList, TestListArrayLengthAndCardinality) {
+  // schema for input fields
+  auto field_a = field("a", list(int32()));
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res_len = field("res_len", int32());
+  auto res_card = field("res_card", int32());
+
+  int num_records = 5;
+  ArrayPtr array_a;
+  // Include a row with a null element, and a null list row.
+  _build_list_array<int32_t, arrow::Int32Builder>({1, 2, 3, 5, 6, 9, 2},
+                                                 {3, 2, 0, 1, 1},
+                                                 {true, true, true, false, true}, pool_,
+                                                 &array_a, {true, true, false});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  auto expr_len =
+      TreeExprBuilder::MakeExpression("array_length", {field_a}, res_len);
+  auto expr_card =
+      TreeExprBuilder::MakeExpression("cardinality", {field_a}, res_card);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_len, expr_card}, TestConfiguration(),
+                                &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto exp = MakeArrowArrayInt32({3, 2, 0, 0, 1}, {true, true, true, false, true});
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(1));
+}
+
+TEST_F(TestList, TestListArrayPositionNullSemantics) {
+  // schema for input fields
+  auto field_a = field("a", list(int32()));
+  auto field_b = field("b", int32());
+  auto schema = arrow::schema({field_a, field_b});
+
+  // output fields
+  auto res = field("res", int32());
+
+  int num_records = 5;
+  ArrayPtr array_a;
+  // Row 0 has a null element.
+  _build_list_array<int32_t, arrow::Int32Builder>({1, 2, 3, 5, 6, 9, 2},
+                                                 {3, 2, 0, 1, 1},
+                                                 {true, true, true, false, true}, pool_,
+                                                 &array_a, {true, true, false});
+
+  // Search for a value not present.
+  auto array_b = MakeArrowArrayInt32({7, 7, 7, 7, 7});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  auto expr =
+      TreeExprBuilder::MakeExpression("array_position", {field_a, field_b}, res);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Row 0: array has a null element and no match -> NULL.
+  // Row 1: no nulls and no match -> 0.
+  // Row 2: empty -> 0.
+  // Row 3: list is NULL -> NULL.
+  // Row 4: no match -> 0.
+  auto exp = MakeArrowArrayInt32({0, 0, 0, 0, 0}, {false, true, true, false, true});
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestList, TestListArrayPositionNullSearchValue) {
+  auto field_a = field("a", list(int32()));
+  auto field_b = field("b", int32());
+  auto schema = arrow::schema({field_a, field_b});
+
+  auto res = field("res", int32());
+
+  int num_records = 5;
+  ArrayPtr array_a;
+  _build_list_array<int32_t, arrow::Int32Builder>({1, 2, 3, 5, 6, 9, 2},
+                                                 {3, 2, 0, 1, 1},
+                                                 {true, true, true, false, true}, pool_,
+                                                 &array_a, {true, true, false});
+
+  // Make b NULL on one row.
+  auto array_b = MakeArrowArrayInt32({2, 2, 2, 2, 2}, {true, false, true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  auto expr =
+      TreeExprBuilder::MakeExpression("array_position", {field_a, field_b}, res);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Row 1 search value is NULL -> result NULL.
+  auto exp = MakeArrowArrayInt32({2, 0, 0, 0, 1}, {true, false, true, false, true});
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
