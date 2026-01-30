@@ -350,6 +350,19 @@ gdv_timestamp from_utc_timezone_timestamp(int64_t context,
                                           gdv_timestamp time_milliseconds,
                                           const char* timezone, int32_t length);
 
+// convert_timezone(timestamp, to_tz) : convert from UTC to the target timezone.
+GANDIVA_EXPORT
+gdv_timestamp convert_timezone_timestamp_utf8(int64_t context,
+                                              gdv_timestamp time_milliseconds,
+                                              const char* to_timezone,
+                                              int32_t to_length);
+
+// convert_timezone(timestamp, from_tz, to_tz) : convert between timezones.
+GANDIVA_EXPORT
+gdv_timestamp convert_timezone_timestamp_utf8_utf8(
+    int64_t context, gdv_timestamp time_milliseconds, const char* from_timezone,
+    int32_t from_length, const char* to_timezone, int32_t to_length);
+
 GANDIVA_EXPORT
 const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
                                              int32_t data_len, int32_t n_to_show,

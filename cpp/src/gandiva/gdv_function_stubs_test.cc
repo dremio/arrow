@@ -1201,6 +1201,53 @@ TEST(TestGdvFnStubs, TestFromUtcTimezone) {
   EXPECT_THAT(context.get_error(), "India is an invalid time zone name.");
 }
 
+TEST(TestGdvFnStubs, TestConvertTimezoneUtcToTz) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  auto len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+
+  // ts: 1970-01-01 10:00:00 (UTC)
+  // ts2:1970-01-01 15:30:00 (Asia/Kolkata)
+  gdv_timestamp ts = 36000000;
+  gdv_timestamp ts2 =
+      convert_timezone_timestamp_utf8(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(ts2, 55800000);
+
+  // Failure case
+  ts2 = convert_timezone_timestamp_utf8(context_ptr, ts, "India", 5);
+  EXPECT_THAT(context.get_error(), "India is an invalid time zone name.");
+}
+
+TEST(TestGdvFnStubs, TestConvertTimezoneBetweenZones) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  auto len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+  auto len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
+
+  // Asia/Kolkata -> America/Los_Angeles
+  // ts: 2012-02-28 15:30:00 (Asia/Kolkata)
+  // UTC: 2012-02-28 10:00:00
+  // ts2:2012-02-28 02:00:00 (America/Los_Angeles)
+  gdv_timestamp ts = 1330443000000;
+  gdv_timestamp ts2 = convert_timezone_timestamp_utf8_utf8(
+      context_ptr, ts, "Asia/Kolkata", len_ist, "America/Los_Angeles", len_pst);
+  EXPECT_EQ(ts2, 1330394400000);
+
+  // DST boundary check: America/Los_Angeles -> Asia/Kolkata
+  // ts: 2018-03-11 01:00:00 (America/Los_Angeles)
+  // UTC: 2018-03-11 09:00:00
+  // ts2:2018-03-11 14:30:00 (Asia/Kolkata)
+  ts = 1520730000000;
+  ts2 = convert_timezone_timestamp_utf8_utf8(context_ptr, ts, "America/Los_Angeles",
+                                            len_pst, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(ts2, 1520778600000);
+
+  // Failure case: invalid from_tz
+  ts2 = convert_timezone_timestamp_utf8_utf8(context_ptr, ts, "America/LA", 10,
+                                            "Asia/Kolkata", len_ist);
+  EXPECT_THAT(context.get_error(), "America/LA is an invalid time zone name.");
+}
+
 TEST(TestGdvFnStubs, TestShowFirstN) {
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);

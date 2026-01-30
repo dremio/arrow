@@ -90,6 +90,12 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
+
+      NativeFunction("parse_timestamp", {}, DataTypeVector{utf8(), utf8()}, timestamp(),
+                     kResultNullInternal, "gdv_fn_parse_timestamp_utf8_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
       NativeFunction("castTIMESTAMP", {}, DataTypeVector{date64()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_date64"),
 
@@ -174,6 +180,18 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()},
                      timestamp(), kResultNullIfNull, "from_utc_timezone_timestamp",
+                     NativeFunction::kNeedsContext),
+
+      // convert_timezone(timestamp, to_tz)
+      NativeFunction("convert_timezone", {}, DataTypeVector{timestamp(), utf8()},
+                     timestamp(), kResultNullIfNull,
+                     "convert_timezone_timestamp_utf8",
+                     NativeFunction::kNeedsContext),
+
+      // convert_timezone(timestamp, from_tz, to_tz)
+      NativeFunction("convert_timezone", {},
+                     DataTypeVector{timestamp(), utf8(), utf8()}, timestamp(),
+                     kResultNullIfNull, "convert_timezone_timestamp_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),

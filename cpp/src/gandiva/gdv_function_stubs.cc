@@ -890,6 +890,44 @@ gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
 }
 
 GANDIVA_EXPORT
+gdv_timestamp convert_timezone_timestamp_utf8(int64_t context,
+                                              gdv_timestamp time_milliseconds,
+                                              const char* to_timezone,
+                                              int32_t to_length) {
+  // Alias for converting from UTC to a target timezone.
+  return from_utc_timezone_timestamp(context, time_milliseconds, to_timezone, to_length);
+}
+
+GANDIVA_EXPORT
+gdv_timestamp convert_timezone_timestamp_utf8_utf8(
+    int64_t context, gdv_timestamp time_milliseconds, const char* from_timezone,
+    int32_t from_length, const char* to_timezone, int32_t to_length) {
+  using arrow_vendored::date::locate_zone;
+  using arrow_vendored::date::sys_time;
+  using std::chrono::milliseconds;
+
+  const sys_time<milliseconds> tp_local{milliseconds{time_milliseconds}};
+
+  try {
+    const auto from_tz = locate_zone(std::string(from_timezone, from_length));
+    const gdv_timestamp from_offset_ms =
+        from_tz->get_info(tp_local).offset.count() * 1000;
+
+    const gdv_timestamp utc_time_milliseconds =
+        time_milliseconds - static_cast<gdv_timestamp>(from_offset_ms);
+
+    // Interpret the resulting value as a UTC timestamp and convert to the target timezone.
+    return from_utc_timezone_timestamp(context, utc_time_milliseconds, to_timezone,
+                                       to_length);
+  } catch (...) {
+    std::string e_msg =
+        std::string(from_timezone, from_length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
 const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
                                              int32_t data_len, int32_t n_to_show,
                                              int32_t* out_len) {
