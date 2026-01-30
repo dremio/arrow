@@ -27,6 +27,7 @@ extern "C" {
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <random>
 
 #include "./types.h"
 
@@ -3354,5 +3355,53 @@ int32_t find_in_set_utf8_utf8(const char* needle, int32_t needle_len,
   }
 
   return 0;  // not found
+}
+
+// Generate a random UUID v4 string (RFC 4122)
+// Returns a 36-character string like "550e8400-e29b-41d4-a716-446655440000"
+FORCE_INLINE
+const char* uuid(gdv_int64 context, gdv_int32* out_len) {
+  static thread_local std::mt19937_64 rng(std::random_device{}());
+
+  // Generate 128 bits of randomness
+  uint64_t high = rng();
+  uint64_t low = rng();
+
+  // Set version (4) and variant (10xx) bits per RFC 4122
+  high = (high & 0xFFFFFFFFFFFF0FFFULL) | 0x0000000000004000ULL;  // version 4
+  low = (low & 0x3FFFFFFFFFFFFFFFULL) | 0x8000000000000000ULL;    // variant 10xx
+
+  // Allocate output buffer (36 chars for UUID format)
+  *out_len = 36;
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for UUID");
+    *out_len = 0;
+    return "";
+  }
+
+  // Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  static const char hex[] = "0123456789abcdef";
+  auto write_hex = [&](int pos, uint64_t val, int nibbles) {
+    for (int i = nibbles - 1; i >= 0; i--) {
+      out[pos + i] = hex[val & 0xF];
+      val >>= 4;
+    }
+  };
+
+  // high: time_low (8) - time_mid (4) - time_hi_and_version (4)
+  write_hex(0, high >> 32, 8);
+  out[8] = '-';
+  write_hex(9, high >> 16, 4);
+  out[13] = '-';
+  write_hex(14, high, 4);
+  out[18] = '-';
+
+  // low: clock_seq_hi_and_reserved + clock_seq_low (4) - node (12)
+  write_hex(19, low >> 48, 4);
+  out[23] = '-';
+  write_hex(24, low, 12);
+
+  return out;
 }
 }  // extern "C"

@@ -770,6 +770,8 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);
 
+const char* uuid(gdv_int64 context, gdv_int32* out_len);
+
 const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
                           int32_t* out_len);
 
