@@ -74,6 +74,11 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char*
                                        bool in2_validity, int32_t suppress_errors,
                                        bool in3_validity, bool* out_valid);
 
+int64_t gdv_fn_parse_timestamp_utf8_utf8(int64_t context, int64_t ptr, const char* data,
+                                         int data_len, bool in1_validity,
+                                         const char* pattern, int pattern_len,
+                                         bool in2_validity, bool* out_valid);
+
 GANDIVA_EXPORT
 void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 
