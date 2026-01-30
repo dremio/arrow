@@ -309,6 +309,9 @@ gdv_float64 log10_float64(gdv_float64);
 
 gdv_float64 pi();
 
+gdv_int32 rand_integer_int32(gdv_int32 max_val);
+gdv_int32 rand_integer_int32_int32(gdv_int32 min_val, gdv_int32 max_val);
+
 gdv_float64 sin_int32(gdv_int32);
 gdv_float64 sin_int64(gdv_int64);
 gdv_float64 sin_float32(gdv_float32);

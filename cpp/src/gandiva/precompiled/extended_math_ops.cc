@@ -25,6 +25,7 @@
 extern "C" {
 
 #include <math.h>
+#include <random>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -469,5 +470,25 @@ BIN_INTEGER(int64)
 // Mathematical constant pi
 FORCE_INLINE
 gdv_float64 pi() { return M_PI; }
+
+// Random integer in range [min, max] (inclusive)
+FORCE_INLINE
+gdv_int32 rand_integer_int32_int32(gdv_int32 min_val, gdv_int32 max_val) {
+  static thread_local std::mt19937 rng(std::random_device{}());
+  if (min_val > max_val) {
+    // Swap if min > max
+    gdv_int32 tmp = min_val;
+    min_val = max_val;
+    max_val = tmp;
+  }
+  std::uniform_int_distribution<gdv_int32> dist(min_val, max_val);
+  return dist(rng);
+}
+
+// Random integer in range [0, max] (inclusive)
+FORCE_INLINE
+gdv_int32 rand_integer_int32(gdv_int32 max_val) {
+  return rand_integer_int32_int32(0, max_val);
+}
 
 }  // extern "C"

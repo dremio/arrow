@@ -106,7 +106,13 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
                      NativeFunction::kNeedsFunctionHolder),
 
       // Mathematical constant pi
-      NativeFunction("pi", {}, DataTypeVector{}, float64(), kResultNullNever, "pi")};
+      NativeFunction("pi", {}, DataTypeVector{}, float64(), kResultNullNever, "pi"),
+
+      // Random integer functions
+      NativeFunction("rand_integer", {}, DataTypeVector{int32()}, int32(),
+                     kResultNullNever, "rand_integer_int32"),
+      NativeFunction("rand_integer", {}, DataTypeVector{int32(), int32()}, int32(),
+                     kResultNullNever, "rand_integer_int32_int32")};
 
   return math_fn_registry_;
 }
