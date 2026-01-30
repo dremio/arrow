@@ -3316,4 +3316,43 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
   }
   return 0;
 }
+
+// Find the position (1-indexed) of a string in a comma-separated list.
+// Returns 0 if not found.
+// find_in_set('b', 'a,b,c') = 2
+// find_in_set('d', 'a,b,c') = 0
+FORCE_INLINE
+int32_t find_in_set_utf8_utf8(const char* needle, int32_t needle_len,
+                               const char* haystack, int32_t haystack_len) {
+  if (needle_len == 0 && haystack_len == 0) {
+    return 1;  // empty string is at position 1 in empty list
+  }
+
+  if (haystack_len == 0) {
+    return 0;  // non-empty needle not in empty list
+  }
+
+  int32_t position = 1;
+  int32_t start = 0;
+
+  for (int32_t i = 0; i <= haystack_len; i++) {
+    // Check if we're at a delimiter or end of string
+    if (i == haystack_len || haystack[i] == ',') {
+      int32_t item_len = i - start;
+
+      // Compare the current item with the needle
+      if (item_len == needle_len) {
+        if (needle_len == 0 || memcmp(haystack + start, needle, needle_len) == 0) {
+          return position;
+        }
+      }
+
+      // Move to next item
+      start = i + 1;
+      position++;
+    }
+  }
+
+  return 0;  // not found
+}
 }  // extern "C"

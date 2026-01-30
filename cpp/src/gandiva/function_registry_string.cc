@@ -517,6 +517,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
                      kResultNullIfNull, "instr_utf8"),
 
+      NativeFunction("find_in_set", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "find_in_set_utf8_utf8"),
+
       NativeFunction("translate", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "translate_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
