@@ -185,6 +185,18 @@ gdv_timestamp add_minutes_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_timestamp add_seconds_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_timestamp add_seconds_timestamp_int64(gdv_timestamp, gdv_int64);
 
+gdv_timestamp add_weeks_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_timestamp add_weeks_timestamp_int64(gdv_timestamp, gdv_int64);
+
+gdv_timestamp add_months_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_timestamp add_months_timestamp_int64(gdv_timestamp, gdv_int64);
+
+gdv_timestamp add_quarters_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_timestamp add_quarters_timestamp_int64(gdv_timestamp, gdv_int64);
+
+gdv_timestamp add_years_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_timestamp add_years_timestamp_int64(gdv_timestamp, gdv_int64);
+
 
 gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len);
 
@@ -486,6 +498,12 @@ gdv_date64 castDATE_timestamp(gdv_timestamp);
 gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length);
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 gdv_time32 castTIME_int32(int32_t int_val);
+
+// Current date/time functions (UTC).
+gdv_date64 current_date();
+gdv_time32 current_time();
+gdv_timestamp current_timestamp();
+gdv_timestamp now();
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
@@ -780,6 +798,14 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
 
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);
+
+// Reinterpret input utf8 bytes as binary (no encoding/decoding).
+const char* string_binary(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len);
+
+// Reinterpret input binary bytes as utf8 (no encoding/decoding).
+const char* binary_string_binary(gdv_int64 context, const char* data, gdv_int32 data_len,
+                                 gdv_int32* out_len);
 
 const char* uuid(gdv_int64 context, gdv_int32* out_len);
 
