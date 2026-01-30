@@ -435,8 +435,19 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "replace_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      // Convert UTF8 string to binary. Note: binary_string(utf8)->binary supports
+      // decoding of hex-escaped sequences (e.g. "\\x41" -> 0x41).
       NativeFunction("binary_string", {}, DataTypeVector{utf8()}, binary(),
                      kResultNullIfNull, "binary_string", NativeFunction::kNeedsContext),
+
+      // Pure byte reinterpretation from UTF8 to binary (no decoding).
+      NativeFunction("string_binary", {}, DataTypeVector{utf8()}, binary(),
+                     kResultNullIfNull, "string_binary", NativeFunction::kNeedsContext),
+
+      // Pure byte reinterpretation from binary to UTF8 (no validation).
+      NativeFunction("binary_string", {}, DataTypeVector{binary()}, utf8(),
+                     kResultNullIfNull, "binary_string_binary",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("left", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "left_utf8_int32", NativeFunction::kNeedsContext),

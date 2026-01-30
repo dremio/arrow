@@ -2289,6 +2289,48 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   return ret;
 }
 
+FORCE_INLINE
+const char* string_binary(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_binary ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output binary");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, text, text_len);
+  *out_len = text_len;
+  return ret;
+}
+
+FORCE_INLINE
+const char* binary_string_binary(gdv_int64 context, const char* data, gdv_int32 data_len,
+                                 gdv_int32* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_utf8 ret =
+      reinterpret_cast<gdv_utf8>(gdv_fn_context_arena_malloc(context, data_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, data, data_len);
+  *out_len = data_len;
+  return ret;
+}
+
 #define CAST_INT_BIGINT_VARBINARY(OUT_TYPE, TYPE_NAME)                                 \
   FORCE_INLINE                                                                         \
   OUT_TYPE                                                                             \

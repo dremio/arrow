@@ -1913,6 +1913,31 @@ TEST(TestStringOps, TestBinaryString) {
   EXPECT_EQ(output, "OM");
 }
 
+TEST(TestStringOps, TestStringBinaryAndBinaryString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out;
+
+  // string_binary: pure byte reinterpretation (no \\x.. decoding)
+  out = string_binary(ctx_ptr, "\\x41", 4, &out_len);
+  EXPECT_EQ(out_len, 4);
+  EXPECT_EQ(std::string(out, out_len), "\\x41");
+
+  // works with embedded nulls
+  std::string with_nulls("A\0B", 3);
+  out = string_binary(ctx_ptr, with_nulls.data(), static_cast<gdv_int32>(with_nulls.size()),
+                      &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out, out_len), with_nulls);
+
+  // binary_string(binary): pure byte reinterpretation (no validation)
+  out = binary_string_binary(ctx_ptr, with_nulls.data(),
+                             static_cast<gdv_int32>(with_nulls.size()), &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out, out_len), with_nulls);
+}
+
 TEST(TestStringOps, TestSplitPart) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

@@ -807,6 +807,14 @@ const char* string_binary(gdv_int64 context, const char* text, gdv_int32 text_le
 const char* binary_string_binary(gdv_int64 context, const char* data, gdv_int32 data_len,
                                  gdv_int32* out_len);
 
+// Reinterpret input utf8 bytes as binary (no encoding/decoding).
+const char* string_binary(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len);
+
+// Reinterpret input binary bytes as utf8 (no encoding/decoding).
+const char* binary_string_binary(gdv_int64 context, const char* data, gdv_int32 data_len,
+                                 gdv_int32* out_len);
+
 const char* uuid(gdv_int64 context, gdv_int32* out_len);
 
 const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
