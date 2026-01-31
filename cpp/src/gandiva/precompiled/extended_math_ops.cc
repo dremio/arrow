@@ -22,10 +22,11 @@
 #include "arrow/util/logging.h"
 #include "gandiva/precompiled/decimal_ops.h"
 
+#include <random>
+
 extern "C" {
 
 #include <math.h>
-#include <random>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

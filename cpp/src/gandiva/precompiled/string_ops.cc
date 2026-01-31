@@ -19,6 +19,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 
+#include <random>
+
 extern "C" {
 
 #include <algorithm>
@@ -28,7 +30,6 @@ extern "C" {
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <random>
 #include <string>
 #include <vector>
 
