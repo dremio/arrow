@@ -3078,7 +3078,12 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 FORCE_INLINE
 const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
                          bool in_validity, bool* out_valid, int32_t* out_len) {
-  if (in_len <= 0) {
+  if (!in_validity) {
+    *out_valid = false;
+    *out_len = 0;
+    return "";
+  }
+  if (in == nullptr || in_len <= 0) {
     *out_valid = true;
     *out_len = 0;
     return "";
