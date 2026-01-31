@@ -22,6 +22,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/vendored/datetime.h"
 
 namespace gandiva {
