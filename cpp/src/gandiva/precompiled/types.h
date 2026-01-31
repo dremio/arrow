@@ -775,6 +775,10 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
 const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
                          bool in_validity, bool* out_valid, int32_t* out_len);
 
+const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, int32_t url_len,
+                                bool url_validity, const char* part, int32_t part_len,
+                                bool part_validity, bool* out_valid, int32_t* out_len);
+
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length);
 
