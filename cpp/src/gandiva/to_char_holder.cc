@@ -70,8 +70,13 @@ const char* ToCharTimestampHolder::operator()(ExecutionContext* context,
   }
 
   using std::chrono::milliseconds;
-  const auto tp = arrow_vendored::date::sys_time<milliseconds>{
+  using std::chrono::seconds;
+  
+  // Convert to time point - use seconds precision to avoid fractional seconds
+  // in output unless explicitly requested via millisecond format specifiers
+  const auto tp_millis = arrow_vendored::date::sys_time<milliseconds>{
       milliseconds{timestamp_millis}};
+  const auto tp = arrow_vendored::date::floor<seconds>(tp_millis);
 
   std::ostringstream bufstream;
   bufstream.exceptions(std::ios::failbit | std::ios::badbit);

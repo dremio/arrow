@@ -67,10 +67,8 @@ Status DateUtils::ToInternalFormat(const std::string& format,
         // we are done with a quoted block
         is_in_quoted_text = false;
 
-        // use ' for quoting
-        builder << '\'';
+        // output the literal text directly (no quoting needed for date library)
         builder << buffer.str();
-        builder << '\'';
 
         // clear buffer
         buffer.str("");
