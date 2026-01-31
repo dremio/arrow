@@ -24,10 +24,13 @@ extern "C" {
 #include <algorithm>
 #include <cinttypes>
 #include <climits>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <string>
+#include <vector>
 
 #include "./types.h"
 
@@ -718,6 +721,103 @@ CAST_BINARY_FROM_STRING_AND_BINARY(utf8)
 CAST_BINARY_FROM_STRING_AND_BINARY(binary)
 
 #undef CAST_VARBINARY_FROM_STRING_AND_BINARY
+
+// format_number(number, decimal_places)
+// Example: format_number(1234567.891, 2) -> "1,234,567.89"
+GANDIVA_EXPORT
+const char* format_number_float64_int32(gdv_int64 context, gdv_float64 value,
+                                        gdv_int32 decimal_places,
+                                        gdv_int32* out_len) {
+  if (out_len == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Invalid output length pointer");
+    return "";
+  }
+
+  if (decimal_places < 0) {
+    gdv_fn_context_set_error_msg(context, "Decimal places cannot be negative");
+    *out_len = 0;
+    return "";
+  }
+
+  // Doubles have limited precision; also prevents pathological allocations.
+  if (decimal_places > 18) {
+    gdv_fn_context_set_error_msg(context, "Decimal places is too large");
+    *out_len = 0;
+    return "";
+  }
+
+  // Match typical formatting conventions for NaN/Infinity.
+  if (!std::isfinite(value)) {
+    const char* s = std::isnan(value) ? "NaN" : (value < 0 ? "-Infinity" : "Infinity");
+    *out_len = static_cast<gdv_int32>(strlen(s));
+    char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+    if (out == nullptr) {
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    memcpy(out, s, *out_len);
+    return out;
+  }
+
+  // Format using fixed-point with the requested decimal places.
+  int formatted_len = std::snprintf(nullptr, 0, "%.*f", decimal_places, value);
+  if (formatted_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format number");
+    *out_len = 0;
+    return "";
+  }
+  std::vector<char> formatted(static_cast<size_t>(formatted_len) + 1);
+  std::snprintf(formatted.data(), formatted.size(), "%.*f", decimal_places, value);
+  const std::string s(formatted.data(), static_cast<size_t>(formatted_len));
+
+  const bool negative = !s.empty() && s[0] == '-';
+  const size_t digits_begin = negative ? 1 : 0;
+
+  const size_t dot_pos = s.find('.');
+  const std::string int_part = (dot_pos == std::string::npos)
+                                   ? s.substr(digits_begin)
+                                   : s.substr(digits_begin, dot_pos - digits_begin);
+  std::string frac_part = (dot_pos == std::string::npos) ? "" : s.substr(dot_pos + 1);
+
+  // Insert commas into integer part.
+  std::string grouped_int;
+  grouped_int.reserve(int_part.size() + int_part.size() / 3);
+  const int digits = static_cast<int>(int_part.size());
+  for (int i = 0; i < digits; ++i) {
+    if (i > 0 && ((digits - i) % 3 == 0)) {
+      grouped_int.push_back(',');
+    }
+    grouped_int.push_back(int_part[static_cast<size_t>(i)]);
+  }
+
+  std::string out_str;
+  out_str.reserve(s.size() + s.size() / 3);
+  if (negative) {
+    out_str.push_back('-');
+  }
+  out_str.append(grouped_int);
+
+  if (decimal_places > 0) {
+    out_str.push_back('.');
+    if (static_cast<gdv_int32>(frac_part.size()) < decimal_places) {
+      frac_part.append(static_cast<size_t>(decimal_places - frac_part.size()), '0');
+    } else if (static_cast<gdv_int32>(frac_part.size()) > decimal_places) {
+      frac_part.resize(static_cast<size_t>(decimal_places));
+    }
+    out_str.append(frac_part);
+  }
+
+  *out_len = static_cast<gdv_int32>(out_str.size());
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out, out_str.data(), static_cast<size_t>(*out_len));
+  return out;
+}
 
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \

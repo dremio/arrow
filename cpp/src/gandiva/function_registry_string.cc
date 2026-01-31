@@ -201,6 +201,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "gdv_fn_castVARCHAR_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("format_number", {}, DataTypeVector{float64(), int32()}, utf8(),
+                     kResultNullIfNull, "format_number_float64_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{decimal128(), int64()},
                      utf8(), kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),

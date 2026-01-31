@@ -25,6 +25,7 @@ add_gandiva_test(projector-test
                  decimal_test.cc
                  filter_project_test.cc
                  filter_test.cc
+                 format_number_test.cc
                  hash_test.cc
                  huge_table_test.cc
                  if_expr_test.cc
