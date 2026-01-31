@@ -20,6 +20,7 @@
 #include "arrow/util/value_parsing.h"
 
 #include <random>
+#include <re2/re2.h>
 
 extern "C" {
 
@@ -138,6 +139,28 @@ bool is_substr_utf8_utf8(const char* data, int32_t data_len, const char* substr,
     }
   }
   return false;
+}
+
+FORCE_INLINE
+bool regexp_like_utf8_utf8(const char* data, int32_t data_len, const char* pattern,
+                           int32_t pattern_len) {
+  re2::StringPiece data_piece(data, data_len);
+  re2::StringPiece pattern_piece(pattern, pattern_len);
+
+  RE2::Options regex_op;
+  regex_op.set_dot_nl(true);
+  RE2 regex(pattern_piece, regex_op);
+  if (!regex.ok()) {
+    return false;
+  }
+
+  return RE2::FullMatch(data_piece, regex);
+}
+
+FORCE_INLINE
+bool regexp_matches_utf8_utf8(const char* data, int32_t data_len, const char* pattern,
+                              int32_t pattern_len) {
+  return regexp_like_utf8_utf8(data, data_len, pattern, pattern_len);
 }
 
 FORCE_INLINE

@@ -259,6 +259,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("rpad", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "rpad_utf8_int32", NativeFunction::kNeedsContext),
 
+      NativeFunction("regexp_like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "regexp_like_utf8_utf8"),
+
+      NativeFunction("regexp_matches", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "regexp_matches_utf8_utf8"),
+
       NativeFunction("regexp_replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_regexp_replace_utf8_utf8",
                      NativeFunction::kNeedsContext |

@@ -478,6 +478,11 @@ bool ends_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* suffi
 bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len, const char* substr,
                          gdv_int32 substr_len);
 
+bool regexp_like_utf8_utf8(const char* data, gdv_int32 data_len, const char* pattern,
+                           gdv_int32 pattern_len);
+bool regexp_matches_utf8_utf8(const char* data, gdv_int32 data_len, const char* pattern,
+                              gdv_int32 pattern_len);
+
 gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 
 gdv_int32 utf8_last_char_pos(gdv_int64 context, const char* data, gdv_int32 data_len);

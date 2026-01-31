@@ -2796,4 +2796,20 @@ TEST(TestStringOps, TestParseUrl) {
   EXPECT_FALSE(out_valid);
 }
 
+TEST(TestStringOps, RegexpLike) {
+  EXPECT_TRUE(regexp_like_utf8_utf8("abc", 3, "a.*", 3));
+  EXPECT_FALSE(regexp_like_utf8_utf8("xxabc", 5, "abc", 3));
+
+  // dot matches newline (dot_nl=true)
+  EXPECT_TRUE(regexp_like_utf8_utf8("a\nb", 3, "a.*b", 4));
+
+  // invalid regex pattern -> false
+  EXPECT_FALSE(regexp_like_utf8_utf8("abc", 3, "[", 1));
+}
+
+TEST(TestStringOps, RegexpMatches) {
+  EXPECT_TRUE(regexp_matches_utf8_utf8("12345", 5, "[0-9]+", 6));
+  EXPECT_FALSE(regexp_matches_utf8_utf8("123a5", 5, "[0-9]+", 6));
+}
+
 }  // namespace gandiva
