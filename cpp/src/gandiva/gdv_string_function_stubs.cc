@@ -582,7 +582,7 @@ const char* gdv_fn_normalize_string_utf8_utf8(int64_t context, const char* data,
   }
 
   UErrorCode status = U_ZERO_ERROR;
-  const UNorm2* normalizer = nullptr;
+  const UNormalizer2* normalizer = nullptr;
   if (form_upper == "NFC") {
     normalizer = unorm2_getNFCInstance(&status);
   } else if (form_upper == "NFD") {
