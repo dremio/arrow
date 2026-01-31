@@ -408,4 +408,9 @@ const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
 
 GANDIVA_EXPORT
 const char* mask_utf8(int64_t context, const char* in, int32_t length, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_normalize_string_utf8_utf8(int64_t context, const char* data,
+                                              int32_t data_len, const char* form,
+                                              int32_t form_len, int32_t* out_len);
 }
