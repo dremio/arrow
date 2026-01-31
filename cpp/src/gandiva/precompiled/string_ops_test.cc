@@ -2812,4 +2812,26 @@ TEST(TestStringOps, RegexpMatches) {
   EXPECT_FALSE(regexp_matches_utf8_utf8("123a5", 5, "[0-9]+", 6));
 }
 
+TEST(TestStringOps, Similar) {
+  // % matches any sequence.
+  EXPECT_TRUE(similar_utf8_utf8("abc", 3, "a%", 2));
+  EXPECT_TRUE(similar_utf8_utf8("axxxc", 5, "a%c", 3));
+  EXPECT_FALSE(similar_utf8_utf8("ab", 2, "a%c", 3));
+
+  // _ matches any single character.
+  EXPECT_TRUE(similar_utf8_utf8("abc", 3, "a_c", 3));
+  EXPECT_FALSE(similar_utf8_utf8("ac", 2, "a_c", 3));
+
+  // Character classes.
+  EXPECT_TRUE(similar_utf8_utf8("a", 1, "[abc]", 5));
+  EXPECT_FALSE(similar_utf8_utf8("d", 1, "[abc]", 5));
+
+  // Backslash escaping should treat the next char literally.
+  EXPECT_TRUE(similar_utf8_utf8("a%c", 3, "a\\%c", 4));
+  EXPECT_TRUE(similar_utf8_utf8("a_c", 3, "a\\_c", 4));
+
+  // Alias.
+  EXPECT_TRUE(similar_to_utf8_utf8("abc", 3, "a%", 2));
+}
+
 }  // namespace gandiva

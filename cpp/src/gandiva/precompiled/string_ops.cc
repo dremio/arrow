@@ -162,6 +162,105 @@ bool regexp_matches_utf8_utf8(const char* data, int32_t data_len, const char* pa
 }
 
 FORCE_INLINE
+std::string similar_to_pattern_to_ecmascript_regex(const char* pattern,
+                                                   int32_t pattern_len) {
+  // Translate a SQL SIMILAR TO pattern (SQL standard) into an ECMAScript regex.
+  // Supported syntax:
+  //   %  -> any sequence of characters
+  //   _  -> any single character
+  //   [...] -> character classes (passed through)
+  //   \\ -> escape next character (treated as literal)
+  // The result is intended for std::regex_match (full-string match).
+  std::string out;
+  out.reserve(static_cast<size_t>(pattern_len) * 2);
+
+  auto append_escaped_regex_char = [&out](char c) {
+    switch (c) {
+      case '.':
+      case '^':
+      case '$':
+      case '|':
+      case '(':
+      case ')':
+      case '[':
+      case ']':
+      case '*':
+      case '+':
+      case '?':
+      case '{':
+      case '}':
+      case '\\':
+        out.push_back('\\');
+        out.push_back(c);
+        break;
+      default:
+        out.push_back(c);
+        break;
+    }
+  };
+
+  bool in_char_class = false;
+  for (int32_t i = 0; i < pattern_len; ++i) {
+    char c = pattern[i];
+
+    // Support backslash-escape (similar to SQL LIKE escape handling).
+    if (c == '\\' && i + 1 < pattern_len) {
+      ++i;
+      char next = pattern[i];
+      if (in_char_class) {
+        // Inside a character class, preserve backslash escapes as-is.
+        out.push_back('\\');
+        out.push_back(next);
+      } else {
+        append_escaped_regex_char(next);
+      }
+      continue;
+    }
+
+    if (!in_char_class) {
+      if (c == '%') {
+        out.append(".*");
+      } else if (c == '_') {
+        out.push_back('.');
+      } else if (c == '[') {
+        in_char_class = true;
+        out.push_back('[');
+      } else {
+        append_escaped_regex_char(c);
+      }
+    } else {
+      if (c == ']') {
+        in_char_class = false;
+        out.push_back(']');
+      } else {
+        out.push_back(c);
+      }
+    }
+  }
+
+  return out;
+}
+
+FORCE_INLINE
+bool similar_utf8_utf8(const char* data, int32_t data_len, const char* pattern,
+                       int32_t pattern_len) {
+  try {
+    std::string data_as_str(data, data_len);
+    std::string regex_str = similar_to_pattern_to_ecmascript_regex(pattern, pattern_len);
+    std::regex re(regex_str, std::regex_constants::ECMAScript);
+    return std::regex_match(data_as_str, re);
+  } catch (const std::regex_error&) {
+    return false;
+  }
+}
+
+FORCE_INLINE
+bool similar_to_utf8_utf8(const char* data, int32_t data_len, const char* pattern,
+                          int32_t pattern_len) {
+  return similar_utf8_utf8(data, data_len, pattern, pattern_len);
+}
+
+FORCE_INLINE
 gdv_int32 utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
