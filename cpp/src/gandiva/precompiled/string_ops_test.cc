@@ -2800,8 +2800,8 @@ TEST(TestStringOps, RegexpLike) {
   EXPECT_TRUE(regexp_like_utf8_utf8("abc", 3, "a.*", 3));
   EXPECT_FALSE(regexp_like_utf8_utf8("xxabc", 5, "abc", 3));
 
-  // dot matches newline (dot_nl=true)
-  EXPECT_TRUE(regexp_like_utf8_utf8("a\nb", 3, "a.*b", 4));
+  // dot does not match newline in ECMAScript regex.
+  EXPECT_TRUE(regexp_like_utf8_utf8("a\nb", 3, "a[\\s\\S]*b", 9));
 
   // invalid regex pattern -> false
   EXPECT_FALSE(regexp_like_utf8_utf8("abc", 3, "[", 1));
