@@ -106,8 +106,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
-      NativeFunction("parse_timestamp", {}, DataTypeVector{utf8(), utf8()}, timestamp(),
-                     kResultNullInternal, "gdv_fn_parse_timestamp_utf8_utf8",
+      NativeFunction("parse_timestamp", {"to_timestamp"},
+                     DataTypeVector{utf8(), utf8()}, timestamp(), kResultNullInternal,
+                     "gdv_fn_parse_timestamp_utf8_utf8",
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
