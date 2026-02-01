@@ -77,7 +77,23 @@ TEST(TestDateFormatHolder, QuotedText) {
                              &out_len);
 
   ASSERT_TRUE(out_valid);
+  ASSERT_EQ(out_len, 19);
   ASSERT_EQ(std::string(out, out_len), "2023-01-15T13:45:59");
+}
+
+TEST(TestDateFormatHolder, InvalidInput) {
+  ASSERT_OK_AND_ASSIGN(auto holder, DateFormatTimestampHolder::Make("yyyy-MM-dd"));
+
+  ExecutionContext ctx;
+  bool out_valid = true;
+  int32_t out_len = 123;
+
+  const char* out = (*holder)(&ctx, /*timestamp_millis=*/0, /*in_valid=*/false,
+                             &out_valid, &out_len);
+
+  ASSERT_FALSE(out_valid);
+  ASSERT_EQ(out_len, 0);
+  ASSERT_EQ(std::string(out), "");
 }
 
 TEST(TestDateFormatHolder, InvalidFormat) {
