@@ -93,7 +93,22 @@ TEST(TestDateFormatHolder, InvalidInput) {
 
   ASSERT_FALSE(out_valid);
   ASSERT_EQ(out_len, 0);
-  ASSERT_EQ(std::string(out), "");
+  ASSERT_NE(out, nullptr);
+  ASSERT_EQ(std::string(out, out_len), "");
+}
+
+TEST(TestDateFormatHolder, Epoch) {
+  ASSERT_OK_AND_ASSIGN(auto holder, DateFormatTimestampHolder::Make("yyyy-MM-dd"));
+
+  ExecutionContext ctx;
+  bool out_valid = false;
+  int32_t out_len = 0;
+
+  const char* out =
+      (*holder)(&ctx, /*timestamp_millis=*/0, /*in_valid=*/true, &out_valid, &out_len);
+
+  ASSERT_TRUE(out_valid);
+  ASSERT_EQ(std::string(out, out_len), "1970-01-01");
 }
 
 TEST(TestDateFormatHolder, InvalidFormat) {
