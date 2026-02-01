@@ -97,6 +97,7 @@ set(SRC_FILES
     to_date_holder.cc
     parse_timestamp_holder.cc
     to_char_holder.cc
+    date_format_holder.cc
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
@@ -285,6 +286,7 @@ add_gandiva_test(internals-test
                  to_date_holder_test.cc
                  parse_timestamp_holder_test.cc
                  to_char_holder_test.cc
+                 date_format_holder_test.cc
                  simple_arena_test.cc
                  regex_functions_holder_test.cc
                  decimal_type_util_test.cc

@@ -27,6 +27,7 @@
 #include "gandiva/to_date_holder.h"
 #include "gandiva/parse_timestamp_holder.h"
 #include "gandiva/to_char_holder.h"
+#include "gandiva/date_format_holder.h"
 
 namespace gandiva {
 
@@ -63,6 +64,7 @@ FunctionHolderMakerRegistry::MakerMap FunctionHolderMakerRegistry::DefaultHolder
       {"ilike", HolderMaker<LikeHolder>},
       {"to_date", HolderMaker<ToDateHolder>},
       {"to_char", HolderMaker<ToCharTimestampHolder>},
+      {"date_format", HolderMaker<DateFormatTimestampHolder>},
       {"parse_timestamp", HolderMaker<ParseTimestampHolder>},
       {"to_timestamp", HolderMaker<ParseTimestampHolder>},
       {"random", HolderMaker<RandomGeneratorHolder>},

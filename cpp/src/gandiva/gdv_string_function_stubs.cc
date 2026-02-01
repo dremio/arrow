@@ -45,6 +45,7 @@
 #include "gandiva/precompiled/types.h"
 #include "gandiva/regex_functions_holder.h"
 #include "gandiva/to_char_holder.h"
+#include "gandiva/date_format_holder.h"
 
 extern "C" {
 
@@ -99,6 +100,18 @@ const char* gdv_fn_to_char_timestamp_utf8(int64_t context_ptr, int64_t holder_pt
                                          bool* out_valid, int32_t* out_len) {
   auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   auto* holder = reinterpret_cast<gandiva::ToCharTimestampHolder*>(holder_ptr);
+  return (*holder)(context, timestamp_millis, in1_validity, out_valid, out_len);
+}
+
+const char* gdv_fn_date_format_timestamp_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                             int64_t timestamp_millis,
+                                             bool in1_validity,
+                                             const char* /*pattern*/,
+                                             int32_t /*pattern_len*/,
+                                             bool /*in2_validity*/, bool* out_valid,
+                                             int32_t* out_len) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::DateFormatTimestampHolder*>(holder_ptr);
   return (*holder)(context, timestamp_millis, in1_validity, out_valid, out_len);
 }
 
@@ -1086,6 +1099,21 @@ arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_to_char_timestamp_utf8", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_to_char_timestamp_utf8));
+
+  // gdv_fn_date_format_timestamp_utf8
+  args = {types->i64_type(),       // int64_t context_ptr
+          types->i64_type(),       // int64_t holder_ptr
+          types->i64_type(),       // int64_t timestamp_millis
+          types->i1_type(),        // bool in1_validity
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_type(),       // int32_t pattern_len
+          types->i1_type(),        // bool in2_validity
+          types->i1_ptr_type(),    // bool* out_valid
+          types->i32_ptr_type()};  // int32_t* out_len
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_date_format_timestamp_utf8", types->i8_ptr_type() /*return_type*/,
+      args, reinterpret_cast<void*>(gdv_fn_date_format_timestamp_utf8));
 
   // gdv_fn_castVARCHAR_int32_int64
   args = {types->i64_type(),       // int64_t execution_context

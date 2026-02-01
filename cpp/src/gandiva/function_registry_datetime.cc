@@ -94,6 +94,12 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
 
+      NativeFunction("date_format", {}, DataTypeVector{timestamp(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_date_format_timestamp_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8",
                      NativeFunction::kNeedsContext |
