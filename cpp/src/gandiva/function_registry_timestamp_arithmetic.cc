@@ -93,7 +93,17 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
 
       DATE_DIFF_FNS(date_sub, {}),
       DATE_DIFF_FNS(subtract, {}),
-      DATE_DIFF_FNS(date_diff, {})};
+      DATE_DIFF_FNS(date_diff, {}),
+
+      // from_unixtime: convert Unix epoch (seconds) to timestamp
+      NativeFunction("from_unixtime", {}, DataTypeVector{int32()}, timestamp(),
+                     kResultNullIfNull, "from_unixtime_int32"),
+      NativeFunction("from_unixtime", {}, DataTypeVector{int64()}, timestamp(),
+                     kResultNullIfNull, "from_unixtime_int64"),
+
+      // unix_timestamp: convert timestamp to Unix epoch (seconds)
+      NativeFunction("unix_timestamp", {}, DataTypeVector{timestamp()}, int64(),
+                     kResultNullIfNull, "unix_timestamp_timestamp")};
 
   return datetime_fn_registry_;
 }

@@ -1166,4 +1166,14 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
 
+// from_unixtime: convert Unix epoch (seconds) to timestamp (milliseconds)
+gdv_timestamp from_unixtime_int32(gdv_int32 in) {
+  return static_cast<gdv_timestamp>(in) * 1000;
+}
+
+gdv_timestamp from_unixtime_int64(gdv_int64 in) { return in * 1000; }
+
+// unix_timestamp: convert timestamp (milliseconds) to Unix epoch (seconds)
+gdv_int64 unix_timestamp_timestamp(gdv_timestamp in) { return in / 1000; }
+
 }  // extern "C"

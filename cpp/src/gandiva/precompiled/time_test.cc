@@ -1190,3 +1190,18 @@ TEST(TestTime, TestCurrentDateTime) {
   EXPECT_EQ(static_cast<int64_t>(t), ts % MILLIS_IN_DAY);
 }
 }  // namespace gandiva
+
+TEST(TestTime, TestFromUnixtime) {
+  // 1609459200 = 2021-01-01 00:00:00 UTC
+  EXPECT_EQ(from_unixtime_int32(1609459200), 1609459200000LL);
+  EXPECT_EQ(from_unixtime_int64(1609459200LL), 1609459200000LL);
+  EXPECT_EQ(from_unixtime_int32(0), 0LL);
+  EXPECT_EQ(from_unixtime_int64(-1000LL), -1000000LL);
+}
+
+TEST(TestTime, TestUnixTimestamp) {
+  // 1609459200000 ms = 1609459200 seconds
+  EXPECT_EQ(unix_timestamp_timestamp(1609459200000LL), 1609459200LL);
+  EXPECT_EQ(unix_timestamp_timestamp(0LL), 0LL);
+  EXPECT_EQ(unix_timestamp_timestamp(1500LL), 1LL);  // truncates
+}

@@ -926,4 +926,9 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
 
+// from_unixtime / unix_timestamp
+gdv_timestamp from_unixtime_int32(gdv_int32);
+gdv_timestamp from_unixtime_int64(gdv_int64);
+gdv_int64 unix_timestamp_timestamp(gdv_timestamp);
+
 }  // extern "C"
