@@ -500,10 +500,11 @@ TEST(TestTime, TimeStampAdd) {
 }
 
 TEST(TestTime, TimeStampAddMicroNano) {
-  // Test timestampaddDay for microsecond timestamps
-  // StringToTimestamp returns milliseconds, multiply by 1000 for microseconds
-  gdv_timestamp ts_micro = StringToTimestamp("2000-05-01 10:20:34") * 1000LL;
-  gdv_timestamp expected_micro = StringToTimestamp("2000-05-06 10:20:34") * 1000LL;
+  // Test timestampaddDay for microsecond timestamps using StringToTimestampWithUnit
+  gdv_timestamp ts_micro =
+      StringToTimestampWithUnit("2000-05-01 10:20:34", arrow::TimeUnit::MICRO);
+  gdv_timestamp expected_micro =
+      StringToTimestampWithUnit("2000-05-06 10:20:34", arrow::TimeUnit::MICRO);
 
   EXPECT_EQ(timestampaddDay_micro_int32_timestamp(5, ts_micro), expected_micro);
   EXPECT_EQ(timestampaddDay_micro_timestamp_int32(ts_micro, 5), expected_micro);
@@ -511,14 +512,16 @@ TEST(TestTime, TimeStampAddMicroNano) {
   EXPECT_EQ(timestampaddDay_micro_timestamp_int64(ts_micro, 5), expected_micro);
 
   // Test negative days
-  expected_micro = StringToTimestamp("2000-04-26 10:20:34") * 1000LL;
+  expected_micro =
+      StringToTimestampWithUnit("2000-04-26 10:20:34", arrow::TimeUnit::MICRO);
   EXPECT_EQ(timestampaddDay_micro_int32_timestamp(-5, ts_micro), expected_micro);
   EXPECT_EQ(timestampaddDay_micro_timestamp_int32(ts_micro, -5), expected_micro);
 
-  // Test timestampaddDay for nanosecond timestamps
-  // StringToTimestamp returns milliseconds, multiply by 1000000 for nanoseconds
-  gdv_timestamp ts_nano = StringToTimestamp("2000-05-01 10:20:34") * 1000000LL;
-  gdv_timestamp expected_nano = StringToTimestamp("2000-05-06 10:20:34") * 1000000LL;
+  // Test timestampaddDay for nanosecond timestamps using StringToTimestampWithUnit
+  gdv_timestamp ts_nano =
+      StringToTimestampWithUnit("2000-05-01 10:20:34", arrow::TimeUnit::NANO);
+  gdv_timestamp expected_nano =
+      StringToTimestampWithUnit("2000-05-06 10:20:34", arrow::TimeUnit::NANO);
 
   EXPECT_EQ(timestampaddDay_nano_int32_timestamp(5, ts_nano), expected_nano);
   EXPECT_EQ(timestampaddDay_nano_timestamp_int32(ts_nano, 5), expected_nano);
@@ -526,20 +529,31 @@ TEST(TestTime, TimeStampAddMicroNano) {
   EXPECT_EQ(timestampaddDay_nano_timestamp_int64(ts_nano, 5), expected_nano);
 
   // Test negative days
-  expected_nano = StringToTimestamp("2000-04-26 10:20:34") * 1000000LL;
+  expected_nano = StringToTimestampWithUnit("2000-04-26 10:20:34", arrow::TimeUnit::NANO);
   EXPECT_EQ(timestampaddDay_nano_int32_timestamp(-5, ts_nano), expected_nano);
   EXPECT_EQ(timestampaddDay_nano_timestamp_int32(ts_nano, -5), expected_nano);
 
-  // Test that sub-second precision is preserved
-  // Add 500 microseconds to the timestamp
-  ts_micro = StringToTimestamp("2000-05-01 10:20:34") * 1000LL + 500;
-  expected_micro = StringToTimestamp("2000-05-02 10:20:34") * 1000LL + 500;
+  // Test that sub-second precision is preserved using fractional seconds
+  // Parse timestamp with 500 microseconds
+  ts_micro =
+      StringToTimestampWithUnit("2000-05-01 10:20:34.000500", arrow::TimeUnit::MICRO);
+  expected_micro =
+      StringToTimestampWithUnit("2000-05-02 10:20:34.000500", arrow::TimeUnit::MICRO);
   EXPECT_EQ(timestampaddDay_micro_int32_timestamp(1, ts_micro), expected_micro);
 
-  // Add 500 nanoseconds to the timestamp
-  ts_nano = StringToTimestamp("2000-05-01 10:20:34") * 1000000LL + 500;
-  expected_nano = StringToTimestamp("2000-05-02 10:20:34") * 1000000LL + 500;
+  // Parse timestamp with 500 nanoseconds
+  ts_nano =
+      StringToTimestampWithUnit("2000-05-01 10:20:34.000000500", arrow::TimeUnit::NANO);
+  expected_nano =
+      StringToTimestampWithUnit("2000-05-02 10:20:34.000000500", arrow::TimeUnit::NANO);
   EXPECT_EQ(timestampaddDay_nano_int32_timestamp(1, ts_nano), expected_nano);
+
+  // Test with milliseconds too
+  gdv_timestamp ts_milli =
+      StringToTimestampWithUnit("2000-05-01 10:20:34.123", arrow::TimeUnit::MILLI);
+  gdv_timestamp expected_milli =
+      StringToTimestampWithUnit("2000-05-02 10:20:34.123", arrow::TimeUnit::MILLI);
+  EXPECT_EQ(timestampaddDay_int32_timestamp(1, ts_milli), expected_milli);
 }
 
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
