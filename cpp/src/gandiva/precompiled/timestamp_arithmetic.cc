@@ -240,6 +240,14 @@ TIMESTAMP_DIFF(timestamp)
 TIMESTAMP_ADD_INT(date64)
 TIMESTAMP_ADD_INT(timestamp)
 
+// timestampaddDay for microsecond timestamps
+ADD_TIMESTAMP_INT32_FIXEDUNITS(timestamp, timestampaddDay_micro, MICROS_IN_DAY)
+ADD_TIMESTAMP_INT64_FIXEDUNITS(timestamp, timestampaddDay_micro, MICROS_IN_DAY)
+
+// timestampaddDay for nanosecond timestamps
+ADD_TIMESTAMP_INT32_FIXEDUNITS(timestamp, timestampaddDay_nano, NANOS_IN_DAY)
+ADD_TIMESTAMP_INT64_FIXEDUNITS(timestamp, timestampaddDay_nano, NANOS_IN_DAY)
+
 // add gdv_int32 to timestamp
 ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(date64, date_add, MILLIS_IN_DAY)
 ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(date64, add, MILLIS_IN_DAY)

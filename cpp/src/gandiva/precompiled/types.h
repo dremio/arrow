@@ -114,6 +114,18 @@ gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
+// timestampaddDay for microsecond timestamps
+gdv_int64 timestampaddDay_micro_int32_timestamp(gdv_int32, gdv_timestamp);
+gdv_int64 timestampaddDay_micro_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddDay_micro_int64_timestamp(gdv_int64, gdv_timestamp);
+gdv_int64 timestampaddDay_micro_timestamp_int64(gdv_timestamp, gdv_int64);
+
+// timestampaddDay for nanosecond timestamps
+gdv_int64 timestampaddDay_nano_int32_timestamp(gdv_int32, gdv_timestamp);
+gdv_int64 timestampaddDay_nano_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddDay_nano_int64_timestamp(gdv_int64, gdv_timestamp);
+gdv_int64 timestampaddDay_nano_timestamp_int64(gdv_timestamp, gdv_int64);
+
 gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
 
 gdv_boolean istrue_boolean(gdv_boolean in, gdv_boolean isvalid);
