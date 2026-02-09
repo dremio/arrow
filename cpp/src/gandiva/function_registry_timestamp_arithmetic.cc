@@ -50,6 +50,24 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
+// Macro to register timestamp arithmetic functions for specific precision types
+// NAME: base function name (e.g., timestampaddDay)
+// PRECISION_SUFFIX: suffix for precision (e.g., micro, nano)
+// TS_TYPE_FN: timestamp type function (e.g., timestamp_micro)
+#define TIMESTAMP_ADD_PRECISION_FNS(NAME, PRECISION_SUFFIX, TS_TYPE_FN)             \
+  NativeFunction(#NAME, {}, DataTypeVector{int32(), TS_TYPE_FN()}, TS_TYPE_FN(),    \
+                 kResultNullIfNull,                                                 \
+                 ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int32_timestamp)),     \
+      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int32()}, TS_TYPE_FN(),\
+                     kResultNullIfNull,                                             \
+                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_int32)), \
+      NativeFunction(#NAME, {}, DataTypeVector{int64(), TS_TYPE_FN()}, TS_TYPE_FN(),\
+                     kResultNullIfNull,                                             \
+                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int64_timestamp)), \
+      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int64()}, TS_TYPE_FN(),\
+                     kResultNullIfNull,                                             \
+                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_int64))
+
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, {}, date64, date64, float64),
@@ -68,34 +86,8 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
       TIMESTAMP_ADD_FNS(timestampaddMinute, {}),
       TIMESTAMP_ADD_FNS(timestampaddHour, {}),
       TIMESTAMP_ADD_FNS(timestampaddDay, {}),
-
-      // timestampaddDay for microsecond timestamps
-      NativeFunction("timestampaddDay", {}, DataTypeVector{int32(), timestamp_micro()},
-                     timestamp_micro(), kResultNullIfNull,
-                     "timestampaddDay_micro_int32_timestamp"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{timestamp_micro(), int32()},
-                     timestamp_micro(), kResultNullIfNull,
-                     "timestampaddDay_micro_timestamp_int32"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{int64(), timestamp_micro()},
-                     timestamp_micro(), kResultNullIfNull,
-                     "timestampaddDay_micro_int64_timestamp"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{timestamp_micro(), int64()},
-                     timestamp_micro(), kResultNullIfNull,
-                     "timestampaddDay_micro_timestamp_int64"),
-
-      // timestampaddDay for nanosecond timestamps
-      NativeFunction("timestampaddDay", {}, DataTypeVector{int32(), timestamp_nano()},
-                     timestamp_nano(), kResultNullIfNull,
-                     "timestampaddDay_nano_int32_timestamp"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{timestamp_nano(), int32()},
-                     timestamp_nano(), kResultNullIfNull,
-                     "timestampaddDay_nano_timestamp_int32"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{int64(), timestamp_nano()},
-                     timestamp_nano(), kResultNullIfNull,
-                     "timestampaddDay_nano_int64_timestamp"),
-      NativeFunction("timestampaddDay", {}, DataTypeVector{timestamp_nano(), int64()},
-                     timestamp_nano(), kResultNullIfNull,
-                     "timestampaddDay_nano_timestamp_int64"),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddDay, micro, timestamp_micro),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddDay, nano, timestamp_nano),
 
       TIMESTAMP_ADD_FNS(timestampaddWeek, {}),
       TIMESTAMP_ADD_FNS(timestampaddMonth, {"add_months"}),
