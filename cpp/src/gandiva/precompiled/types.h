@@ -126,6 +126,20 @@ gdv_int64 timestampaddDay_nano_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 timestampaddDay_nano_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddDay_nano_timestamp_int64(gdv_timestamp, gdv_int64);
 
+// timestampdiff for microsecond timestamps
+gdv_int32 timestampdiffSecond_micro_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffMinute_micro_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffHour_micro_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffDay_micro_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffWeek_micro_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+
+// timestampdiff for nanosecond timestamps
+gdv_int32 timestampdiffSecond_nano_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffMinute_nano_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffHour_nano_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffDay_nano_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+gdv_int32 timestampdiffWeek_nano_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+
 gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
 
 gdv_boolean istrue_boolean(gdv_boolean in, gdv_boolean isvalid);

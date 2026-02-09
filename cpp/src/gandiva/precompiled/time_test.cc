@@ -556,6 +556,55 @@ TEST(TestTime, TimeStampAddMicroNano) {
   EXPECT_EQ(timestampaddDay_int32_timestamp(1, ts_milli), expected_milli);
 }
 
+TEST(TestTime, TimeStampDiffMicroNano) {
+  // Test timestampdiff for microsecond timestamps
+  gdv_timestamp start_micro =
+      StringToTimestampWithUnit("2000-05-01 10:20:34", arrow::TimeUnit::MICRO);
+  gdv_timestamp end_micro =
+      StringToTimestampWithUnit("2000-05-06 12:25:40", arrow::TimeUnit::MICRO);
+
+  // Difference: 5 days, 2 hours, 5 minutes, 6 seconds
+  EXPECT_EQ(timestampdiffDay_micro_timestamp_timestamp(start_micro, end_micro), 5);
+  EXPECT_EQ(timestampdiffHour_micro_timestamp_timestamp(start_micro, end_micro), 122);
+  EXPECT_EQ(timestampdiffMinute_micro_timestamp_timestamp(start_micro, end_micro), 7325);
+  EXPECT_EQ(timestampdiffSecond_micro_timestamp_timestamp(start_micro, end_micro),
+            439506);
+  EXPECT_EQ(timestampdiffWeek_micro_timestamp_timestamp(start_micro, end_micro), 0);
+
+  // Test negative difference
+  EXPECT_EQ(timestampdiffDay_micro_timestamp_timestamp(end_micro, start_micro), -5);
+
+  // Test timestampdiff for nanosecond timestamps
+  gdv_timestamp start_nano =
+      StringToTimestampWithUnit("2000-05-01 10:20:34", arrow::TimeUnit::NANO);
+  gdv_timestamp end_nano =
+      StringToTimestampWithUnit("2000-05-06 12:25:40", arrow::TimeUnit::NANO);
+
+  EXPECT_EQ(timestampdiffDay_nano_timestamp_timestamp(start_nano, end_nano), 5);
+  EXPECT_EQ(timestampdiffHour_nano_timestamp_timestamp(start_nano, end_nano), 122);
+  EXPECT_EQ(timestampdiffMinute_nano_timestamp_timestamp(start_nano, end_nano), 7325);
+  EXPECT_EQ(timestampdiffSecond_nano_timestamp_timestamp(start_nano, end_nano), 439506);
+  EXPECT_EQ(timestampdiffWeek_nano_timestamp_timestamp(start_nano, end_nano), 0);
+
+  // Test negative difference
+  EXPECT_EQ(timestampdiffDay_nano_timestamp_timestamp(end_nano, start_nano), -5);
+
+  // Test week difference with larger gap
+  gdv_timestamp start_week_micro =
+      StringToTimestampWithUnit("2000-05-01 00:00:00", arrow::TimeUnit::MICRO);
+  gdv_timestamp end_week_micro =
+      StringToTimestampWithUnit("2000-05-22 00:00:00", arrow::TimeUnit::MICRO);
+  EXPECT_EQ(timestampdiffWeek_micro_timestamp_timestamp(start_week_micro, end_week_micro),
+            3);
+
+  gdv_timestamp start_week_nano =
+      StringToTimestampWithUnit("2000-05-01 00:00:00", arrow::TimeUnit::NANO);
+  gdv_timestamp end_week_nano =
+      StringToTimestampWithUnit("2000-05-22 00:00:00", arrow::TimeUnit::NANO);
+  EXPECT_EQ(timestampdiffWeek_nano_timestamp_timestamp(start_week_nano, end_week_nano),
+            3);
+}
+
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
 TEST(TestTime, TestExtractWeek) {
   std::vector<std::string> data;

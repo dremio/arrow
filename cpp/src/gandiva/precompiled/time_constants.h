@@ -36,6 +36,12 @@
 #define MICROS_IN_DAY (MICROS_IN_MILLIS * MILLIS_IN_DAY)
 #define MICROS_IN_WEEK (MICROS_IN_MILLIS * MILLIS_IN_WEEK)
 
+#define MICROS_TO_SEC(micros) ((micros) / MICROS_IN_SEC)
+#define MICROS_TO_MINS(micros) ((micros) / MICROS_IN_MIN)
+#define MICROS_TO_HOUR(micros) ((micros) / MICROS_IN_HOUR)
+#define MICROS_TO_DAY(micros) ((micros) / MICROS_IN_DAY)
+#define MICROS_TO_WEEK(micros) ((micros) / MICROS_IN_WEEK)
+
 #define NANOS_IN_MICROS (1000LL)
 #define NANOS_IN_MILLIS (NANOS_IN_MICROS * MICROS_IN_MILLIS)
 #define NANOS_IN_SEC (NANOS_IN_MICROS * MICROS_IN_SEC)
@@ -43,3 +49,9 @@
 #define NANOS_IN_HOUR (NANOS_IN_MICROS * MICROS_IN_HOUR)
 #define NANOS_IN_DAY (NANOS_IN_MICROS * MICROS_IN_DAY)
 #define NANOS_IN_WEEK (NANOS_IN_MICROS * MICROS_IN_WEEK)
+
+#define NANOS_TO_SEC(nanos) ((nanos) / NANOS_IN_SEC)
+#define NANOS_TO_MINS(nanos) ((nanos) / NANOS_IN_MIN)
+#define NANOS_TO_HOUR(nanos) ((nanos) / NANOS_IN_HOUR)
+#define NANOS_TO_DAY(nanos) ((nanos) / NANOS_IN_DAY)
+#define NANOS_TO_WEEK(nanos) ((nanos) / NANOS_IN_WEEK)

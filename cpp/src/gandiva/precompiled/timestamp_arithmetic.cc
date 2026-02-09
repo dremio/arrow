@@ -138,6 +138,20 @@ extern "C" {
 
 TIMESTAMP_DIFF(timestamp)
 
+// timestampdiff for microsecond timestamps
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffSecond_micro, MICROS_TO_SEC)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffMinute_micro, MICROS_TO_MINS)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffHour_micro, MICROS_TO_HOUR)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffDay_micro, MICROS_TO_DAY)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffWeek_micro, MICROS_TO_WEEK)
+
+// timestampdiff for nanosecond timestamps
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffSecond_nano, NANOS_TO_SEC)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffMinute_nano, NANOS_TO_MINS)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffHour_nano, NANOS_TO_HOUR)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffDay_nano, NANOS_TO_DAY)
+TIMESTAMP_DIFF_FIXED_UNITS(timestamp, timestampdiffWeek_nano, NANOS_TO_WEEK)
+
 #define ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS)      \
   FORCE_INLINE                                                         \
   gdv_##TYPE NAME##_int32_##TYPE(gdv_int32 count, gdv_##TYPE millis) { \

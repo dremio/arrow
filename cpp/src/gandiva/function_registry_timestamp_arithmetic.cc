@@ -54,19 +54,28 @@ namespace gandiva {
 // NAME: base function name (e.g., timestampaddDay)
 // PRECISION_SUFFIX: suffix for precision (e.g., micro, nano)
 // TS_TYPE_FN: timestamp type function (e.g., timestamp_micro)
-#define TIMESTAMP_ADD_PRECISION_FNS(NAME, PRECISION_SUFFIX, TS_TYPE_FN)             \
-  NativeFunction(#NAME, {}, DataTypeVector{int32(), TS_TYPE_FN()}, TS_TYPE_FN(),    \
-                 kResultNullIfNull,                                                 \
-                 ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int32_timestamp)),     \
-      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int32()}, TS_TYPE_FN(),\
-                     kResultNullIfNull,                                             \
-                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_int32)), \
-      NativeFunction(#NAME, {}, DataTypeVector{int64(), TS_TYPE_FN()}, TS_TYPE_FN(),\
-                     kResultNullIfNull,                                             \
-                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int64_timestamp)), \
-      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int64()}, TS_TYPE_FN(),\
-                     kResultNullIfNull,                                             \
+#define TIMESTAMP_ADD_PRECISION_FNS(NAME, PRECISION_SUFFIX, TS_TYPE_FN)              \
+  NativeFunction(#NAME, {}, DataTypeVector{int32(), TS_TYPE_FN()}, TS_TYPE_FN(),     \
+                 kResultNullIfNull,                                                  \
+                 ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int32_timestamp)),      \
+      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int32()}, TS_TYPE_FN(), \
+                     kResultNullIfNull,                                              \
+                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_int32)),  \
+      NativeFunction(#NAME, {}, DataTypeVector{int64(), TS_TYPE_FN()}, TS_TYPE_FN(), \
+                     kResultNullIfNull,                                              \
+                     ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_int64_timestamp)),  \
+      NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), int64()}, TS_TYPE_FN(), \
+                     kResultNullIfNull,                                              \
                      ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_int64))
+
+// Macro to register timestampdiff functions for specific precision types
+// NAME: base function name (e.g., timestampdiffDay)
+// PRECISION_SUFFIX: suffix for precision (e.g., micro, nano)
+// TS_TYPE_FN: timestamp type function (e.g., timestamp_micro)
+#define TIMESTAMP_DIFF_PRECISION_FN(NAME, PRECISION_SUFFIX, TS_TYPE_FN)          \
+  NativeFunction(#NAME, {}, DataTypeVector{TS_TYPE_FN(), TS_TYPE_FN()}, int32(), \
+                 kResultNullIfNull,                                              \
+                 ARROW_STRINGIFY(NAME##_##PRECISION_SUFFIX##_timestamp_timestamp))
 
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
@@ -75,33 +84,41 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
 
       TIMESTAMP_DIFF_FN(timestampdiffSecond, {}),
       TIMESTAMP_DIFF_FN(timestampdiffMinute, {}),
-      TIMESTAMP_DIFF_FN(timestampdiffHour, {}),
-      TIMESTAMP_DIFF_FN(timestampdiffDay, {}),
-      TIMESTAMP_DIFF_FN(timestampdiffWeek, {}),
-      TIMESTAMP_DIFF_FN(timestampdiffMonth, {}),
+      TIMESTAMP_DIFF_FN(timestampdiffHour, {}), TIMESTAMP_DIFF_FN(timestampdiffDay, {}),
+      TIMESTAMP_DIFF_FN(timestampdiffWeek, {}), TIMESTAMP_DIFF_FN(timestampdiffMonth, {}),
       TIMESTAMP_DIFF_FN(timestampdiffQuarter, {}),
       TIMESTAMP_DIFF_FN(timestampdiffYear, {}),
 
+      // timestampdiff for microsecond timestamps
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffSecond, micro, timestamp_micro),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffMinute, micro, timestamp_micro),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffHour, micro, timestamp_micro),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffDay, micro, timestamp_micro),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffWeek, micro, timestamp_micro),
+
+      // timestampdiff for nanosecond timestamps
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffSecond, nano, timestamp_nano),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffMinute, nano, timestamp_nano),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffHour, nano, timestamp_nano),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffDay, nano, timestamp_nano),
+      TIMESTAMP_DIFF_PRECISION_FN(timestampdiffWeek, nano, timestamp_nano),
+
       TIMESTAMP_ADD_FNS(timestampaddSecond, {}),
-      TIMESTAMP_ADD_FNS(timestampaddMinute, {}),
-      TIMESTAMP_ADD_FNS(timestampaddHour, {}),
+      TIMESTAMP_ADD_FNS(timestampaddMinute, {}), TIMESTAMP_ADD_FNS(timestampaddHour, {}),
       TIMESTAMP_ADD_FNS(timestampaddDay, {}),
       TIMESTAMP_ADD_PRECISION_FNS(timestampaddDay, micro, timestamp_micro),
       TIMESTAMP_ADD_PRECISION_FNS(timestampaddDay, nano, timestamp_nano),
 
       TIMESTAMP_ADD_FNS(timestampaddWeek, {}),
       TIMESTAMP_ADD_FNS(timestampaddMonth, {"add_months"}),
-      TIMESTAMP_ADD_FNS(timestampaddQuarter, {}),
-      TIMESTAMP_ADD_FNS(timestampaddYear, {}),
+      TIMESTAMP_ADD_FNS(timestampaddQuarter, {}), TIMESTAMP_ADD_FNS(timestampaddYear, {}),
 
-      DATE_ADD_FNS(date_add, {}),
-      DATE_ADD_FNS(add, {}),
+      DATE_ADD_FNS(date_add, {}), DATE_ADD_FNS(add, {}),
 
       NativeFunction("add", {}, DataTypeVector{date64(), int64()}, timestamp(),
                      kResultNullIfNull, "add_date64_int64"),
 
-      DATE_DIFF_FNS(date_sub, {}),
-      DATE_DIFF_FNS(subtract, {}),
+      DATE_DIFF_FNS(date_sub, {}), DATE_DIFF_FNS(subtract, {}),
       DATE_DIFF_FNS(date_diff, {})};
 
   return datetime_fn_registry_;
