@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 add_gandiva_test(projector-test
                  SOURCES
                  binary_test.cc
