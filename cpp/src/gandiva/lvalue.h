@@ -120,7 +120,7 @@ class GANDIVA_EXPORT ListLValue : public LValue {
     params->push_back(validity_);
   }
 
-  virtual std::string to_string() override {
+  std::string to_string() override {
     std::string s = "List LValue";
     s += " " + LValue::to_string();
 
