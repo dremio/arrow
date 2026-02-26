@@ -17,7 +17,6 @@
 
 #include "gandiva/function_registry.h"
 
-
 #include <iterator>
 #include <utility>
 #include <vector>
@@ -146,7 +145,8 @@ arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
   for (auto const& funcs :
        {GetArithmeticFunctionRegistry(), GetDateTimeFunctionRegistry(),
         GetHashFunctionRegistry(), GetMathOpsFunctionRegistry(),
-        GetStringFunctionRegistry(), GetDateTimeArithmeticFunctionRegistry(), GetArrayFunctionRegistry()}) {
+        GetStringFunctionRegistry(), GetDateTimeArithmeticFunctionRegistry(),
+        GetArrayFunctionRegistry()}) {
     for (auto const& func_signature : funcs) {
       ARROW_RETURN_NOT_OK(registry->Add(func_signature));
     }

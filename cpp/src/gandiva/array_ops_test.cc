@@ -32,10 +32,9 @@ TEST(TestArrayOps, TestInt32ContainsInt32) {
   int32_t entry_validity = 15;
   bool valid = false;
 
-  EXPECT_EQ(
-      array_int32_contains_int32(ctx_ptr, data, entry_offsets_len, &entry_validity,
-                              true, contains_data, true, 0, 3, &valid),
-      true);
+  EXPECT_EQ(array_int32_contains_int32(ctx_ptr, data, entry_offsets_len, &entry_validity,
+                                       true, contains_data, true, 0, 3, &valid),
+            true);
 }
 
 }  // namespace gandiva

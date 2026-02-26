@@ -22,10 +22,10 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging.h"
-#include "gandiva/execution_context.h"
-#include "gandiva/encrypt_utils_ecb.h"
 #include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_utils_ecb.h"
 #include "gandiva/encrypt_utils_gcm.h"
+#include "gandiva/execution_context.h"
 
 namespace gandiva {
 
@@ -1360,16 +1360,15 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &cipher_len);
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &cipher_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
@@ -1384,17 +1383,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key24.c_str(), key24_len, mode.c_str(),
-      mode_len, &cipher_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key24.c_str(),
+                                      key24_len, mode.c_str(), mode_len, &cipher_len);
 
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key24.c_str(),
+                                      key24_len, mode.c_str(), mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
@@ -1409,17 +1407,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key32.c_str(), key32_len, mode.c_str(),
-      mode_len, &cipher_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key32.c_str(),
+                                      key32_len, mode.c_str(), mode_len, &cipher_len);
 
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key32.c_str(),
+                                      key32_len, mode.c_str(), mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
@@ -1435,16 +1432,14 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
   std::string cipher = "12345678abcdefgh12345678abcdefghb";
   auto cipher_len = static_cast<int32_t>(cipher.length());
 
-  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
-                                      key33.c_str(), key33_len, mode.c_str(),
-                                      mode_len, &cipher_len);
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key33.c_str(),
+                                  key33_len, mode.c_str(), mode_len, &cipher_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
 
-  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len,
-                                      key33.c_str(), key33_len, mode.c_str(),
-                                      mode_len, &decrypted_len);
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len, key33.c_str(),
+                                  key33_len, mode.c_str(), mode_len, &decrypted_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Unsupported key length for AES-ECB"));
   ctx.Reset();
@@ -1463,17 +1458,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeEcb) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &cipher_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &decrypted_len);
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
@@ -1489,23 +1483,19 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptModeValidation) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   // Test encrypt with invalid mode
-  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len,
-                                      key16.c_str(), key16_len,
-                                      invalid_mode.c_str(), invalid_mode_len,
-                                      &cipher_len);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Unsupported encryption mode"));
+  gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                  key16_len, invalid_mode.c_str(), invalid_mode_len,
+                                  &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unsupported encryption mode"));
   ctx.Reset();
 
   // Test decrypt with invalid mode
   std::string cipher = "12345678abcdefgh12345678abcdefgh";
   auto cipher_len_val = static_cast<int32_t>(cipher.length());
-  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len_val,
-                                      key16.c_str(), key16_len,
-                                      invalid_mode.c_str(), invalid_mode_len,
-                                      &decrypted_len);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Unsupported decryption mode"));
+  gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher.c_str(), cipher_len_val, key16.c_str(),
+                                  key16_len, invalid_mode.c_str(), invalid_mode_len,
+                                  &decrypted_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unsupported decryption mode"));
   ctx.Reset();
 }
 
@@ -1525,17 +1515,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmIvOnly) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, nullptr, 0, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, nullptr, 0, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, nullptr, 0, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, nullptr, 0, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
@@ -1555,17 +1544,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptGcmWithAad) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   const char* cipher = gdv_fn_encrypt_dispatcher_5args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, aad.c_str(), aad_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_5args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, aad.c_str(), aad_len, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, aad.c_str(), aad_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 // Tests for shorthand mode: AES-ECB (defaults to PKCS7)
@@ -1581,18 +1569,17 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandEcb) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &cipher_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 // Tests for explicit mode: AES-ECB-PKCS7
@@ -1608,18 +1595,17 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitEcbPkcs7) {
   auto mode_len = static_cast<int32_t>(mode.length());
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  const char* cipher = gdv_fn_encrypt_dispatcher_3args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &cipher_len);
+  const char* cipher =
+      gdv_fn_encrypt_dispatcher_3args(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
-  const char* decrypted_value = gdv_fn_decrypt_dispatcher_3args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, &decrypted_len);
+  const char* decrypted_value =
+      gdv_fn_decrypt_dispatcher_3args(ctx_ptr, cipher, cipher_len, key16.c_str(),
+                                      key16_len, mode.c_str(), mode_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 // Tests for shorthand mode: AES-CBC (defaults to PKCS7)
@@ -1638,17 +1624,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptShorthandCbc) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 // Tests for explicit mode: AES-CBC-PKCS7
@@ -1667,17 +1652,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptExplicitCbcPkcs7) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 // Tests for explicit mode: AES-CBC-NONE (no padding)
@@ -1697,17 +1681,16 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptCbcNone) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   const char* cipher = gdv_fn_encrypt_dispatcher_4args(
-      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &cipher_len);
+      ctx_ptr, data.c_str(), data_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &cipher_len);
   EXPECT_GT(cipher_len, 0);
 
   const char* decrypted_value = gdv_fn_decrypt_dispatcher_4args(
-      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(),
-      mode_len, iv.c_str(), iv_len, &decrypted_len);
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, mode.c_str(), mode_len,
+      iv.c_str(), iv_len, &decrypted_len);
 
   EXPECT_EQ(data,
-            std::string(reinterpret_cast<const char*>(decrypted_value),
-                        decrypted_len));
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
 }
 
 }  // namespace gandiva

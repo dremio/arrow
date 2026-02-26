@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <openssl/evp.h>
+#include <cstdint>
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -40,14 +40,15 @@ constexpr int32_t GCM_TAG_LENGTH = 16;
  * @param iv_len Length of IV in bytes
  * @param aad Optional additional authenticated data (can be null)
  * @param aad_len Length of AAD in bytes (0 if aad is null)
- * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 16 bytes)
+ * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 16
+ * bytes)
  * @return Length of encrypted data in bytes (plaintext_len + 16 for the tag)
  * @throws std::runtime_error on encryption failure or invalid parameters
  */
 GANDIVA_EXPORT
 int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* aad, int32_t aad_len, unsigned char* cipher);
+                        int32_t key_len, const char* iv, int32_t iv_len, const char* aad,
+                        int32_t aad_len, unsigned char* cipher);
 
 /**
  * Decrypt data using AES-GCM algorithm
@@ -62,12 +63,12 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char
  * @param aad_len Length of AAD in bytes (0 if aad is null)
  * @param plaintext Output buffer for decrypted data
  * @return Length of decrypted data in bytes (ciphertext_len - 16)
- * @throws std::runtime_error on decryption failure, invalid parameters, or tag verification failure
+ * @throws std::runtime_error on decryption failure, invalid parameters, or tag
+ * verification failure
  */
 GANDIVA_EXPORT
 int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        const char* aad, int32_t aad_len, unsigned char* plaintext);
+                        int32_t key_len, const char* iv, int32_t iv_len, const char* aad,
+                        int32_t aad_len, unsigned char* plaintext);
 
 }  // namespace gandiva
-

@@ -17,8 +17,8 @@
 
 #include "gandiva/encrypt_utils_gcm.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <cstring>
 
 // Test IV-only GCM with 16-byte key
@@ -39,9 +39,9 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_16) {
   EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
   unsigned char decrypted[128];
-  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   nullptr, 0, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -66,9 +66,9 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptWithAad_16) {
   EXPECT_EQ(cipher_len, to_encrypt_len + 16);
 
   unsigned char decrypted[128];
-  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   aad, aad_len, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, aad, aad_len, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -89,9 +89,9 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_24) {
                                                 iv, iv_len, nullptr, 0, cipher);
 
   unsigned char decrypted[128];
-  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   nullptr, 0, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -112,9 +112,9 @@ TEST(TestAesGcmEncryptUtils, TestAesEncryptDecryptIvOnly_32) {
                                                 iv, iv_len, nullptr, 0, cipher);
 
   unsigned char decrypted[128];
-  int32_t decrypted_len = gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   nullptr, 0, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, nullptr, 0, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -138,9 +138,8 @@ TEST(TestAesGcmEncryptUtils, TestTagVerificationFailure) {
   cipher[cipher_len - 1] ^= 0xFF;
 
   unsigned char decrypted[128];
-  EXPECT_THROW(gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher),
-                                        cipher_len, key, key_len, iv, iv_len,
-                                        nullptr, 0, decrypted),
+  EXPECT_THROW(gandiva::aes_decrypt_gcm(reinterpret_cast<const char*>(cipher), cipher_len,
+                                        key, key_len, iv, iv_len, nullptr, 0, decrypted),
                std::runtime_error);
 }
 
@@ -155,8 +154,7 @@ TEST(TestAesGcmEncryptUtils, TestInvalidIvLength) {
   auto to_encrypt_len = static_cast<int32_t>(strlen(to_encrypt));
   unsigned char cipher[128];
 
-  EXPECT_THROW(gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len,
-                                        iv, iv_len, nullptr, 0, cipher),
+  EXPECT_THROW(gandiva::aes_encrypt_gcm(to_encrypt, to_encrypt_len, key, key_len, iv,
+                                        iv_len, nullptr, 0, cipher),
                std::runtime_error);
 }
-

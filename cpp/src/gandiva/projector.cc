@@ -147,7 +147,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
     ++idx;
   }
   ARROW_RETURN_NOT_OK(
-    llvm_generator_->Execute(batch, selection_vector, output_data_vecs));
+      llvm_generator_->Execute(batch, selection_vector, output_data_vecs));
 
   return Status::OK();
 }
@@ -197,15 +197,20 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
          * Otherwise, child data offsets buffer length is data length + 1
          * and offset data is int32_t, need use buffer->size()/4 - 1
          */
-        child_data_size = child_data->buffers[child_data_buffer_index]->size() / int_data_size - 1;
+        child_data_size =
+            child_data->buffers[child_data_buffer_index]->size() / int_data_size - 1;
       } else if (child_data->type->id() == arrow::Type::INT32) {
-        child_data_size = child_data->buffers[child_data_buffer_index]->size() / int_data_size;
+        child_data_size =
+            child_data->buffers[child_data_buffer_index]->size() / int_data_size;
       } else if (child_data->type->id() == arrow::Type::INT64) {
-        child_data_size = child_data->buffers[child_data_buffer_index]->size() / double_data_size;
+        child_data_size =
+            child_data->buffers[child_data_buffer_index]->size() / double_data_size;
       } else if (child_data->type->id() == arrow::Type::FLOAT) {
-        child_data_size = child_data->buffers[child_data_buffer_index]->size() / int_data_size;
+        child_data_size =
+            child_data->buffers[child_data_buffer_index]->size() / int_data_size;
       } else if (child_data->type->id() == arrow::Type::DOUBLE) {
-        child_data_size = child_data->buffers[child_data_buffer_index]->size() / double_data_size;
+        child_data_size =
+            child_data->buffers[child_data_buffer_index]->size() / double_data_size;
       }
       auto new_child_data = arrow::ArrayData::Make(
           child_data->type, child_data_size, child_data->buffers, child_data->offset);
@@ -278,14 +283,16 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   }
   buffers.push_back(std::move(data_buffer));
 
-  ARROW_ASSIGN_OR_RAISE(auto data_valid_buffer, arrow::AllocateResizableBuffer(data_len, pool));
+  ARROW_ASSIGN_OR_RAISE(auto data_valid_buffer,
+                        arrow::AllocateResizableBuffer(data_len, pool));
 
   if (type->id() == arrow::Type::LIST) {
     auto internal_type = type->field(0)->type();
     ArrayDataPtr child_data;
     if (arrow::is_primitive(internal_type->id())) {
-      child_data = arrow::ArrayData::Make(internal_type, 0 /*initialize length*/,
-                                          {std::move(data_valid_buffer), std::move(buffers[2])}, 0);
+      child_data = arrow::ArrayData::Make(
+          internal_type, 0 /*initialize length*/,
+          {std::move(data_valid_buffer), std::move(buffers[2])}, 0);
     }
     if (arrow::is_binary_like(internal_type->id())) {
       child_data = arrow::ArrayData::Make(
@@ -349,8 +356,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                     Status::Invalid("Data buffer too small for ", field.name()));
   } else if (type_id == arrow::Type::LIST) {
     return Status::OK();
-  }
-  else {
+  } else {
     return Status::Invalid("Unsupported output data type " + field.type()->ToString());
   }
 

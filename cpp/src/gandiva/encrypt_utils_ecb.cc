@@ -16,12 +16,12 @@
 // under the License.
 
 #include "gandiva/encrypt_utils_ecb.h"
-#include "gandiva/encrypt_utils_common.h"
 #include <openssl/aes.h>
 #include <openssl/err.h>
-#include <stdexcept>
 #include <cstring>
 #include <sstream>
+#include <stdexcept>
+#include "gandiva/encrypt_utils_common.h"
 
 namespace gandiva {
 
@@ -145,4 +145,3 @@ int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const ch
 }
 
 }  // namespace gandiva
-

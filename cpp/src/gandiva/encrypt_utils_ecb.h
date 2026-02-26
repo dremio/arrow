@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <openssl/evp.h>
+#include <cstdint>
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -67,4 +67,3 @@ int32_t aes_decrypt_ecb(const char* ciphertext, int32_t ciphertext_len, const ch
                         int32_t key_len, bool use_padding, unsigned char* plaintext);
 
 }  // namespace gandiva
-

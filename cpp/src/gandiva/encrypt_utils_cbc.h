@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <openssl/evp.h>
+#include <cstdint>
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -44,8 +44,8 @@ constexpr const char* AES_CBC_NONE_MODE = "AES-CBC-NONE";
  */
 GANDIVA_EXPORT
 int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* cipher);
+                        int32_t key_len, const char* iv, int32_t iv_len, bool use_padding,
+                        unsigned char* cipher);
 
 /**
  * Decrypt data using AES-CBC algorithm with explicit padding mode
@@ -63,8 +63,7 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
  */
 GANDIVA_EXPORT
 int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* plaintext);
+                        int32_t key_len, const char* iv, int32_t iv_len, bool use_padding,
+                        unsigned char* plaintext);
 
 }  // namespace gandiva
-

@@ -83,10 +83,10 @@ void _build_list_array(const vector<ValueType>& values, const vector<int64_t>& l
 
 template <class ValueType, class ArrayType>
 void _build_list_array2(const vector<ValueType>& values, const vector<int64_t>& length,
-                       const vector<bool>& validity, const vector<bool>& innerValidity, arrow::MemoryPool* pool,
-                       ArrayPtr* array) {
-                        return _build_list_array<ValueType, ArrayType>(values, length, validity, pool, array);
-                       }
+                        const vector<bool>& validity, const vector<bool>& innerValidity,
+                        arrow::MemoryPool* pool, ArrayPtr* array) {
+  return _build_list_array<ValueType, ArrayType>(values, length, validity, pool, array);
+}
 
 /*
  * expression:
@@ -136,7 +136,7 @@ void _test_list_type_field_alias(DataTypePtr type, ArrayPtr array,
 TEST_F(TestList, TestArrayRemove) {
   // schema for input fields
   auto field_b = field("b", int32());
-  
+
   auto field_a = field("a", list(int32()));
   auto schema = arrow::schema({field_a, field_b});
 
@@ -147,7 +147,7 @@ TEST_F(TestList, TestArrayRemove) {
   int num_records = 2;
   auto array_b =
       MakeArrowArrayInt32({42, 42}, {true, true});
-  
+
   ArrayPtr array_a;
   _build_list_array2<int32_t, arrow::Int32Builder>(
       {10, 42, 30, 42, 70, 80},
@@ -202,7 +202,7 @@ auto bitmap_buffer2 =  arrow::AllocateBuffer(size, pool_);
     auto offsets_buffer2 = arrow::AllocateBuffer(offsets_len, pool_);
     buffers2.push_back(*std::move(offsets_buffer2));
 std::shared_ptr<arrow::DataType> dt2 = std::make_shared<arrow::Int32Type>();
- 
+
         auto array_data_child = arrow::ArrayData::Make(dt2, num_records2, buffers2, 0, 0);
         array_data_child->buffers = std::move(buffers2);
 
@@ -214,7 +214,7 @@ auto array_data = arrow::ArrayData::Make(dt, num_records2, buffers, kids, 0, 0);
 array_data->buffers = std::move(buffers);
 outputs2.push_back(array_data);
 
-  
+
   status = projector->Evaluate(*(in_batch.get()), outputs2);
   EXPECT_TRUE(status.ok()) << status.message();
   arrow::ArrayData ad = *outputs2.at(0);
@@ -243,7 +243,7 @@ for (auto& array_data : outputs2) {
       array_data = arrow::ArrayData::Make(array_data->type, array_data->length,
                                           array_data->buffers, {new_child_data},
                                           array_data->null_count, array_data->offset);
-    
+
 
     auto newArray = arrow::MakeArray(array_data);
       //arrow::ArraySpan sp(newArray);
@@ -313,9 +313,9 @@ TEST_F(TestList, TestListInt32LiteralContains) {
 
   auto node2 = TreeExprBuilder::MakeLiteral(42);
   field_nodes.push_back(node2);
-  
-  auto func_node = TreeExprBuilder::MakeFunction("array_contains", field_nodes, res->type());
-  auto expr = TreeExprBuilder::MakeExpression(func_node, res);
+
+  auto func_node = TreeExprBuilder::MakeFunction("array_contains", field_nodes,
+res->type()); auto expr = TreeExprBuilder::MakeExpression(func_node, res);
   ////////
 
   // Build a projector for the expressions.

@@ -16,12 +16,12 @@
 // under the License.
 
 #include "gandiva/encrypt_utils_gcm.h"
-#include "gandiva/encrypt_utils_common.h"
 #include <openssl/aes.h>
 #include <openssl/err.h>
-#include <stdexcept>
 #include <cstring>
 #include <sstream>
+#include <stdexcept>
+#include "gandiva/encrypt_utils_common.h"
 
 namespace gandiva {
 
@@ -47,10 +47,9 @@ const EVP_CIPHER* get_gcm_cipher_algo(int32_t key_length) {
 }  // namespace
 
 GANDIVA_EXPORT
-int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
-                        const char* key, int32_t key_len, const char* iv,
-                        int32_t iv_len, const char* aad, int32_t aad_len,
-                        unsigned char* cipher) {
+int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char* key,
+                        int32_t key_len, const char* iv, int32_t iv_len, const char* aad,
+                        int32_t aad_len, unsigned char* cipher) {
   if (iv_len <= 0) {
     throw std::runtime_error(
         "Invalid IV length for AES-GCM: IV length must be greater than 0");
@@ -125,10 +124,9 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len,
 }
 
 GANDIVA_EXPORT
-int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
-                        const char* key, int32_t key_len, const char* iv,
-                        int32_t iv_len, const char* aad, int32_t aad_len,
-                        unsigned char* plaintext) {
+int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len, const char* key,
+                        int32_t key_len, const char* iv, int32_t iv_len, const char* aad,
+                        int32_t aad_len, unsigned char* plaintext) {
   if (iv_len <= 0) {
     throw std::runtime_error(
         "Invalid IV length for AES-GCM: IV length must be greater than 0");
@@ -211,4 +209,3 @@ int32_t aes_decrypt_gcm(const char* ciphertext, int32_t ciphertext_len,
 }
 
 }  // namespace gandiva
-

@@ -17,8 +17,8 @@
 
 #include "gandiva/encrypt_utils_common.h"
 #include <openssl/err.h>
-#include <string>
 #include <cstring>
+#include <string>
 
 namespace gandiva {
 
@@ -43,4 +43,3 @@ std::string get_openssl_error_string() {
 }
 
 }  // namespace gandiva
-

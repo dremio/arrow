@@ -16,23 +16,21 @@
 // under the License.
 
 #include "gandiva/encrypt_mode_dispatcher.h"
-#include "gandiva/encrypt_utils_ecb.h"
-#include "gandiva/encrypt_utils_cbc.h"
-#include "gandiva/encrypt_utils_gcm.h"
-#include "arrow/util/string.h"
-#include <string>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
+#include "arrow/util/string.h"
+#include "gandiva/encrypt_utils_cbc.h"
+#include "gandiva/encrypt_utils_ecb.h"
+#include "gandiva/encrypt_utils_gcm.h"
 
 namespace gandiva {
 
 // Supported encryption modes
 static const std::vector<std::string_view> SUPPORTED_MODES = {
-    AES_ECB_MODE, AES_ECB_PKCS7_MODE, AES_ECB_NONE_MODE,
-    AES_CBC_MODE, AES_CBC_PKCS7_MODE, AES_CBC_NONE_MODE,
-    AES_GCM_MODE
-};
+    AES_ECB_MODE,       AES_ECB_PKCS7_MODE, AES_ECB_NONE_MODE, AES_CBC_MODE,
+    AES_CBC_PKCS7_MODE, AES_CBC_NONE_MODE,  AES_GCM_MODE};
 
 enum class EncryptionMode {
   ECB,
@@ -56,13 +54,13 @@ EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
   return EncryptionMode::UNKNOWN;
 }
 
-int32_t EncryptModeDispatcher::encrypt(
-    const char* plaintext, int32_t plaintext_len, const char* key,
-    int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
-    int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
-    unsigned char* cipher) {
-  std::string mode_str =
-      arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
+int32_t EncryptModeDispatcher::encrypt(const char* plaintext, int32_t plaintext_len,
+                                       const char* key, int32_t key_len, const char* mode,
+                                       int32_t mode_len, const char* iv, int32_t iv_len,
+                                       const char* fifth_argument,
+                                       int32_t fifth_argument_len,
+                                       unsigned char* cipher) {
+  std::string mode_str = arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
@@ -75,15 +73,15 @@ int32_t EncryptModeDispatcher::encrypt(
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
-      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, true, cipher);
+      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len, iv, iv_len, true,
+                             cipher);
     case EncryptionMode::CBC_NONE:
       // CBC without padding
-      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, false, cipher);
+      return aes_encrypt_cbc(plaintext, plaintext_len, key, key_len, iv, iv_len, false,
+                             cipher);
     case EncryptionMode::GCM:
-      return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len,
-                             iv, iv_len, fifth_argument, fifth_argument_len, cipher);
+      return aes_encrypt_gcm(plaintext, plaintext_len, key, key_len, iv, iv_len,
+                             fifth_argument, fifth_argument_len, cipher);
     case EncryptionMode::UNKNOWN:
     default: {
       std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
@@ -95,13 +93,13 @@ int32_t EncryptModeDispatcher::encrypt(
   }
 }
 
-int32_t EncryptModeDispatcher::decrypt(
-    const char* ciphertext, int32_t ciphertext_len, const char* key,
-    int32_t key_len, const char* mode, int32_t mode_len, const char* iv,
-    int32_t iv_len, const char* fifth_argument, int32_t fifth_argument_len,
-    unsigned char* plaintext) {
-  std::string mode_str =
-      arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
+int32_t EncryptModeDispatcher::decrypt(const char* ciphertext, int32_t ciphertext_len,
+                                       const char* key, int32_t key_len, const char* mode,
+                                       int32_t mode_len, const char* iv, int32_t iv_len,
+                                       const char* fifth_argument,
+                                       int32_t fifth_argument_len,
+                                       unsigned char* plaintext) {
+  std::string mode_str = arrow::internal::AsciiToUpper(std::string_view(mode, mode_len));
 
   switch (ParseEncryptionMode(mode_str)) {
     case EncryptionMode::ECB:
@@ -114,15 +112,15 @@ int32_t EncryptModeDispatcher::decrypt(
     case EncryptionMode::CBC:
     case EncryptionMode::CBC_PKCS7:
       // Shorthand AES-CBC and explicit AES-CBC-PKCS7 both use CBC with PKCS7
-      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, true, plaintext);
+      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len, iv, iv_len, true,
+                             plaintext);
     case EncryptionMode::CBC_NONE:
       // CBC without padding
-      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, false, plaintext);
+      return aes_decrypt_cbc(ciphertext, ciphertext_len, key, key_len, iv, iv_len, false,
+                             plaintext);
     case EncryptionMode::GCM:
-      return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len,
-                             iv, iv_len, fifth_argument, fifth_argument_len, plaintext);
+      return aes_decrypt_gcm(ciphertext, ciphertext_len, key, key_len, iv, iv_len,
+                             fifth_argument, fifth_argument_len, plaintext);
     case EncryptionMode::UNKNOWN:
     default: {
       std::string modes_str = arrow::internal::JoinStrings(SUPPORTED_MODES, ", ");
@@ -135,4 +133,3 @@ int32_t EncryptModeDispatcher::decrypt(
 }
 
 }  // namespace gandiva
-
