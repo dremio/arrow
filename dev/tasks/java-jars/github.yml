@@ -278,7 +278,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: macos-13, arch: "x86_64"}
+          - { runs_on: macos-13-large, arch: "x86_64"}
     needs:
       - build-cpp-ubuntu
       - build-cpp-macos
