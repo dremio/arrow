@@ -99,15 +99,17 @@ jobs:
           strict: true
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
-    runs-on: macos-${{ matrix.macos-version }}
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       matrix:
         include:
           - architecture: AMD64
             macos-version: "13"
+            runs-on: macos-13-large
           - architecture: ARM64
             macos-version: "14"
+            runs-on: macos-14
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

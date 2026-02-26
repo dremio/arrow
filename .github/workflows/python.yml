@@ -135,7 +135,7 @@ jobs:
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
-    runs-on: macos-${{ matrix.macos-version }}
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
@@ -144,8 +144,10 @@ jobs:
         include:
           - architecture: AMD64
             macos-version: "13"
+            runs-on: macos-13-large
           - architecture: ARM64
             macos-version: "14"
+            runs-on: macos-14
     env:
       ARROW_HOME: /tmp/local
       ARROW_AZURE: ON
