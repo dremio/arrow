@@ -223,8 +223,8 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
       types->i32_type(),      // int32_t value to check for
       types->i1_type(),       // bool validity --Needed?
       types->i64_type(),      // in loop var  --Needed?
-      types->i64_type(),  // in validity_index_var index into the valdity vector for the
-                          // current row.
+      types->i64_type(),    // in validity_index_var index into the valdity vector for the
+                            // current row.
       types->i1_ptr_type()  // output validity for the row
   };
 
@@ -241,8 +241,8 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
       types->i64_type(),      // int32_t value to check for
       types->i1_type(),       // bool validity --Needed?
       types->i64_type(),      // in loop var  --Needed?
-      types->i64_type(),  // in validity_index_var index into the valdity vector for the
-                          // current row.
+      types->i64_type(),    // in validity_index_var index into the valdity vector for the
+                            // current row.
       types->i1_ptr_type()  // output validity for the row
   };
 
@@ -259,8 +259,8 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
       types->float_type(),      // int32_t value to check for
       types->i1_type(),         // bool validity --Needed?
       types->i64_type(),        // in loop var  --Needed?
-      types->i64_type(),  // in validity_index_var index into the valdity vector for the
-                          // current row.
+      types->i64_type(),    // in validity_index_var index into the valdity vector for the
+                            // current row.
       types->i1_ptr_type()  // output validity for the row
   };
 
@@ -277,8 +277,8 @@ arrow::Status ExportedArrayFunctions::AddMappings(Engine* engine) const {
       types->double_type(),      // int32_t value to check for
       types->i1_type(),          // bool validity --Needed?
       types->i64_type(),         // in loop var  --Needed?
-      types->i64_type(),  // in validity_index_var index into the valdity vector for the
-                          // current row.
+      types->i64_type(),    // in validity_index_var index into the valdity vector for the
+                            // current row.
       types->i1_ptr_type()  // output validity for the row
   };
 
