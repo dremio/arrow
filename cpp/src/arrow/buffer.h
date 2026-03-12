@@ -522,10 +522,10 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   }
 
  public:
-   uint8_t* offsetBuffer;
-   int64_t offsetCapacity;
-   uint8_t* validityBuffer;
-   uint8_t* outerValidityBuffer;
+  uint8_t* offsetBuffer;
+  int64_t offsetCapacity;
+  uint8_t* validityBuffer;
+  uint8_t* outerValidityBuffer;
 
  protected:
   ResizableBuffer(uint8_t* data, int64_t size) : MutableBuffer(data, size) {
@@ -533,15 +533,14 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
     offsetCapacity = 0;
     validityBuffer = nullptr;
     outerValidityBuffer = nullptr;
-
   }
   ResizableBuffer(uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm)
       : MutableBuffer(data, size, std::move(mm)) {
-        offsetBuffer = nullptr;
-        offsetCapacity = 0;
-        validityBuffer = nullptr;
-        outerValidityBuffer = nullptr;
-      }
+    offsetBuffer = nullptr;
+    offsetCapacity = 0;
+    validityBuffer = nullptr;
+    outerValidityBuffer = nullptr;
+  }
 };
 
 /// \defgroup buffer-allocation-functions Functions for allocating buffers

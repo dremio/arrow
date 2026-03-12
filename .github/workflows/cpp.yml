@@ -136,7 +136,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
@@ -191,7 +191,7 @@ jobs:
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
-    runs-on: macos-${{ matrix.macos-version }}
+    runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
@@ -199,9 +199,11 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "13"
+            macos-version: "14"
+            runs-on: macos-14-large
           - architecture: ARM64
             macos-version: "14"
+            runs-on: macos-14
     env:
       ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
@@ -259,7 +261,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
@@ -351,7 +353,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
@@ -441,7 +443,7 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ccache
           key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}

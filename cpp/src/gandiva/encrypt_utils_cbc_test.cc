@@ -17,8 +17,8 @@
 
 #include "gandiva/encrypt_utils_cbc.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <cstring>
 
 // Test PKCS#7 padding with 16-byte key
@@ -36,9 +36,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_16) {
                                                 iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
-  int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   true, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -59,9 +59,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_24) {
                                                 iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
-  int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   true, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -82,9 +82,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptPkcs7_32) {
                                                 iv, iv_len, true, cipher);
 
   unsigned char decrypted[64];
-  int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   true, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, true, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -105,9 +105,9 @@ TEST(TestAesCbcEncryptUtils, TestAesEncryptDecryptNoPadding_16) {
                                                 iv, iv_len, false, cipher);
 
   unsigned char decrypted[64];
-  int32_t decrypted_len = gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher),
-                                                   cipher_len, key, key_len, iv, iv_len,
-                                                   false, decrypted);
+  int32_t decrypted_len =
+      gandiva::aes_decrypt_cbc(reinterpret_cast<const char*>(cipher), cipher_len, key,
+                               key_len, iv, iv_len, false, decrypted);
 
   EXPECT_EQ(std::string(to_encrypt, to_encrypt_len),
             std::string(reinterpret_cast<const char*>(decrypted), decrypted_len));
@@ -125,8 +125,8 @@ TEST(TestAesCbcEncryptUtils, TestInvalidIVLength) {
   unsigned char cipher[64];
 
   try {
-    gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                             iv, iv_len, true, cipher);
+    gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len, iv, iv_len, true,
+                             cipher);
     FAIL() << "Expected std::runtime_error";
   } catch (const std::runtime_error& e) {
     EXPECT_THAT(e.what(), testing::HasSubstr("Invalid IV length for AES-CBC"));
@@ -145,13 +145,10 @@ TEST(TestAesCbcEncryptUtils, TestInvalidKeyLength) {
   unsigned char cipher[64];
 
   try {
-    gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len,
-                             iv, iv_len, true, cipher);
+    gandiva::aes_encrypt_cbc(to_encrypt, to_encrypt_len, key, key_len, iv, iv_len, true,
+                             cipher);
     FAIL() << "Expected std::runtime_error";
   } catch (const std::runtime_error& e) {
     EXPECT_THAT(e.what(), testing::HasSubstr("Unsupported key length for AES-CBC"));
   }
 }
-
-
-

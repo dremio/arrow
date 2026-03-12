@@ -16,13 +16,13 @@
 // under the License.
 
 #include "gandiva/encrypt_utils_cbc.h"
-#include "gandiva/encrypt_utils_common.h"
 #include <openssl/aes.h>
 #include <openssl/err.h>
-#include <stdexcept>
+#include <cctype>
 #include <cstring>
 #include <sstream>
-#include <cctype>
+#include <stdexcept>
+#include "gandiva/encrypt_utils_common.h"
 
 namespace gandiva {
 
@@ -49,8 +49,8 @@ const EVP_CIPHER* get_cbc_cipher_algo(int32_t key_length) {
 
 GANDIVA_EXPORT
 int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* cipher) {
+                        int32_t key_len, const char* iv, int32_t iv_len, bool use_padding,
+                        unsigned char* cipher) {
   // Validate IV length
   if (iv_len != 16) {
     std::ostringstream oss;
@@ -108,8 +108,8 @@ int32_t aes_encrypt_cbc(const char* plaintext, int32_t plaintext_len, const char
 
 GANDIVA_EXPORT
 int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                        int32_t key_len, const char* iv, int32_t iv_len,
-                        bool use_padding, unsigned char* plaintext) {
+                        int32_t key_len, const char* iv, int32_t iv_len, bool use_padding,
+                        unsigned char* plaintext) {
   // Validate IV length
   if (iv_len != 16) {
     std::ostringstream oss;
@@ -166,4 +166,3 @@ int32_t aes_decrypt_cbc(const char* ciphertext, int32_t ciphertext_len, const ch
 }
 
 }  // namespace gandiva
-

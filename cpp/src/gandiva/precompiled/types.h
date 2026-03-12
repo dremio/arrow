@@ -19,7 +19,6 @@
 
 #include <cstdint>
 
-
 #include "gandiva/array_ops.h"
 #include "gandiva/gdv_function_stubs.h"
 

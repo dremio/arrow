@@ -50,8 +50,11 @@ if(NOT LLVM_FOUND)
                              "${ARROW_LLVM_VERSION}")
         execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_MAJOR}"
                         OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                        OUTPUT_STRIP_TRAILING_WHITESPACE)
-        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        ERROR_QUIET)
+        if(LLVM_BREW_PREFIX)
+          list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+        endif()
       endif()
     endif()
 

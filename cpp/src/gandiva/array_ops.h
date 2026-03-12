@@ -30,57 +30,60 @@ extern "C" {
 
 GANDIVA_EXPORT
 bool array_int32_contains_int32(int64_t context_ptr, const int32_t* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              int32_t contains_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_buf);
+                                int32_t entry_len, const int32_t* entry_validity,
+                                bool combined_row_validity, int32_t contains_data,
+                                bool entry_validWhat, int64_t loop_var,
+                                int64_t validity_index_var, bool* valid_buf);
 GANDIVA_EXPORT
 bool array_int64_contains_int64(int64_t context_ptr, const int64_t* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              int64_t contains_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_buf);
+                                int32_t entry_len, const int32_t* entry_validity,
+                                bool combined_row_validity, int64_t contains_data,
+                                bool entry_validWhat, int64_t loop_var,
+                                int64_t validity_index_var, bool* valid_buf);
 
 GANDIVA_EXPORT
 bool array_float32_contains_float32(int64_t context_ptr, const float* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              float contains_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_buf);
+                                    int32_t entry_len, const int32_t* entry_validity,
+                                    bool combined_row_validity, float contains_data,
+                                    bool entry_validWhat, int64_t loop_var,
+                                    int64_t validity_index_var, bool* valid_buf);
 
 GANDIVA_EXPORT
 bool array_float64_contains_float64(int64_t context_ptr, const double* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              double contains_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_buf);
+                                    int32_t entry_len, const int32_t* entry_validity,
+                                    bool combined_row_validity, double contains_data,
+                                    bool entry_validWhat, int64_t loop_var,
+                                    int64_t validity_index_var, bool* valid_buf);
 
 GANDIVA_EXPORT
 int32_t* array_int32_remove(int64_t context_ptr, const int32_t* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              int32_t remove_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_row, int32_t* out_len, int32_t** valid_ptr);
+                            int32_t entry_len, const int32_t* entry_validity,
+                            bool combined_row_validity, int32_t remove_data,
+                            bool entry_validWhat, int64_t loop_var,
+                            int64_t validity_index_var, bool* valid_row, int32_t* out_len,
+                            int32_t** valid_ptr);
 
 GANDIVA_EXPORT
 int64_t* array_int64_remove(int64_t context_ptr, const int64_t* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              int64_t remove_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_row, int32_t* out_len, int32_t** valid_ptr);
+                            int32_t entry_len, const int32_t* entry_validity,
+                            bool combined_row_validity, int64_t remove_data,
+                            bool entry_validWhat, int64_t loop_var,
+                            int64_t validity_index_var, bool* valid_row, int32_t* out_len,
+                            int32_t** valid_ptr);
 
 GANDIVA_EXPORT
 float* array_float32_remove(int64_t context_ptr, const float* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              float remove_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_row, int32_t* out_len, int32_t** valid_ptr);
+                            int32_t entry_len, const int32_t* entry_validity,
+                            bool combined_row_validity, float remove_data,
+                            bool entry_validWhat, int64_t loop_var,
+                            int64_t validity_index_var, bool* valid_row, int32_t* out_len,
+                            int32_t** valid_ptr);
 
 GANDIVA_EXPORT
 double* array_float64_remove(int64_t context_ptr, const double* entry_buf,
-                              int32_t entry_len, const int32_t* entry_validity, bool combined_row_validity,
-                              double remove_data, bool entry_validWhat, 
-                              int64_t loop_var, int64_t validity_index_var,
-                              bool* valid_row, int32_t* out_len, int32_t** valid_ptr);
-
+                             int32_t entry_len, const int32_t* entry_validity,
+                             bool combined_row_validity, double remove_data,
+                             bool entry_validWhat, int64_t loop_var,
+                             int64_t validity_index_var, bool* valid_row,
+                             int32_t* out_len, int32_t** valid_ptr);
 }

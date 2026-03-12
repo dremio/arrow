@@ -17,8 +17,8 @@
 
 #include "gandiva/encrypt_utils_common.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 
@@ -92,4 +92,3 @@ TEST(TestOpenSSLErrorUtils, TestErrorQueueDrained) {
 
   EXPECT_EQ(second_call, "Unknown OpenSSL error");
 }
-

@@ -46,7 +46,9 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::Type* i128_type() { return llvm::Type::getInt128Ty(context_); }
 
-  llvm::VectorType* list_type() { return llvm::ScalableVectorType::get(i8_type(), (unsigned int)0); }
+  llvm::VectorType* list_type() {
+    return llvm::ScalableVectorType::get(i8_type(), (unsigned int)0);
+  }
 
   llvm::StructType* i128_split_type() {
     // struct with high/low bits (see decimal_ops.cc:DecimalSplit)
@@ -95,9 +97,7 @@ class GANDIVA_EXPORT LLVMTypes {
     return llvm::ConstantFP::get(float_type(), val);
   }
 
-  llvm::LLVMContext* get_context() {
-    return &context_;
-  }
+  llvm::LLVMContext* get_context() { return &context_; }
 
   llvm::Constant* double_constant(double val) {
     return llvm::ConstantFP::get(double_type(), val);
@@ -121,7 +121,7 @@ class GANDIVA_EXPORT LLVMTypes {
     // offsets buffer is to separate data into list
     // not support nested list
     if (data_type->id() == arrow::Type::LIST) {
-      //Nested lists aren't supported yet.
+      // Nested lists aren't supported yet.
       if (data_type->field(0)->type()->id() == arrow::Type::LIST) {
         return NULL;
       }

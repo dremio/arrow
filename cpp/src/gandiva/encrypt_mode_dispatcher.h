@@ -45,12 +45,10 @@ class EncryptModeDispatcher {
    * @return Length of encrypted data in bytes
    * @throws std::runtime_error on encryption failure or unsupported mode
    */
-  static int32_t encrypt(const char* plaintext, int32_t plaintext_len,
-                         const char* key, int32_t key_len,
-                         const char* mode, int32_t mode_len,
-                         const char* iv, int32_t iv_len,
-                         const char* fifth_argument, int32_t fifth_argument_len,
-                         unsigned char* cipher);
+  static int32_t encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
+                         int32_t key_len, const char* mode, int32_t mode_len,
+                         const char* iv, int32_t iv_len, const char* fifth_argument,
+                         int32_t fifth_argument_len, unsigned char* cipher);
 
   /**
    * Decrypt data using the specified mode
@@ -69,15 +67,12 @@ class EncryptModeDispatcher {
    * @return Length of decrypted data in bytes
    * @throws std::runtime_error on decryption failure or unsupported mode
    */
-  static int32_t decrypt(const char* ciphertext, int32_t ciphertext_len,
-                         const char* key, int32_t key_len,
-                         const char* mode, int32_t mode_len,
-                         const char* iv, int32_t iv_len,
-                         const char* fifth_argument, int32_t fifth_argument_len,
-                         unsigned char* plaintext);
+  static int32_t decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
+                         int32_t key_len, const char* mode, int32_t mode_len,
+                         const char* iv, int32_t iv_len, const char* fifth_argument,
+                         int32_t fifth_argument_len, unsigned char* plaintext);
 };
 
 }  // namespace gandiva
 
 #endif  // GANDIVA_ENCRYPT_MODE_DISPATCHER_H
-

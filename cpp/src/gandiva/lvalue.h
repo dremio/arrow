@@ -53,7 +53,7 @@ class GANDIVA_EXPORT LValue {
 
   virtual std::string to_string() {
     std::string s = "Base LValue";
-    
+
     std::string str1 = "data:";
     if (data_) {
       llvm::raw_string_ostream output1(str1);
@@ -107,8 +107,7 @@ class GANDIVA_EXPORT ListLValue : public LValue {
              llvm::Value* validity = NULLPTR)
       : LValue(data, NULLPTR, validity),
         child_offsets_(child_offsets),
-        offsets_length_(offsets_length) {
-        }
+        offsets_length_(offsets_length) {}
 
   llvm::Value* child_offsets() { return child_offsets_; }
 
@@ -121,7 +120,7 @@ class GANDIVA_EXPORT ListLValue : public LValue {
     params->push_back(validity_);
   }
 
-  virtual std::string to_string() override {
+  std::string to_string() override {
     std::string s = "List LValue";
     s += " " + LValue::to_string();
 

@@ -133,7 +133,6 @@ class GANDIVA_EXPORT Projector {
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
 
-
   /// Validate that the ArrayData has sufficient capacity to accommodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                                    const arrow::Field& field, int64_t num_records) const;

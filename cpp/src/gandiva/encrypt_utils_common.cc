@@ -17,18 +17,17 @@
 
 #include "gandiva/encrypt_utils_common.h"
 #include <openssl/err.h>
-#include <string>
 #include <cstring>
+#include <string>
 
 namespace gandiva {
 
 std::string get_openssl_error_string() {
   std::string error_string;
-  unsigned long error_code;
   char error_buffer[256];
 
   // Loop through all errors in the queue
-  while ((error_code = ERR_get_error()) != 0) {
+  for (auto error_code = ERR_get_error(); error_code != 0; error_code = ERR_get_error()) {
     if (!error_string.empty()) {
       error_string += "; ";
     }
@@ -43,4 +42,3 @@ std::string get_openssl_error_string() {
 }
 
 }  // namespace gandiva
-
