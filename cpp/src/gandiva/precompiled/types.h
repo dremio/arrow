@@ -223,6 +223,33 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
                                        gdv_timestamp end_millis);
 
 gdv_int64 date_trunc_Week_timestamp(gdv_timestamp);
+
+// Precision-specific date_trunc declarations
+#define DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(NAME)                  \
+  gdv_timestamp_sec NAME##_timestamp_sec(gdv_timestamp_sec);          \
+  gdv_timestamp_ms NAME##_timestamp_ms(gdv_timestamp_ms);             \
+  gdv_timestamp_us NAME##_timestamp_us(gdv_timestamp_us);             \
+  gdv_timestamp_ns NAME##_timestamp_ns(gdv_timestamp_ns);
+
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Second)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Minute)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Hour)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Day)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Week)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Month)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Quarter)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Year)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Decade)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Century)
+DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION(date_trunc_Millennium)
+
+#undef DECLARE_DATE_TRUNC_TIMESTAMP_PRECISION
+
+// New sub-millisecond truncation functions
+gdv_timestamp_us date_trunc_Millisecond_timestamp_us(gdv_timestamp_us);
+gdv_timestamp_ns date_trunc_Millisecond_timestamp_ns(gdv_timestamp_ns);
+gdv_timestamp_ns date_trunc_Microsecond_timestamp_ns(gdv_timestamp_ns);
+
 double months_between_timestamp_timestamp(gdv_uint64, gdv_uint64);
 
 gdv_int32 mem_compare(const char* left, gdv_int32 left_len, const char* right,

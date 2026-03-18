@@ -616,6 +616,135 @@ EXTRACT_HOUR_TIME(time32)
 DATE_TRUNC_FUNCTIONS(date64)
 DATE_TRUNC_FUNCTIONS(timestamp)
 
+// Precision-aware date_trunc macros
+// For fixed time units (second, minute, hour, day)
+#define DATE_TRUNC_FIXED_UNIT_PRECISION(NAME, SUFFIX, TP_TYPE, UNIT_IN_PRECISION, TYPE_ALIAS) \
+  FORCE_INLINE                                                                               \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX(TYPE_ALIAS value) {                                   \
+    return value >= 0                                                                        \
+               ? ((value / UNIT_IN_PRECISION) * UNIT_IN_PRECISION)                           \
+               : (((value - UNIT_IN_PRECISION + 1) / UNIT_IN_PRECISION) * UNIT_IN_PRECISION);\
+  }
+
+// For week truncation
+#define DATE_TRUNC_WEEK_PRECISION(SUFFIX, TP_TYPE, TYPE_ALIAS, CONVERSION_TO_MILLIS, CONVERSION_FROM_MILLIS) \
+  FORCE_INLINE                                                                                               \
+  TYPE_ALIAS date_trunc_Week_timestamp_##SUFFIX(TYPE_ALIAS value) {                                          \
+    EpochTimePoint tp(CONVERSION_TO_MILLIS(value));                                                          \
+    int ndays_to_trunc = 0;                                                                                  \
+    if (tp.TmWday() == 0) {                                                                                  \
+      ndays_to_trunc = 6;                                                                                    \
+    } else {                                                                                                 \
+      ndays_to_trunc = tp.TmWday() - 1;                                                                      \
+    }                                                                                                        \
+    return CONVERSION_FROM_MILLIS(tp.AddDays(-ndays_to_trunc).ClearTimeOfDay().MillisSinceEpoch());          \
+  }
+
+// For month-based truncation (month, quarter, year)
+#define DATE_TRUNC_MONTH_UNITS_PRECISION(NAME, SUFFIX, TP_TYPE, TYPE_ALIAS, NMONTHS_IN_UNIT,                \
+                                         CONVERSION_TO_MILLIS, CONVERSION_FROM_MILLIS)                      \
+  FORCE_INLINE                                                                                              \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX(TYPE_ALIAS value) {                                                  \
+    EpochTimePoint tp(CONVERSION_TO_MILLIS(value));                                                         \
+    int ndays_to_trunc = tp.TmMday() - 1;                                                                   \
+    int nmonths_to_trunc = (tp.TmMon() % NMONTHS_IN_UNIT);                                                  \
+    return CONVERSION_FROM_MILLIS(tp.AddDays(-ndays_to_trunc)                                               \
+                                     .AddMonths(-nmonths_to_trunc)                                          \
+                                     .ClearTimeOfDay()                                                      \
+                                     .MillisSinceEpoch());                                                  \
+  }
+
+// For year-based truncation (decade, century, millennium)
+#define DATE_TRUNC_YEAR_UNITS_PRECISION(NAME, SUFFIX, TP_TYPE, TYPE_ALIAS, NYEARS_IN_UNIT, OFF_BY,          \
+                                        CONVERSION_TO_MILLIS, CONVERSION_FROM_MILLIS)                       \
+  FORCE_INLINE                                                                                              \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX(TYPE_ALIAS value) {                                                  \
+    EpochTimePoint tp(CONVERSION_TO_MILLIS(value));                                                         \
+    int ndays_to_trunc = tp.TmMday() - 1;                                                                   \
+    int nmonths_to_trunc = tp.TmMon();                                                                      \
+    int nyears_to_trunc = ((1900 + tp.TmYear() - OFF_BY) % NYEARS_IN_UNIT);                                 \
+    return CONVERSION_FROM_MILLIS(tp.AddDays(-ndays_to_trunc)                                               \
+                                     .AddMonths(-nmonths_to_trunc)                                          \
+                                     .AddYears(-nyears_to_trunc)                                            \
+                                     .ClearTimeOfDay()                                                      \
+                                     .MillisSinceEpoch());                                                  \
+  }
+
+// Seconds precision functions
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Second, sec, EpochTimePointSec, 1, gdv_timestamp_sec)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Minute, sec, EpochTimePointSec, SECS_IN_MIN, gdv_timestamp_sec)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Hour, sec, EpochTimePointSec, SECS_IN_HOUR, gdv_timestamp_sec)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Day, sec, EpochTimePointSec, SECS_IN_DAY, gdv_timestamp_sec)
+DATE_TRUNC_WEEK_PRECISION(sec, EpochTimePointSec, gdv_timestamp_sec, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Month, sec, EpochTimePointSec, gdv_timestamp_sec, 1, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Quarter, sec, EpochTimePointSec, gdv_timestamp_sec, 3, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Year, sec, EpochTimePointSec, gdv_timestamp_sec, 12, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Decade, sec, EpochTimePointSec, gdv_timestamp_sec, 10, 0, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Century, sec, EpochTimePointSec, gdv_timestamp_sec, 100, 1, SECS_TO_MILLIS, MILLIS_TO_SEC)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Millennium, sec, EpochTimePointSec, gdv_timestamp_sec, 1000, 1, SECS_TO_MILLIS, MILLIS_TO_SEC)
+
+// Milliseconds precision functions (existing behavior, but explicitly named)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Second, ms, EpochTimePointMilli, MILLIS_IN_SEC, gdv_timestamp_ms)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Minute, ms, EpochTimePointMilli, MILLIS_IN_MIN, gdv_timestamp_ms)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Hour, ms, EpochTimePointMilli, MILLIS_IN_HOUR, gdv_timestamp_ms)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Day, ms, EpochTimePointMilli, MILLIS_IN_DAY, gdv_timestamp_ms)
+DATE_TRUNC_WEEK_PRECISION(ms, EpochTimePointMilli, gdv_timestamp_ms, , )
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Month, ms, EpochTimePointMilli, gdv_timestamp_ms, 1, , )
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Quarter, ms, EpochTimePointMilli, gdv_timestamp_ms, 3, , )
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Year, ms, EpochTimePointMilli, gdv_timestamp_ms, 12, , )
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Decade, ms, EpochTimePointMilli, gdv_timestamp_ms, 10, 0, , )
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Century, ms, EpochTimePointMilli, gdv_timestamp_ms, 100, 1, , )
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Millennium, ms, EpochTimePointMilli, gdv_timestamp_ms, 1000, 1, , )
+
+// Microseconds precision functions
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Second, us, EpochTimePointMicro, MICROS_IN_SEC, gdv_timestamp_us)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Minute, us, EpochTimePointMicro, MICROS_IN_MIN, gdv_timestamp_us)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Hour, us, EpochTimePointMicro, MICROS_IN_HOUR, gdv_timestamp_us)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Day, us, EpochTimePointMicro, MICROS_IN_DAY, gdv_timestamp_us)
+DATE_TRUNC_WEEK_PRECISION(us, EpochTimePointMicro, gdv_timestamp_us, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Month, us, EpochTimePointMicro, gdv_timestamp_us, 1, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Quarter, us, EpochTimePointMicro, gdv_timestamp_us, 3, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Year, us, EpochTimePointMicro, gdv_timestamp_us, 12, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Decade, us, EpochTimePointMicro, gdv_timestamp_us, 10, 0, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Century, us, EpochTimePointMicro, gdv_timestamp_us, 100, 1, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Millennium, us, EpochTimePointMicro, gdv_timestamp_us, 1000, 1, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+
+// Nanoseconds precision functions
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Second, ns, EpochTimePointNano, NANOS_IN_SEC, gdv_timestamp_ns)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Minute, ns, EpochTimePointNano, NANOS_IN_MIN, gdv_timestamp_ns)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Hour, ns, EpochTimePointNano, NANOS_IN_HOUR, gdv_timestamp_ns)
+DATE_TRUNC_FIXED_UNIT_PRECISION(date_trunc_Day, ns, EpochTimePointNano, NANOS_IN_DAY, gdv_timestamp_ns)
+DATE_TRUNC_WEEK_PRECISION(ns, EpochTimePointNano, gdv_timestamp_ns, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Month, ns, EpochTimePointNano, gdv_timestamp_ns, 1, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Quarter, ns, EpochTimePointNano, gdv_timestamp_ns, 3, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_MONTH_UNITS_PRECISION(date_trunc_Year, ns, EpochTimePointNano, gdv_timestamp_ns, 12, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Decade, ns, EpochTimePointNano, gdv_timestamp_ns, 10, 0, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Century, ns, EpochTimePointNano, gdv_timestamp_ns, 100, 1, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+DATE_TRUNC_YEAR_UNITS_PRECISION(date_trunc_Millennium, ns, EpochTimePointNano, gdv_timestamp_ns, 1000, 1, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+
+// New: Millisecond truncation for us/ns (truncate to millisecond boundary)
+FORCE_INLINE
+gdv_timestamp_us date_trunc_Millisecond_timestamp_us(gdv_timestamp_us micros) {
+  return micros >= 0
+             ? ((micros / MICROS_IN_MILLI) * MICROS_IN_MILLI)
+             : (((micros - MICROS_IN_MILLI + 1) / MICROS_IN_MILLI) * MICROS_IN_MILLI);
+}
+
+FORCE_INLINE
+gdv_timestamp_ns date_trunc_Millisecond_timestamp_ns(gdv_timestamp_ns nanos) {
+  return nanos >= 0
+             ? ((nanos / NANOS_IN_MILLI) * NANOS_IN_MILLI)
+             : (((nanos - NANOS_IN_MILLI + 1) / NANOS_IN_MILLI) * NANOS_IN_MILLI);
+}
+
+// New: Microsecond truncation for ns (truncate to microsecond boundary)
+FORCE_INLINE
+gdv_timestamp_ns date_trunc_Microsecond_timestamp_ns(gdv_timestamp_ns nanos) {
+  return nanos >= 0
+             ? ((nanos / NANOS_IN_MICRO) * NANOS_IN_MICRO)
+             : (((nanos - NANOS_IN_MICRO + 1) / NANOS_IN_MICRO) * NANOS_IN_MICRO);
+}
+
 #define LAST_DAY_FUNC(TYPE)                                                   \
   FORCE_INLINE                                                                \
   gdv_date64 last_day_from_##TYPE(gdv_date64 millis) {                        \

@@ -515,6 +515,59 @@ TEST(TestTime, TimeStampTrunc) {
             StringToTimestamp("2000-03-06 00:00:00"));
 }
 
+TEST(TestTime, TestDateTruncTimestampPrecisions) {
+  // Test date: 2023-06-15 14:30:45
+  // Unix epoch seconds: 1686839445
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int64_t epoch_ms = epoch_sec * 1000 + 123;
+  constexpr int64_t epoch_us = epoch_sec * 1000000 + 123456;
+  constexpr int64_t epoch_ns = epoch_sec * 1000000000LL + 123456789;
+
+  // Expected truncated values
+  // 2023-06-15 14:30:45 -> second truncation keeps same value
+  constexpr int64_t trunc_sec_sec = 1686839445LL;
+  constexpr int64_t trunc_sec_ms = trunc_sec_sec * 1000;
+  constexpr int64_t trunc_sec_us = trunc_sec_sec * 1000000;
+  constexpr int64_t trunc_sec_ns = trunc_sec_sec * 1000000000LL;
+
+  EXPECT_EQ(date_trunc_Second_timestamp_sec(epoch_sec), trunc_sec_sec);
+  EXPECT_EQ(date_trunc_Second_timestamp_ms(epoch_ms), trunc_sec_ms);
+  EXPECT_EQ(date_trunc_Second_timestamp_us(epoch_us), trunc_sec_us);
+  EXPECT_EQ(date_trunc_Second_timestamp_ns(epoch_ns), trunc_sec_ns);
+
+  // 2023-06-15 14:30:00
+  constexpr int64_t trunc_min_sec = 1686839400LL;
+  EXPECT_EQ(date_trunc_Minute_timestamp_sec(epoch_sec), trunc_min_sec);
+  EXPECT_EQ(date_trunc_Minute_timestamp_ms(epoch_ms), trunc_min_sec * 1000);
+  EXPECT_EQ(date_trunc_Minute_timestamp_us(epoch_us), trunc_min_sec * 1000000);
+  EXPECT_EQ(date_trunc_Minute_timestamp_ns(epoch_ns), trunc_min_sec * 1000000000LL);
+
+  // 2023-06-15 14:00:00
+  constexpr int64_t trunc_hour_sec = 1686837600LL;
+  EXPECT_EQ(date_trunc_Hour_timestamp_sec(epoch_sec), trunc_hour_sec);
+  EXPECT_EQ(date_trunc_Hour_timestamp_ms(epoch_ms), trunc_hour_sec * 1000);
+  EXPECT_EQ(date_trunc_Hour_timestamp_us(epoch_us), trunc_hour_sec * 1000000);
+  EXPECT_EQ(date_trunc_Hour_timestamp_ns(epoch_ns), trunc_hour_sec * 1000000000LL);
+
+  // 2023-06-15 00:00:00
+  constexpr int64_t trunc_day_sec = 1686787200LL;
+  EXPECT_EQ(date_trunc_Day_timestamp_sec(epoch_sec), trunc_day_sec);
+  EXPECT_EQ(date_trunc_Day_timestamp_ms(epoch_ms), trunc_day_sec * 1000);
+  EXPECT_EQ(date_trunc_Day_timestamp_us(epoch_us), trunc_day_sec * 1000000);
+  EXPECT_EQ(date_trunc_Day_timestamp_ns(epoch_ns), trunc_day_sec * 1000000000LL);
+
+  // Test sub-millisecond truncation
+  // Truncate to millisecond boundary (us precision)
+  EXPECT_EQ(date_trunc_Millisecond_timestamp_us(epoch_us),
+            (epoch_sec * 1000 + 123) * 1000);  // 123456 -> 123000 micros
+  // Truncate to millisecond boundary (ns precision)
+  EXPECT_EQ(date_trunc_Millisecond_timestamp_ns(epoch_ns),
+            (epoch_sec * 1000 + 123) * 1000000);  // 123456789 -> 123000000 nanos
+  // Truncate to microsecond boundary (ns precision)
+  EXPECT_EQ(date_trunc_Microsecond_timestamp_ns(epoch_ns),
+            (epoch_sec * 1000000 + 123456) * 1000);  // 123456789 -> 123456000 nanos
+}
+
 TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(
       timestampaddSecond_int32_timestamp(30, StringToTimestamp("2000-05-01 10:20:34")),

@@ -53,6 +53,12 @@ namespace gandiva {
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  int64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
 
+// Precision-aware date truncation function for timestamp types
+// Returns timestamp in the same precision as input
+#define DATE_TRUNC_TIMESTAMP_PRECISION(NAME, ALIASES, TYPE)                    \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
+
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
@@ -83,6 +89,27 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractMillennium, {"extract_millennium"}),
       TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractCentury, {"extract_century"}),
       TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractDecade, {"extract_decade"}),
+
+      // Precision-specific date_trunc functions for all timestamp time units
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Second, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Minute, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Hour, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Day, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Week, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Month, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Quarter, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Year, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Decade, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Century, {}),
+      TIMESTAMP_PRECISION_TYPES(DATE_TRUNC_TIMESTAMP_PRECISION, date_trunc_Millennium, {}),
+
+      // Sub-millisecond truncation (only for higher precision types)
+      NativeFunction("date_trunc_Millisecond", {}, DataTypeVector{timestamp_us()},
+                     timestamp_us(), kResultNullIfNull, "date_trunc_Millisecond_timestamp_us"),
+      NativeFunction("date_trunc_Millisecond", {}, DataTypeVector{timestamp_ns()},
+                     timestamp_ns(), kResultNullIfNull, "date_trunc_Millisecond_timestamp_ns"),
+      NativeFunction("date_trunc_Microsecond", {}, DataTypeVector{timestamp_ns()},
+                     timestamp_ns(), kResultNullIfNull, "date_trunc_Microsecond_timestamp_ns"),
 
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
