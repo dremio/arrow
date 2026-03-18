@@ -856,6 +856,50 @@ static inline int32_t normalize_subseconds_to_millis(int32_t subseconds,
 
 DATE_TYPES(MONTHS_BETWEEN)
 
+// Precision-aware months_between
+// Note: For precision, we convert to milliseconds for the calendar calculation
+// since months_between is a calendar operation, not a time-precise operation
+FORCE_INLINE
+double months_between_timestamp_sec_timestamp_sec(uint64_t endEpoch, uint64_t startEpoch) {
+  return months_between_timestamp_timestamp(SECS_TO_MILLIS(endEpoch), SECS_TO_MILLIS(startEpoch));
+}
+
+FORCE_INLINE
+double months_between_timestamp_ms_timestamp_ms(uint64_t endEpoch, uint64_t startEpoch) {
+  return months_between_timestamp_timestamp(endEpoch, startEpoch);
+}
+
+FORCE_INLINE
+double months_between_timestamp_us_timestamp_us(uint64_t endEpoch, uint64_t startEpoch) {
+  return months_between_timestamp_timestamp(MICROS_TO_MILLIS(endEpoch), MICROS_TO_MILLIS(startEpoch));
+}
+
+FORCE_INLINE
+double months_between_timestamp_ns_timestamp_ns(uint64_t endEpoch, uint64_t startEpoch) {
+  return months_between_timestamp_timestamp(NANOS_TO_MILLIS(endEpoch), NANOS_TO_MILLIS(startEpoch));
+}
+
+// Precision-aware last_day
+FORCE_INLINE
+gdv_date64 last_day_timestamp_sec(gdv_timestamp_sec secs) {
+  return last_day_from_timestamp(SECS_TO_MILLIS(secs));
+}
+
+FORCE_INLINE
+gdv_date64 last_day_timestamp_ms(gdv_timestamp_ms millis) {
+  return last_day_from_timestamp(millis);
+}
+
+FORCE_INLINE
+gdv_date64 last_day_timestamp_us(gdv_timestamp_us micros) {
+  return last_day_from_timestamp(MICROS_TO_MILLIS(micros));
+}
+
+FORCE_INLINE
+gdv_date64 last_day_timestamp_ns(gdv_timestamp_ns nanos) {
+  return last_day_from_timestamp(NANOS_TO_MILLIS(nanos));
+}
+
 FORCE_INLINE
 void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
                         int64_t execution_context) {

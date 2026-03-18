@@ -580,6 +580,18 @@ gdv_int32 datediff_timestamp_ms_timestamp_ms(gdv_timestamp_ms, gdv_timestamp_ms)
 gdv_int32 datediff_timestamp_us_timestamp_us(gdv_timestamp_us, gdv_timestamp_us);
 gdv_int32 datediff_timestamp_ns_timestamp_ns(gdv_timestamp_ns, gdv_timestamp_ns);
 
+// months_between for all precisions
+double months_between_timestamp_sec_timestamp_sec(gdv_uint64, gdv_uint64);
+double months_between_timestamp_ms_timestamp_ms(gdv_uint64, gdv_uint64);
+double months_between_timestamp_us_timestamp_us(gdv_uint64, gdv_uint64);
+double months_between_timestamp_ns_timestamp_ns(gdv_uint64, gdv_uint64);
+
+// last_day for all precisions
+gdv_date64 last_day_timestamp_sec(gdv_timestamp_sec);
+gdv_date64 last_day_timestamp_ms(gdv_timestamp_ms);
+gdv_date64 last_day_timestamp_us(gdv_timestamp_us);
+gdv_date64 last_day_timestamp_ns(gdv_timestamp_ns);
+
 const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
                               gdv_int32 repeat_times, gdv_int32* out_len);
 

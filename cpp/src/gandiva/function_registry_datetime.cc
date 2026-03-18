@@ -167,6 +167,26 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("datediff", {}, DataTypeVector{timestamp_ns(), timestamp_ns()},
                      int32(), kResultNullIfNull, "datediff_timestamp_ns_timestamp_ns"),
 
+      // Precision-specific months_between
+      NativeFunction("months_between", {}, DataTypeVector{timestamp_sec(), timestamp_sec()},
+                     float64(), kResultNullIfNull, "months_between_timestamp_sec_timestamp_sec"),
+      NativeFunction("months_between", {}, DataTypeVector{timestamp_ms(), timestamp_ms()},
+                     float64(), kResultNullIfNull, "months_between_timestamp_ms_timestamp_ms"),
+      NativeFunction("months_between", {}, DataTypeVector{timestamp_us(), timestamp_us()},
+                     float64(), kResultNullIfNull, "months_between_timestamp_us_timestamp_us"),
+      NativeFunction("months_between", {}, DataTypeVector{timestamp_ns(), timestamp_ns()},
+                     float64(), kResultNullIfNull, "months_between_timestamp_ns_timestamp_ns"),
+
+      // Precision-specific last_day
+      NativeFunction("last_day", {}, DataTypeVector{timestamp_sec()},
+                     date64(), kResultNullIfNull, "last_day_timestamp_sec"),
+      NativeFunction("last_day", {}, DataTypeVector{timestamp_ms()},
+                     date64(), kResultNullIfNull, "last_day_timestamp_ms"),
+      NativeFunction("last_day", {}, DataTypeVector{timestamp_us()},
+                     date64(), kResultNullIfNull, "last_day_timestamp_us"),
+      NativeFunction("last_day", {}, DataTypeVector{timestamp_ns()},
+                     date64(), kResultNullIfNull, "last_day_timestamp_ns"),
+
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
