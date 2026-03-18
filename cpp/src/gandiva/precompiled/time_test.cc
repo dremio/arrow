@@ -679,6 +679,53 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("1999-03-01 00:00:00"));
 }
 
+TEST(TestTime, TestTimestampAddPrecisions) {
+  // Base timestamp: 2023-06-15 14:30:45
+  // Unix epoch seconds: 1686839445
+  constexpr int64_t base_sec = 1686839445LL;
+  constexpr int64_t base_ms = base_sec * 1000 + 123;
+  constexpr int64_t base_us = base_sec * 1000000 + 123456;
+  constexpr int64_t base_ns = base_sec * 1000000000LL + 123456789;
+
+  // Add 30 seconds
+  EXPECT_EQ(timestampaddSecond_int32_timestamp_sec(30, base_sec), base_sec + 30);
+  EXPECT_EQ(timestampaddSecond_int32_timestamp_ms(30, base_ms), base_ms + 30 * MILLIS_IN_SEC);
+  EXPECT_EQ(timestampaddSecond_int32_timestamp_us(30, base_us), base_us + 30 * MICROS_IN_SEC);
+  EXPECT_EQ(timestampaddSecond_int32_timestamp_ns(30, base_ns), base_ns + 30 * NANOS_IN_SEC);
+
+  // Reverse argument order
+  EXPECT_EQ(timestampaddSecond_timestamp_sec_int32(base_sec, 30), base_sec + 30);
+  EXPECT_EQ(timestampaddSecond_timestamp_ms_int32(base_ms, 30), base_ms + 30 * MILLIS_IN_SEC);
+
+  // Add 5 minutes
+  EXPECT_EQ(timestampaddMinute_int64_timestamp_sec(5, base_sec), base_sec + 5 * SECS_IN_MIN);
+  EXPECT_EQ(timestampaddMinute_int64_timestamp_us(5, base_us), base_us + 5 * MICROS_IN_MIN);
+
+  // Add 2 hours
+  EXPECT_EQ(timestampaddHour_int32_timestamp_ns(2, base_ns), base_ns + 2 * NANOS_IN_HOUR);
+
+  // Add 1 day
+  EXPECT_EQ(timestampaddDay_int32_timestamp_sec(1, base_sec), base_sec + SECS_IN_DAY);
+  EXPECT_EQ(timestampaddDay_int32_timestamp_ns(1, base_ns), base_ns + NANOS_IN_DAY);
+
+  // Add 1 week
+  EXPECT_EQ(timestampaddWeek_int64_timestamp_us(1, base_us), base_us + MICROS_IN_WEEK);
+
+  // Add 1 month - uses calendar logic
+  // June 15 + 1 month = July 15
+  // July 15 2023 00:00:00 = 1689379200 seconds
+  constexpr int64_t jul15_sec = 1689379200LL + 14 * 3600 + 30 * 60 + 45;  // same time
+  EXPECT_EQ(timestampaddMonth_int32_timestamp_sec(1, base_sec), jul15_sec);
+
+  // Add 1 quarter (3 months) - June 15 + 3 months = September 15
+  constexpr int64_t sep15_sec = 1694779200LL + 14 * 3600 + 30 * 60 + 45;
+  EXPECT_EQ(timestampaddQuarter_int32_timestamp_sec(1, base_sec), sep15_sec);
+
+  // Negative values
+  EXPECT_EQ(timestampaddSecond_int32_timestamp_sec(-30, base_sec), base_sec - 30);
+  EXPECT_EQ(timestampaddDay_int64_timestamp_ns(-1, base_ns), base_ns - NANOS_IN_DAY);
+}
+
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
 TEST(TestTime, TestExtractWeek) {
   std::vector<std::string> data;

@@ -280,4 +280,132 @@ ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
 
+// ============================================================================
+// Precision-aware timestamp arithmetic functions
+// ============================================================================
+
+// Fixed unit addition for precision-specific timestamps
+// SUFFIX: sec, ms, us, ns
+// TYPE_ALIAS: gdv_timestamp_sec, gdv_timestamp_ms, etc.
+// UNIT_VALUE: The multiplier for fixed units (e.g., 1 for sec, MICROS_IN_SEC for us)
+#define ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(SUFFIX, TYPE_ALIAS, NAME, UNIT_VALUE)  \
+  FORCE_INLINE                                                                         \
+  TYPE_ALIAS NAME##_int32_timestamp_##SUFFIX(gdv_int32 count, TYPE_ALIAS value) {      \
+    return value + UNIT_VALUE * static_cast<TYPE_ALIAS>(count);                        \
+  }                                                                                    \
+  FORCE_INLINE                                                                         \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int32(TYPE_ALIAS value, gdv_int32 count) {    \
+    return value + UNIT_VALUE * static_cast<TYPE_ALIAS>(count);                        \
+  }
+
+#define ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(SUFFIX, TYPE_ALIAS, NAME, UNIT_VALUE)  \
+  FORCE_INLINE                                                                         \
+  TYPE_ALIAS NAME##_int64_timestamp_##SUFFIX(gdv_int64 count, TYPE_ALIAS value) {      \
+    return value + UNIT_VALUE * static_cast<TYPE_ALIAS>(count);                        \
+  }                                                                                    \
+  FORCE_INLINE                                                                         \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int64(TYPE_ALIAS value, gdv_int64 count) {    \
+    return value + UNIT_VALUE * static_cast<TYPE_ALIAS>(count);                        \
+  }
+
+// Month-based addition for precision-specific timestamps
+// Needs to convert to/from milliseconds for EpochTimePoint calendar operations
+#define ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(SUFFIX, TYPE_ALIAS, TP_TYPE, NAME, N_MONTHS, \
+                                               TO_MILLIS, FROM_MILLIS)                       \
+  FORCE_INLINE                                                                               \
+  TYPE_ALIAS NAME##_int32_timestamp_##SUFFIX(gdv_int32 count, TYPE_ALIAS value) {            \
+    EpochTimePoint tp(TO_MILLIS(value));                                                     \
+    return FROM_MILLIS(tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch()); \
+  }                                                                                          \
+  FORCE_INLINE                                                                               \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int32(TYPE_ALIAS value, gdv_int32 count) {          \
+    EpochTimePoint tp(TO_MILLIS(value));                                                     \
+    return FROM_MILLIS(tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch()); \
+  }
+
+#define ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(SUFFIX, TYPE_ALIAS, TP_TYPE, NAME, N_MONTHS, \
+                                               TO_MILLIS, FROM_MILLIS)                       \
+  FORCE_INLINE                                                                               \
+  TYPE_ALIAS NAME##_int64_timestamp_##SUFFIX(gdv_int64 count, TYPE_ALIAS value) {            \
+    EpochTimePoint tp(TO_MILLIS(value));                                                     \
+    return FROM_MILLIS(tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch()); \
+  }                                                                                          \
+  FORCE_INLINE                                                                               \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int64(TYPE_ALIAS value, gdv_int64 count) {          \
+    EpochTimePoint tp(TO_MILLIS(value));                                                     \
+    return FROM_MILLIS(tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch()); \
+  }
+
+// timestamp[s] - seconds precision
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddSecond, 1)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddMinute, SECS_IN_MIN)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddHour, SECS_IN_HOUR)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddDay, SECS_IN_DAY)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddWeek, SECS_IN_WEEK)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddSecond, 1)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddMinute, SECS_IN_MIN)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddHour, SECS_IN_HOUR)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddDay, SECS_IN_DAY)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(sec, gdv_timestamp_sec, timestampaddWeek, SECS_IN_WEEK)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddMonth, 1, SECS_TO_MILLIS, MILLIS_TO_SEC)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddQuarter, 3, SECS_TO_MILLIS, MILLIS_TO_SEC)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddYear, 12, SECS_TO_MILLIS, MILLIS_TO_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddMonth, 1, SECS_TO_MILLIS, MILLIS_TO_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddQuarter, 3, SECS_TO_MILLIS, MILLIS_TO_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(sec, gdv_timestamp_sec, EpochTimePointSec, timestampaddYear, 12, SECS_TO_MILLIS, MILLIS_TO_SEC)
+
+// timestamp[ms] - milliseconds precision (explicit naming)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddSecond, MILLIS_IN_SEC)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddMinute, MILLIS_IN_MIN)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddHour, MILLIS_IN_HOUR)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddDay, MILLIS_IN_DAY)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddWeek, MILLIS_IN_WEEK)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddSecond, MILLIS_IN_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddMinute, MILLIS_IN_MIN)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddHour, MILLIS_IN_HOUR)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddDay, MILLIS_IN_DAY)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ms, gdv_timestamp_ms, timestampaddWeek, MILLIS_IN_WEEK)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddMonth, 1, , )
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddQuarter, 3, , )
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddYear, 12, , )
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddMonth, 1, , )
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddQuarter, 3, , )
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ms, gdv_timestamp_ms, EpochTimePointMilli, timestampaddYear, 12, , )
+
+// timestamp[us] - microseconds precision
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddSecond, MICROS_IN_SEC)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddMinute, MICROS_IN_MIN)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddHour, MICROS_IN_HOUR)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddDay, MICROS_IN_DAY)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddWeek, MICROS_IN_WEEK)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddSecond, MICROS_IN_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddMinute, MICROS_IN_MIN)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddHour, MICROS_IN_HOUR)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddDay, MICROS_IN_DAY)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(us, gdv_timestamp_us, timestampaddWeek, MICROS_IN_WEEK)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddMonth, 1, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddQuarter, 3, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddYear, 12, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddMonth, 1, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddQuarter, 3, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(us, gdv_timestamp_us, EpochTimePointMicro, timestampaddYear, 12, MICROS_TO_MILLIS, MILLIS_TO_MICROS)
+
+// timestamp[ns] - nanoseconds precision
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddSecond, NANOS_IN_SEC)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddMinute, NANOS_IN_MIN)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddHour, NANOS_IN_HOUR)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddDay, NANOS_IN_DAY)
+ADD_INT32_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddWeek, NANOS_IN_WEEK)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddSecond, NANOS_IN_SEC)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddMinute, NANOS_IN_MIN)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddHour, NANOS_IN_HOUR)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddDay, NANOS_IN_DAY)
+ADD_INT64_TO_TIMESTAMP_PRECISION_FIXED(ns, gdv_timestamp_ns, timestampaddWeek, NANOS_IN_WEEK)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddMonth, 1, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddQuarter, 3, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+ADD_INT32_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddYear, 12, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddMonth, 1, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddQuarter, 3, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+ADD_INT64_TO_TIMESTAMP_PRECISION_MONTH(ns, gdv_timestamp_ns, EpochTimePointNano, timestampaddYear, 12, NANOS_TO_MILLIS, MILLIS_TO_NANOS)
+
 }  // extern "C"

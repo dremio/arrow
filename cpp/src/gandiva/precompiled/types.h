@@ -204,6 +204,31 @@ gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 date_diff_timestamp_int64(gdv_timestamp, gdv_int64);
 
+// Precision-specific timestampadd function declarations
+#define DECLARE_TIMESTAMPADD_PRECISION(NAME, SUFFIX, TYPE_ALIAS)              \
+  TYPE_ALIAS NAME##_int32_timestamp_##SUFFIX(gdv_int32, TYPE_ALIAS);          \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int32(TYPE_ALIAS, gdv_int32);        \
+  TYPE_ALIAS NAME##_int64_timestamp_##SUFFIX(gdv_int64, TYPE_ALIAS);          \
+  TYPE_ALIAS NAME##_timestamp_##SUFFIX##_int64(TYPE_ALIAS, gdv_int64);
+
+#define DECLARE_ALL_TIMESTAMPADD_PRECISION(NAME)                              \
+  DECLARE_TIMESTAMPADD_PRECISION(NAME, sec, gdv_timestamp_sec)                \
+  DECLARE_TIMESTAMPADD_PRECISION(NAME, ms, gdv_timestamp_ms)                  \
+  DECLARE_TIMESTAMPADD_PRECISION(NAME, us, gdv_timestamp_us)                  \
+  DECLARE_TIMESTAMPADD_PRECISION(NAME, ns, gdv_timestamp_ns)
+
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddSecond)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddMinute)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddHour)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddDay)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddWeek)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddMonth)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddQuarter)
+DECLARE_ALL_TIMESTAMPADD_PRECISION(timestampaddYear)
+
+#undef DECLARE_TIMESTAMPADD_PRECISION
+#undef DECLARE_ALL_TIMESTAMPADD_PRECISION
+
 gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len);
 
 bool is_distinct_from_timestamp_timestamp(gdv_int64, bool, gdv_int64, bool);

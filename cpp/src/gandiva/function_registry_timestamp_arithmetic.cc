@@ -50,6 +50,34 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
+// Precision-specific timestamp add functions
+// Maps to timestampaddSecond_int32_timestamp_sec, etc.
+#define TIMESTAMP_ADD_PRECISION_INT32(NAME, ALIASES, TYPE)                           \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                            \
+                 DataTypeVector{int32(), TYPE()}, TYPE(), kResultNullIfNull,         \
+                 ARROW_STRINGIFY(NAME##_int32_##TYPE)),                              \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                            \
+                 DataTypeVector{TYPE(), int32()}, TYPE(), kResultNullIfNull,         \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_int32))
+
+#define TIMESTAMP_ADD_PRECISION_INT64(NAME, ALIASES, TYPE)                           \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                            \
+                 DataTypeVector{int64(), TYPE()}, TYPE(), kResultNullIfNull,         \
+                 ARROW_STRINGIFY(NAME##_int64_##TYPE)),                              \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                            \
+                 DataTypeVector{TYPE(), int64()}, TYPE(), kResultNullIfNull,         \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_int64))
+
+#define TIMESTAMP_ADD_PRECISION_FNS(NAME, ALIASES)                                   \
+  TIMESTAMP_ADD_PRECISION_INT32(NAME, ALIASES, timestamp_sec),                       \
+  TIMESTAMP_ADD_PRECISION_INT64(NAME, ALIASES, timestamp_sec),                       \
+  TIMESTAMP_ADD_PRECISION_INT32(NAME, ALIASES, timestamp_ms),                        \
+  TIMESTAMP_ADD_PRECISION_INT64(NAME, ALIASES, timestamp_ms),                        \
+  TIMESTAMP_ADD_PRECISION_INT32(NAME, ALIASES, timestamp_us),                        \
+  TIMESTAMP_ADD_PRECISION_INT64(NAME, ALIASES, timestamp_us),                        \
+  TIMESTAMP_ADD_PRECISION_INT32(NAME, ALIASES, timestamp_ns),                        \
+  TIMESTAMP_ADD_PRECISION_INT64(NAME, ALIASES, timestamp_ns)
+
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, {}, date64, date64, float64),
@@ -81,7 +109,17 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
 
       DATE_DIFF_FNS(date_sub, {}),
       DATE_DIFF_FNS(subtract, {}),
-      DATE_DIFF_FNS(date_diff, {})};
+      DATE_DIFF_FNS(date_diff, {}),
+
+      // Precision-specific timestampadd functions
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddSecond, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddMinute, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddHour, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddDay, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddWeek, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddMonth, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddQuarter, {}),
+      TIMESTAMP_ADD_PRECISION_FNS(timestampaddYear, {})};
 
   return datetime_fn_registry_;
 }
