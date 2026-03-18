@@ -68,8 +68,21 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       NEXT_DAY_FNS(next_day),
 
-      // Precision-specific extractYear for all timestamp time units
+      // Precision-specific extract functions for all timestamp time units
       TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractYear, {"extract_year"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractMonth, {"extract_month"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractDay, {"extract_day"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractHour, {"extract_hour"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractMinute, {"extract_minute"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractSecond, {"extract_second"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractDoy, {"extract_doy"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractDow, {"extract_dow"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractWeek, {"extract_week"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractQuarter, {"extract_quarter"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractEpoch, {"extract_epoch"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractMillennium, {"extract_millennium"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractCentury, {"extract_century"}),
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractDecade, {"extract_decade"}),
 
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",

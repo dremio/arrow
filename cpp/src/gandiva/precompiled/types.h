@@ -66,11 +66,6 @@ gdv_int64 extractMillennium_timestamp(gdv_timestamp millis);
 gdv_int64 extractCentury_timestamp(gdv_timestamp millis);
 gdv_int64 extractDecade_timestamp(gdv_timestamp millis);
 gdv_int64 extractYear_timestamp(gdv_timestamp millis);
-// Precision-specific extractYear declarations
-gdv_int64 extractYear_timestamp_sec(gdv_timestamp_sec secs);
-gdv_int64 extractYear_timestamp_ms(gdv_timestamp_ms millis);
-gdv_int64 extractYear_timestamp_us(gdv_timestamp_us micros);
-gdv_int64 extractYear_timestamp_ns(gdv_timestamp_ns nanos);
 gdv_int64 extractDoy_timestamp(gdv_timestamp millis);
 gdv_int64 extractQuarter_timestamp(gdv_timestamp millis);
 gdv_int64 extractMonth_timestamp(gdv_timestamp millis);
@@ -80,9 +75,35 @@ gdv_int64 extractDay_timestamp(gdv_timestamp millis);
 gdv_int64 extractHour_timestamp(gdv_timestamp millis);
 gdv_int64 extractMinute_timestamp(gdv_timestamp millis);
 gdv_int64 extractSecond_timestamp(gdv_timestamp millis);
+gdv_int64 extractEpoch_timestamp(gdv_timestamp millis);
 gdv_int64 extractHour_time32(gdv_int32 millis_in_day);
 gdv_int64 extractMinute_time32(gdv_int32 millis_in_day);
 gdv_int64 extractSecond_time32(gdv_int32 millis_in_day);
+
+// Precision-specific extract function declarations
+// Macro to declare all precision variants for an extract function
+#define DECLARE_EXTRACT_TIMESTAMP_PRECISION(NAME)                 \
+  gdv_int64 NAME##_timestamp_sec(gdv_timestamp_sec secs);         \
+  gdv_int64 NAME##_timestamp_ms(gdv_timestamp_ms millis);         \
+  gdv_int64 NAME##_timestamp_us(gdv_timestamp_us micros);         \
+  gdv_int64 NAME##_timestamp_ns(gdv_timestamp_ns nanos);
+
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractYear)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractMonth)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractDay)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractHour)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractMinute)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractSecond)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractDoy)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractDow)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractWeek)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractQuarter)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractEpoch)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractMillennium)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractCentury)
+DECLARE_EXTRACT_TIMESTAMP_PRECISION(extractDecade)
+
+#undef DECLARE_EXTRACT_TIMESTAMP_PRECISION
 
 gdv_int32 hash32(double val, gdv_int32 seed);
 gdv_int32 hash32_buf(const gdv_uint8* buf, int len, gdv_int32 seed);

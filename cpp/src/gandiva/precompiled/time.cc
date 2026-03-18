@@ -124,6 +124,63 @@ gdv_int64 extractYear_timestamp_ns(gdv_timestamp_ns nanos) {
   return 1900 + tp.TmYear();
 }
 
+// Macro to generate precision-aware extract functions for all timestamp units
+#define EXTRACT_TIMESTAMP_PRECISION_FNS(EXTRACT_NAME, EXPR)                     \
+  FORCE_INLINE                                                                  \
+  gdv_int64 EXTRACT_NAME##_timestamp_sec(gdv_timestamp_sec secs) {              \
+    EpochTimePointSec tp(secs);                                                 \
+    return EXPR;                                                                \
+  }                                                                             \
+  FORCE_INLINE                                                                  \
+  gdv_int64 EXTRACT_NAME##_timestamp_ms(gdv_timestamp_ms millis) {              \
+    EpochTimePointMilli tp(millis);                                             \
+    return EXPR;                                                                \
+  }                                                                             \
+  FORCE_INLINE                                                                  \
+  gdv_int64 EXTRACT_NAME##_timestamp_us(gdv_timestamp_us micros) {              \
+    EpochTimePointMicro tp(micros);                                             \
+    return EXPR;                                                                \
+  }                                                                             \
+  FORCE_INLINE                                                                  \
+  gdv_int64 EXTRACT_NAME##_timestamp_ns(gdv_timestamp_ns nanos) {               \
+    EpochTimePointNano tp(nanos);                                               \
+    return EXPR;                                                                \
+  }
+
+// Precision-aware extract functions for all timestamp units
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractMonth, 1 + tp.TmMon())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractDay, tp.TmMday())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractHour, tp.TmHour())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractMinute, tp.TmMin())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractSecond, tp.TmSec())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractDoy, 1 + tp.TmYday())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractDow, 1 + tp.TmWday())
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractQuarter, tp.TmMon() / 3 + 1)
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractMillennium, (1900 + tp.TmYear() - 1) / 1000 + 1)
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractCentury, (1900 + tp.TmYear() - 1) / 100 + 1)
+EXTRACT_TIMESTAMP_PRECISION_FNS(extractDecade, (1900 + tp.TmYear()) / 10)
+
+// Precision-aware extractEpoch - returns seconds since epoch
+FORCE_INLINE
+gdv_int64 extractEpoch_timestamp_sec(gdv_timestamp_sec secs) {
+  return secs;
+}
+
+FORCE_INLINE
+gdv_int64 extractEpoch_timestamp_ms(gdv_timestamp_ms millis) {
+  return MILLIS_TO_SEC(millis);
+}
+
+FORCE_INLINE
+gdv_int64 extractEpoch_timestamp_us(gdv_timestamp_us micros) {
+  return MICROS_TO_SEC(micros);
+}
+
+FORCE_INLINE
+gdv_int64 extractEpoch_timestamp_ns(gdv_timestamp_ns nanos) {
+  return NANOS_TO_SEC(nanos);
+}
+
 #define EXTRACT_DOY(TYPE)                            \
   FORCE_INLINE                                       \
   gdv_int64 extractDoy##_##TYPE(gdv_##TYPE millis) { \
@@ -389,6 +446,32 @@ gdv_int64 weekOfYear(const EpochTimePoint& tp) {
   }
 
 DATE_TYPES(EXTRACT_WEEK)
+
+// Precision-aware extractWeek for all timestamp units
+// Week calculation uses EpochTimePoint (millis) since it doesn't need sub-ms precision
+FORCE_INLINE
+gdv_int64 extractWeek_timestamp_sec(gdv_timestamp_sec secs) {
+  EpochTimePoint tp(SECS_TO_MILLIS(secs));
+  return weekOfYear(tp);
+}
+
+FORCE_INLINE
+gdv_int64 extractWeek_timestamp_ms(gdv_timestamp_ms millis) {
+  EpochTimePoint tp(millis);
+  return weekOfYear(tp);
+}
+
+FORCE_INLINE
+gdv_int64 extractWeek_timestamp_us(gdv_timestamp_us micros) {
+  EpochTimePoint tp(MICROS_TO_MILLIS(micros));
+  return weekOfYear(tp);
+}
+
+FORCE_INLINE
+gdv_int64 extractWeek_timestamp_ns(gdv_timestamp_ns nanos) {
+  EpochTimePoint tp(NANOS_TO_MILLIS(nanos));
+  return weekOfYear(tp);
+}
 
 #define EXTRACT_DOW(TYPE)                            \
   FORCE_INLINE                                       \

@@ -367,6 +367,93 @@ TEST(TestTime, TestExtractYearTimestampPrecisions) {
   EXPECT_EQ(extractYear_timestamp_ns(jun15_1960_sec * 1000000000LL), 1960);
 }
 
+TEST(TestTime, TestExtractAllFunctionsTimestampPrecisions) {
+  // Test date: 2023-06-15 14:30:45 (Thursday, week 24, day 166)
+  // Unix epoch seconds: 1686839445
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int64_t epoch_ms = epoch_sec * 1000 + 123;
+  constexpr int64_t epoch_us = epoch_sec * 1000000 + 123456;
+  constexpr int64_t epoch_ns = epoch_sec * 1000000000LL + 123456789;
+
+  // Test extractMonth (June = 6)
+  EXPECT_EQ(extractMonth_timestamp_sec(epoch_sec), 6);
+  EXPECT_EQ(extractMonth_timestamp_ms(epoch_ms), 6);
+  EXPECT_EQ(extractMonth_timestamp_us(epoch_us), 6);
+  EXPECT_EQ(extractMonth_timestamp_ns(epoch_ns), 6);
+
+  // Test extractDay (15)
+  EXPECT_EQ(extractDay_timestamp_sec(epoch_sec), 15);
+  EXPECT_EQ(extractDay_timestamp_ms(epoch_ms), 15);
+  EXPECT_EQ(extractDay_timestamp_us(epoch_us), 15);
+  EXPECT_EQ(extractDay_timestamp_ns(epoch_ns), 15);
+
+  // Test extractHour (14)
+  EXPECT_EQ(extractHour_timestamp_sec(epoch_sec), 14);
+  EXPECT_EQ(extractHour_timestamp_ms(epoch_ms), 14);
+  EXPECT_EQ(extractHour_timestamp_us(epoch_us), 14);
+  EXPECT_EQ(extractHour_timestamp_ns(epoch_ns), 14);
+
+  // Test extractMinute (30)
+  EXPECT_EQ(extractMinute_timestamp_sec(epoch_sec), 30);
+  EXPECT_EQ(extractMinute_timestamp_ms(epoch_ms), 30);
+  EXPECT_EQ(extractMinute_timestamp_us(epoch_us), 30);
+  EXPECT_EQ(extractMinute_timestamp_ns(epoch_ns), 30);
+
+  // Test extractSecond (45)
+  EXPECT_EQ(extractSecond_timestamp_sec(epoch_sec), 45);
+  EXPECT_EQ(extractSecond_timestamp_ms(epoch_ms), 45);
+  EXPECT_EQ(extractSecond_timestamp_us(epoch_us), 45);
+  EXPECT_EQ(extractSecond_timestamp_ns(epoch_ns), 45);
+
+  // Test extractDoy (June 15 = day 166)
+  EXPECT_EQ(extractDoy_timestamp_sec(epoch_sec), 166);
+  EXPECT_EQ(extractDoy_timestamp_ms(epoch_ms), 166);
+  EXPECT_EQ(extractDoy_timestamp_us(epoch_us), 166);
+  EXPECT_EQ(extractDoy_timestamp_ns(epoch_ns), 166);
+
+  // Test extractDow (Thursday = 5 in 1-indexed Sun=1 format)
+  EXPECT_EQ(extractDow_timestamp_sec(epoch_sec), 5);
+  EXPECT_EQ(extractDow_timestamp_ms(epoch_ms), 5);
+  EXPECT_EQ(extractDow_timestamp_us(epoch_us), 5);
+  EXPECT_EQ(extractDow_timestamp_ns(epoch_ns), 5);
+
+  // Test extractQuarter (June = Q2)
+  EXPECT_EQ(extractQuarter_timestamp_sec(epoch_sec), 2);
+  EXPECT_EQ(extractQuarter_timestamp_ms(epoch_ms), 2);
+  EXPECT_EQ(extractQuarter_timestamp_us(epoch_us), 2);
+  EXPECT_EQ(extractQuarter_timestamp_ns(epoch_ns), 2);
+
+  // Test extractWeek (ISO week 24)
+  EXPECT_EQ(extractWeek_timestamp_sec(epoch_sec), 24);
+  EXPECT_EQ(extractWeek_timestamp_ms(epoch_ms), 24);
+  EXPECT_EQ(extractWeek_timestamp_us(epoch_us), 24);
+  EXPECT_EQ(extractWeek_timestamp_ns(epoch_ns), 24);
+
+  // Test extractEpoch (returns seconds)
+  EXPECT_EQ(extractEpoch_timestamp_sec(epoch_sec), epoch_sec);
+  EXPECT_EQ(extractEpoch_timestamp_ms(epoch_ms), epoch_sec);
+  EXPECT_EQ(extractEpoch_timestamp_us(epoch_us), epoch_sec);
+  EXPECT_EQ(extractEpoch_timestamp_ns(epoch_ns), epoch_sec);
+
+  // Test extractMillennium (2023 = 3rd millennium)
+  EXPECT_EQ(extractMillennium_timestamp_sec(epoch_sec), 3);
+  EXPECT_EQ(extractMillennium_timestamp_ms(epoch_ms), 3);
+  EXPECT_EQ(extractMillennium_timestamp_us(epoch_us), 3);
+  EXPECT_EQ(extractMillennium_timestamp_ns(epoch_ns), 3);
+
+  // Test extractCentury (2023 = 21st century)
+  EXPECT_EQ(extractCentury_timestamp_sec(epoch_sec), 21);
+  EXPECT_EQ(extractCentury_timestamp_ms(epoch_ms), 21);
+  EXPECT_EQ(extractCentury_timestamp_us(epoch_us), 21);
+  EXPECT_EQ(extractCentury_timestamp_ns(epoch_ns), 21);
+
+  // Test extractDecade (2023 / 10 = 202)
+  EXPECT_EQ(extractDecade_timestamp_sec(epoch_sec), 202);
+  EXPECT_EQ(extractDecade_timestamp_ms(epoch_ms), 202);
+  EXPECT_EQ(extractDecade_timestamp_us(epoch_us), 202);
+  EXPECT_EQ(extractDecade_timestamp_ns(epoch_ns), 202);
+}
+
 TEST(TestTime, TimeStampTrunc) {
   EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("2015-05-05 10:20:34")),
             StringToTimestamp("2015-05-05 10:20:34"));
