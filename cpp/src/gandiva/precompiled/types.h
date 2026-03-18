@@ -547,6 +547,39 @@ gdv_date64 next_day_from_timestamp(gdv_int64 context, gdv_date64 millis, const c
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
+// Precision-specific timestamp cast function declarations
+// Cast between timestamp precisions
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_sec(gdv_timestamp_sec);
+gdv_timestamp_us castTIMESTAMP_us_timestamp_sec(gdv_timestamp_sec);
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_sec(gdv_timestamp_sec);
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_ms(gdv_timestamp_ms);
+gdv_timestamp_us castTIMESTAMP_us_timestamp_ms(gdv_timestamp_ms);
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_ms(gdv_timestamp_ms);
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_us(gdv_timestamp_us);
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_us(gdv_timestamp_us);
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_us(gdv_timestamp_us);
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_ns(gdv_timestamp_ns);
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_ns(gdv_timestamp_ns);
+gdv_timestamp_us castTIMESTAMP_us_timestamp_ns(gdv_timestamp_ns);
+
+// Cast timestamp to date64 for all precisions
+gdv_date64 castDATE_timestamp_sec(gdv_timestamp_sec);
+gdv_date64 castDATE_timestamp_ms(gdv_timestamp_ms);
+gdv_date64 castDATE_timestamp_us(gdv_timestamp_us);
+gdv_date64 castDATE_timestamp_ns(gdv_timestamp_ns);
+
+// Cast timestamp to time32 for all precisions
+gdv_time32 castTIME_timestamp_sec(gdv_timestamp_sec);
+gdv_time32 castTIME_timestamp_ms(gdv_timestamp_ms);
+gdv_time32 castTIME_timestamp_us(gdv_timestamp_us);
+gdv_time32 castTIME_timestamp_ns(gdv_timestamp_ns);
+
+// datediff for all precisions
+gdv_int32 datediff_timestamp_sec_timestamp_sec(gdv_timestamp_sec, gdv_timestamp_sec);
+gdv_int32 datediff_timestamp_ms_timestamp_ms(gdv_timestamp_ms, gdv_timestamp_ms);
+gdv_int32 datediff_timestamp_us_timestamp_us(gdv_timestamp_us, gdv_timestamp_us);
+gdv_int32 datediff_timestamp_ns_timestamp_ns(gdv_timestamp_ns, gdv_timestamp_ns);
+
 const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
                               gdv_int32 repeat_times, gdv_int32* out_len);
 

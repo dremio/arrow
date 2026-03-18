@@ -1344,4 +1344,87 @@ TEST(TestTime, TestCastNullableInterval) {
   context.Reset();
 }
 
+TEST(TestTime, TestCastTimestampBetweenPrecisions) {
+  // Base timestamp: 2023-06-15 14:30:45
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int64_t epoch_ms = epoch_sec * 1000 + 123;
+  constexpr int64_t epoch_us = epoch_sec * 1000000 + 123456;
+  constexpr int64_t epoch_ns = epoch_sec * 1000000000LL + 123456789;
+
+  // Cast from seconds to other precisions (upscale)
+  EXPECT_EQ(castTIMESTAMP_ms_timestamp_sec(epoch_sec), epoch_sec * 1000);
+  EXPECT_EQ(castTIMESTAMP_us_timestamp_sec(epoch_sec), epoch_sec * 1000000);
+  EXPECT_EQ(castTIMESTAMP_ns_timestamp_sec(epoch_sec), epoch_sec * 1000000000LL);
+
+  // Cast from milliseconds to other precisions
+  EXPECT_EQ(castTIMESTAMP_sec_timestamp_ms(epoch_ms), epoch_sec);  // truncates
+  EXPECT_EQ(castTIMESTAMP_us_timestamp_ms(epoch_ms), epoch_ms * 1000);
+  EXPECT_EQ(castTIMESTAMP_ns_timestamp_ms(epoch_ms), epoch_ms * 1000000);
+
+  // Cast from microseconds to other precisions
+  EXPECT_EQ(castTIMESTAMP_sec_timestamp_us(epoch_us), epoch_sec);  // truncates
+  EXPECT_EQ(castTIMESTAMP_ms_timestamp_us(epoch_us), epoch_sec * 1000 + 123);  // truncates
+  EXPECT_EQ(castTIMESTAMP_ns_timestamp_us(epoch_us), epoch_us * 1000);
+
+  // Cast from nanoseconds to other precisions
+  EXPECT_EQ(castTIMESTAMP_sec_timestamp_ns(epoch_ns), epoch_sec);  // truncates
+  EXPECT_EQ(castTIMESTAMP_ms_timestamp_ns(epoch_ns), epoch_sec * 1000 + 123);  // truncates
+  EXPECT_EQ(castTIMESTAMP_us_timestamp_ns(epoch_ns), epoch_sec * 1000000 + 123456);  // truncates
+}
+
+TEST(TestTime, TestCastDateTimestampPrecisions) {
+  // 2023-06-15 14:30:45 -> should cast to 2023-06-15 00:00:00
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int64_t epoch_ms = epoch_sec * 1000 + 123;
+  constexpr int64_t epoch_us = epoch_sec * 1000000 + 123456;
+  constexpr int64_t epoch_ns = epoch_sec * 1000000000LL + 123456789;
+
+  // 2023-06-15 00:00:00 in milliseconds
+  constexpr int64_t date_ms = 1686787200LL * 1000;
+
+  EXPECT_EQ(castDATE_timestamp_sec(epoch_sec), date_ms);
+  EXPECT_EQ(castDATE_timestamp_ms(epoch_ms), date_ms);
+  EXPECT_EQ(castDATE_timestamp_us(epoch_us), date_ms);
+  EXPECT_EQ(castDATE_timestamp_ns(epoch_ns), date_ms);
+}
+
+TEST(TestTime, TestCastTimeTimestampPrecisions) {
+  // 2023-06-15 14:30:45.123 -> should return 14:30:45.123 as millis since midnight
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int64_t epoch_ms = epoch_sec * 1000 + 123;
+  constexpr int64_t epoch_us = epoch_sec * 1000000 + 123456;
+  constexpr int64_t epoch_ns = epoch_sec * 1000000000LL + 123456789;
+
+  // 14:30:45.123 in milliseconds since midnight
+  constexpr int32_t time_ms = 14 * 3600 * 1000 + 30 * 60 * 1000 + 45 * 1000 + 123;
+  // For second precision, no subsecond
+  constexpr int32_t time_sec_only = 14 * 3600 * 1000 + 30 * 60 * 1000 + 45 * 1000;
+
+  EXPECT_EQ(castTIME_timestamp_sec(epoch_sec), time_sec_only);
+  EXPECT_EQ(castTIME_timestamp_ms(epoch_ms), time_ms);
+  EXPECT_EQ(castTIME_timestamp_us(epoch_us), time_ms);  // truncates to millis
+  EXPECT_EQ(castTIME_timestamp_ns(epoch_ns), time_ms);  // truncates to millis
+}
+
+TEST(TestTime, TestDatediffTimestampPrecisions) {
+  // June 15 and June 17 - 2 days apart
+  constexpr int64_t jun15_sec = 1686839445LL;
+  constexpr int64_t jun17_sec = jun15_sec + 2 * SECS_IN_DAY;
+
+  EXPECT_EQ(datediff_timestamp_sec_timestamp_sec(jun15_sec, jun17_sec), -2);
+  EXPECT_EQ(datediff_timestamp_sec_timestamp_sec(jun17_sec, jun15_sec), 2);
+
+  constexpr int64_t jun15_ms = jun15_sec * 1000;
+  constexpr int64_t jun17_ms = jun17_sec * 1000;
+  EXPECT_EQ(datediff_timestamp_ms_timestamp_ms(jun15_ms, jun17_ms), -2);
+
+  constexpr int64_t jun15_us = jun15_sec * 1000000;
+  constexpr int64_t jun17_us = jun17_sec * 1000000;
+  EXPECT_EQ(datediff_timestamp_us_timestamp_us(jun15_us, jun17_us), -2);
+
+  constexpr int64_t jun15_ns = jun15_sec * 1000000000LL;
+  constexpr int64_t jun17_ns = jun17_sec * 1000000000LL;
+  EXPECT_EQ(datediff_timestamp_ns_timestamp_ns(jun15_ns, jun17_ns), -2);
+}
+
 }  // namespace gandiva

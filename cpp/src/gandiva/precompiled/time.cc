@@ -1295,4 +1295,148 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
 
+// ============================================================================
+// Precision-aware cast and conversion functions
+// ============================================================================
+
+// Cast between timestamp precisions
+FORCE_INLINE
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_sec(gdv_timestamp_sec secs) {
+  return SECS_TO_MILLIS(secs);
+}
+
+FORCE_INLINE
+gdv_timestamp_us castTIMESTAMP_us_timestamp_sec(gdv_timestamp_sec secs) {
+  return SECS_TO_MICROS(secs);
+}
+
+FORCE_INLINE
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_sec(gdv_timestamp_sec secs) {
+  return SECS_TO_NANOS(secs);
+}
+
+FORCE_INLINE
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_ms(gdv_timestamp_ms millis) {
+  return MILLIS_TO_SEC(millis);
+}
+
+FORCE_INLINE
+gdv_timestamp_us castTIMESTAMP_us_timestamp_ms(gdv_timestamp_ms millis) {
+  return MILLIS_TO_MICROS(millis);
+}
+
+FORCE_INLINE
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_ms(gdv_timestamp_ms millis) {
+  return MILLIS_TO_NANOS(millis);
+}
+
+FORCE_INLINE
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_us(gdv_timestamp_us micros) {
+  return MICROS_TO_SEC(micros);
+}
+
+FORCE_INLINE
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_us(gdv_timestamp_us micros) {
+  return MICROS_TO_MILLIS(micros);
+}
+
+FORCE_INLINE
+gdv_timestamp_ns castTIMESTAMP_ns_timestamp_us(gdv_timestamp_us micros) {
+  return MICROS_TO_NANOS(micros);
+}
+
+FORCE_INLINE
+gdv_timestamp_sec castTIMESTAMP_sec_timestamp_ns(gdv_timestamp_ns nanos) {
+  return NANOS_TO_SEC(nanos);
+}
+
+FORCE_INLINE
+gdv_timestamp_ms castTIMESTAMP_ms_timestamp_ns(gdv_timestamp_ns nanos) {
+  return NANOS_TO_MILLIS(nanos);
+}
+
+FORCE_INLINE
+gdv_timestamp_us castTIMESTAMP_us_timestamp_ns(gdv_timestamp_ns nanos) {
+  return NANOS_TO_MICROS(nanos);
+}
+
+// Cast timestamp to date64 for all precisions
+FORCE_INLINE
+gdv_date64 castDATE_timestamp_sec(gdv_timestamp_sec secs) {
+  EpochTimePoint tp(SECS_TO_MILLIS(secs));
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+FORCE_INLINE
+gdv_date64 castDATE_timestamp_ms(gdv_timestamp_ms millis) {
+  EpochTimePoint tp(millis);
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+FORCE_INLINE
+gdv_date64 castDATE_timestamp_us(gdv_timestamp_us micros) {
+  EpochTimePoint tp(MICROS_TO_MILLIS(micros));
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+FORCE_INLINE
+gdv_date64 castDATE_timestamp_ns(gdv_timestamp_ns nanos) {
+  EpochTimePoint tp(NANOS_TO_MILLIS(nanos));
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+// Cast timestamp to time32 for all precisions
+FORCE_INLINE
+gdv_time32 castTIME_timestamp_sec(gdv_timestamp_sec secs) {
+  EpochTimePoint tp(SECS_TO_MILLIS(secs));
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+  return static_cast<int32_t>(tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch());
+}
+
+FORCE_INLINE
+gdv_time32 castTIME_timestamp_ms(gdv_timestamp_ms millis) {
+  EpochTimePoint tp(millis);
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+  return static_cast<int32_t>(tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch());
+}
+
+FORCE_INLINE
+gdv_time32 castTIME_timestamp_us(gdv_timestamp_us micros) {
+  EpochTimePoint tp(MICROS_TO_MILLIS(micros));
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+  return static_cast<int32_t>(tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch());
+}
+
+FORCE_INLINE
+gdv_time32 castTIME_timestamp_ns(gdv_timestamp_ns nanos) {
+  EpochTimePoint tp(NANOS_TO_MILLIS(nanos));
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+  return static_cast<int32_t>(tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch());
+}
+
+// datediff for all timestamp precisions
+FORCE_INLINE
+gdv_int32 datediff_timestamp_sec_timestamp_sec(gdv_timestamp_sec start_secs,
+                                                gdv_timestamp_sec end_secs) {
+  return static_cast<int32_t>((start_secs - end_secs) / SECS_IN_DAY);
+}
+
+FORCE_INLINE
+gdv_int32 datediff_timestamp_ms_timestamp_ms(gdv_timestamp_ms start_ms,
+                                              gdv_timestamp_ms end_ms) {
+  return static_cast<int32_t>((start_ms - end_ms) / MILLIS_IN_DAY);
+}
+
+FORCE_INLINE
+gdv_int32 datediff_timestamp_us_timestamp_us(gdv_timestamp_us start_us,
+                                              gdv_timestamp_us end_us) {
+  return static_cast<int32_t>((start_us - end_us) / MICROS_IN_DAY);
+}
+
+FORCE_INLINE
+gdv_int32 datediff_timestamp_ns_timestamp_ns(gdv_timestamp_ns start_ns,
+                                              gdv_timestamp_ns end_ns) {
+  return static_cast<int32_t>((start_ns - end_ns) / NANOS_IN_DAY);
+}
+
 }  // extern "C"
