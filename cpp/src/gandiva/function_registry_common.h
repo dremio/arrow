@@ -55,6 +55,13 @@ inline DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
 inline DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
 
 inline DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
+
+// Precision-specific timestamp types for explicit time unit handling
+inline DataTypePtr timestamp_sec() { return arrow::timestamp(arrow::TimeUnit::SECOND); }
+inline DataTypePtr timestamp_ms() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
+inline DataTypePtr timestamp_us() { return arrow::timestamp(arrow::TimeUnit::MICRO); }
+inline DataTypePtr timestamp_ns() { return arrow::timestamp(arrow::TimeUnit::NANO); }
+
 inline DataTypePtr decimal128() { return arrow::decimal128(38, 0); }
 
 struct KeyHash {
@@ -288,6 +295,14 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 
 // Iterate the inner macro over all time types
 #define TIME_TYPES(INNER, NAME, ALIASES) INNER(NAME, ALIASES, time32)
+
+// Iterate the inner macro over all timestamp precision types
+// These generate precision-specific function registrations
+#define TIMESTAMP_PRECISION_TYPES(INNER, NAME, ALIASES)  \
+  INNER(NAME, ALIASES, timestamp_sec),                   \
+  INNER(NAME, ALIASES, timestamp_ms),                    \
+  INNER(NAME, ALIASES, timestamp_us),                    \
+  INNER(NAME, ALIASES, timestamp_ns)
 
 // Iterate the inner macro over all data types
 #define VAR_LEN_TYPES(INNER, NAME, ALIASES) \

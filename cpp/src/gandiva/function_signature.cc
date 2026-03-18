@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
@@ -80,16 +81,58 @@ bool FunctionSignature::operator==(const FunctionSignature& other) const {
   return true;
 }
 
+namespace {
+
+// Helper to get the time unit from temporal types for hashing
+// Returns -1 for non-temporal types
+int GetTemporalTypeUnit(const DataTypePtr& type) {
+  switch (type->id()) {
+    case arrow::Type::TIMESTAMP: {
+      auto ts_type = checked_cast<const arrow::TimestampType*>(type.get());
+      return static_cast<int>(ts_type->unit());
+    }
+    case arrow::Type::TIME32: {
+      auto t32_type = checked_cast<const arrow::Time32Type*>(type.get());
+      return static_cast<int>(t32_type->unit());
+    }
+    case arrow::Type::TIME64: {
+      auto t64_type = checked_cast<const arrow::Time64Type*>(type.get());
+      return static_cast<int>(t64_type->unit());
+    }
+    case arrow::Type::DURATION: {
+      auto dur_type = checked_cast<const arrow::DurationType*>(type.get());
+      return static_cast<int>(dur_type->unit());
+    }
+    default:
+      return -1;
+  }
+}
+
+}  // namespace
+
 /// calculated based on name, datatype id of parameters and datatype id
-/// of return type.
+/// of return type. For temporal types (TIMESTAMP, TIME32, TIME64, DURATION),
+/// also includes the time unit to distinguish different precisions.
 std::size_t FunctionSignature::Hash() const {
   static const size_t kSeedValue = 17;
   size_t result = kSeedValue;
   hash_combine(result, AsciiToLower(base_name_));
   hash_combine(result, static_cast<size_t>(ret_type_->id()));
+
+  // Include time unit for temporal return types
+  int ret_unit = GetTemporalTypeUnit(ret_type_);
+  if (ret_unit >= 0) {
+    hash_combine(result, static_cast<size_t>(ret_unit));
+  }
+
   // not using hash_range since we only want to include the id from the data type
   for (auto& param_type : param_types_) {
     hash_combine(result, static_cast<size_t>(param_type->id()));
+    // Include time unit for temporal parameter types
+    int param_unit = GetTemporalTypeUnit(param_type);
+    if (param_unit >= 0) {
+      hash_combine(result, static_cast<size_t>(param_unit));
+    }
   }
   return result;
 }

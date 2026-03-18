@@ -327,6 +327,46 @@ TEST(TestTime, TestExtractTimestamp) {
   EXPECT_EQ(extractSecond_timestamp(ts), 33);
 }
 
+TEST(TestTime, TestExtractYearTimestampPrecisions) {
+  // Test date: 2023-06-15 14:30:45.123456789
+  // Unix epoch seconds: 1686839445
+  constexpr int64_t epoch_sec = 1686839445LL;
+
+  // Test extractYear with seconds precision
+  EXPECT_EQ(extractYear_timestamp_sec(epoch_sec), 2023);
+
+  // Test extractYear with milliseconds precision
+  EXPECT_EQ(extractYear_timestamp_ms(epoch_sec * 1000 + 123), 2023);
+
+  // Test extractYear with microseconds precision
+  EXPECT_EQ(extractYear_timestamp_us(epoch_sec * 1000000 + 123456), 2023);
+
+  // Test extractYear with nanoseconds precision
+  EXPECT_EQ(extractYear_timestamp_ns(epoch_sec * 1000000000LL + 123456789), 2023);
+
+  // Test year boundaries
+  // 1999-12-31 23:59:59 UTC -> should be 1999
+  constexpr int64_t dec31_1999_sec = 946684799LL;
+  EXPECT_EQ(extractYear_timestamp_sec(dec31_1999_sec), 1999);
+
+  // 2000-01-01 00:00:00 UTC -> should be 2000
+  constexpr int64_t jan1_2000_sec = 946684800LL;
+  EXPECT_EQ(extractYear_timestamp_sec(jan1_2000_sec), 2000);
+
+  // Test with different precisions for the same moment
+  EXPECT_EQ(extractYear_timestamp_ms(jan1_2000_sec * 1000), 2000);
+  EXPECT_EQ(extractYear_timestamp_us(jan1_2000_sec * 1000000), 2000);
+  EXPECT_EQ(extractYear_timestamp_ns(jan1_2000_sec * 1000000000LL), 2000);
+
+  // Test negative timestamps (before 1970)
+  // 1960-06-15 00:00:00 UTC
+  constexpr int64_t jun15_1960_sec = -301017600LL;
+  EXPECT_EQ(extractYear_timestamp_sec(jun15_1960_sec), 1960);
+  EXPECT_EQ(extractYear_timestamp_ms(jun15_1960_sec * 1000), 1960);
+  EXPECT_EQ(extractYear_timestamp_us(jun15_1960_sec * 1000000), 1960);
+  EXPECT_EQ(extractYear_timestamp_ns(jun15_1960_sec * 1000000000LL), 1960);
+}
+
 TEST(TestTime, TimeStampTrunc) {
   EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("2015-05-05 10:20:34")),
             StringToTimestamp("2015-05-05 10:20:34"));

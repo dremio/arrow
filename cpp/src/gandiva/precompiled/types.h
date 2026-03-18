@@ -37,6 +37,14 @@ using gdv_date64 = int64_t;
 using gdv_date32 = int32_t;
 using gdv_time32 = int32_t;
 using gdv_timestamp = int64_t;
+
+// Precision-specific timestamp type aliases
+// All are int64_t but document the expected unit for clarity
+using gdv_timestamp_sec = int64_t;   // seconds since epoch
+using gdv_timestamp_ms = int64_t;    // milliseconds since epoch
+using gdv_timestamp_us = int64_t;    // microseconds since epoch
+using gdv_timestamp_ns = int64_t;    // nanoseconds since epoch
+
 using gdv_utf8 = char*;
 using gdv_binary = char*;
 using gdv_day_time_interval = int64_t;
@@ -58,6 +66,11 @@ gdv_int64 extractMillennium_timestamp(gdv_timestamp millis);
 gdv_int64 extractCentury_timestamp(gdv_timestamp millis);
 gdv_int64 extractDecade_timestamp(gdv_timestamp millis);
 gdv_int64 extractYear_timestamp(gdv_timestamp millis);
+// Precision-specific extractYear declarations
+gdv_int64 extractYear_timestamp_sec(gdv_timestamp_sec secs);
+gdv_int64 extractYear_timestamp_ms(gdv_timestamp_ms millis);
+gdv_int64 extractYear_timestamp_us(gdv_timestamp_us micros);
+gdv_int64 extractYear_timestamp_ns(gdv_timestamp_ns nanos);
 gdv_int64 extractDoy_timestamp(gdv_timestamp millis);
 gdv_int64 extractQuarter_timestamp(gdv_timestamp millis);
 gdv_int64 extractMonth_timestamp(gdv_timestamp millis);

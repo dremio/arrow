@@ -110,4 +110,91 @@ TEST_F(TestFunctionSignature, TestHash) {
   EXPECT_EQ(f3.Hash(), f4.Hash());
 }
 
+TEST_F(TestFunctionSignature, TestTimestampPrecisionHash) {
+  // Different timestamp precisions should have different hashes
+  FunctionSignature ts_sec("extractYear",
+                           {arrow::timestamp(arrow::TimeUnit::SECOND)},
+                           arrow::int64());
+  FunctionSignature ts_ms("extractYear",
+                          {arrow::timestamp(arrow::TimeUnit::MILLI)},
+                          arrow::int64());
+  FunctionSignature ts_us("extractYear",
+                          {arrow::timestamp(arrow::TimeUnit::MICRO)},
+                          arrow::int64());
+  FunctionSignature ts_ns("extractYear",
+                          {arrow::timestamp(arrow::TimeUnit::NANO)},
+                          arrow::int64());
+
+  // All should have different hashes
+  EXPECT_NE(ts_sec.Hash(), ts_ms.Hash());
+  EXPECT_NE(ts_sec.Hash(), ts_us.Hash());
+  EXPECT_NE(ts_sec.Hash(), ts_ns.Hash());
+  EXPECT_NE(ts_ms.Hash(), ts_us.Hash());
+  EXPECT_NE(ts_ms.Hash(), ts_ns.Hash());
+  EXPECT_NE(ts_us.Hash(), ts_ns.Hash());
+
+  // Same precision should have same hash
+  FunctionSignature ts_sec2("extractYear",
+                            {arrow::timestamp(arrow::TimeUnit::SECOND)},
+                            arrow::int64());
+  EXPECT_EQ(ts_sec.Hash(), ts_sec2.Hash());
+}
+
+TEST_F(TestFunctionSignature, TestTimestampPrecisionEquals) {
+  // Different timestamp precisions should NOT be equal
+  FunctionSignature ts_sec("extractYear",
+                           {arrow::timestamp(arrow::TimeUnit::SECOND)},
+                           arrow::int64());
+  FunctionSignature ts_ms("extractYear",
+                          {arrow::timestamp(arrow::TimeUnit::MILLI)},
+                          arrow::int64());
+
+  EXPECT_FALSE(ts_sec == ts_ms);
+
+  // Same precision should be equal
+  FunctionSignature ts_sec2("extractYear",
+                            {arrow::timestamp(arrow::TimeUnit::SECOND)},
+                            arrow::int64());
+  EXPECT_EQ(ts_sec, ts_sec2);
+}
+
+TEST_F(TestFunctionSignature, TestTimestampReturnTypeHash) {
+  // Return type precision should also be distinguished
+  FunctionSignature ret_ms("castTimestamp",
+                           {arrow::utf8()},
+                           arrow::timestamp(arrow::TimeUnit::MILLI));
+  FunctionSignature ret_ns("castTimestamp",
+                           {arrow::utf8()},
+                           arrow::timestamp(arrow::TimeUnit::NANO));
+
+  EXPECT_NE(ret_ms.Hash(), ret_ns.Hash());
+  EXPECT_FALSE(ret_ms == ret_ns);
+}
+
+TEST_F(TestFunctionSignature, TestTime32PrecisionHash) {
+  // Time32 types should also have precision-aware hashing
+  FunctionSignature t32_sec("extractHour",
+                            {arrow::time32(arrow::TimeUnit::SECOND)},
+                            arrow::int64());
+  FunctionSignature t32_ms("extractHour",
+                           {arrow::time32(arrow::TimeUnit::MILLI)},
+                           arrow::int64());
+
+  EXPECT_NE(t32_sec.Hash(), t32_ms.Hash());
+  EXPECT_FALSE(t32_sec == t32_ms);
+}
+
+TEST_F(TestFunctionSignature, TestTime64PrecisionHash) {
+  // Time64 types should also have precision-aware hashing
+  FunctionSignature t64_us("extractHour",
+                           {arrow::time64(arrow::TimeUnit::MICRO)},
+                           arrow::int64());
+  FunctionSignature t64_ns("extractHour",
+                           {arrow::time64(arrow::TimeUnit::NANO)},
+                           arrow::int64());
+
+  EXPECT_NE(t64_us.Hash(), t64_ns.Hash());
+  EXPECT_FALSE(t64_us == t64_ns);
+}
+
 }  // namespace gandiva

@@ -99,6 +99,31 @@ DATE_TYPES(EXTRACT_DECADE)
 
 DATE_TYPES(EXTRACT_YEAR)
 
+// Precision-aware extractYear for all timestamp units
+FORCE_INLINE
+gdv_int64 extractYear_timestamp_sec(gdv_timestamp_sec secs) {
+  EpochTimePointSec tp(secs);
+  return 1900 + tp.TmYear();
+}
+
+FORCE_INLINE
+gdv_int64 extractYear_timestamp_ms(gdv_timestamp_ms millis) {
+  EpochTimePointMilli tp(millis);
+  return 1900 + tp.TmYear();
+}
+
+FORCE_INLINE
+gdv_int64 extractYear_timestamp_us(gdv_timestamp_us micros) {
+  EpochTimePointMicro tp(micros);
+  return 1900 + tp.TmYear();
+}
+
+FORCE_INLINE
+gdv_int64 extractYear_timestamp_ns(gdv_timestamp_ns nanos) {
+  EpochTimePointNano tp(nanos);
+  return 1900 + tp.TmYear();
+}
+
 #define EXTRACT_DOY(TYPE)                            \
   FORCE_INLINE                                       \
   gdv_int64 extractDoy##_##TYPE(gdv_##TYPE millis) { \

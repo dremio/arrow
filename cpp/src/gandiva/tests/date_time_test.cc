@@ -828,4 +828,77 @@ TEST_F(DateTimeTestProjector, TestFromUtcTimestamp) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
+
+TEST_F(DateTimeTestProjector, TestExtractYearTimestampPrecisions) {
+  // Test that extractYear works correctly with all 4 timestamp precisions
+  auto field_ts_sec = field("ts_sec", timestamp(arrow::TimeUnit::SECOND));
+  auto field_ts_ms = field("ts_ms", timestamp(arrow::TimeUnit::MILLI));
+  auto field_ts_us = field("ts_us", timestamp(arrow::TimeUnit::MICRO));
+  auto field_ts_ns = field("ts_ns", timestamp(arrow::TimeUnit::NANO));
+  auto schema = arrow::schema({field_ts_sec, field_ts_ms, field_ts_us, field_ts_ns});
+
+  // Output fields
+  auto field_year_sec = field("year_sec", int64());
+  auto field_year_ms = field("year_ms", int64());
+  auto field_year_us = field("year_us", int64());
+  auto field_year_ns = field("year_ns", int64());
+
+  // Build expressions for each precision
+  auto expr_sec =
+      TreeExprBuilder::MakeExpression("extractYear", {field_ts_sec}, field_year_sec);
+  auto expr_ms =
+      TreeExprBuilder::MakeExpression("extractYear", {field_ts_ms}, field_year_ms);
+  auto expr_us =
+      TreeExprBuilder::MakeExpression("extractYear", {field_ts_us}, field_year_us);
+  auto expr_ns =
+      TreeExprBuilder::MakeExpression("extractYear", {field_ts_ns}, field_year_ns);
+
+  // Build projector
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_sec, expr_ms, expr_us, expr_ns},
+                                TestConfiguration(), &projector);
+  ASSERT_OK(status);
+
+  // Test data: 2023-06-15 14:30:45.123456789
+  // Unix epoch seconds: 1686839445
+  constexpr int64_t epoch_sec = 1686839445LL;
+  constexpr int num_records = 3;
+
+  // Input arrays with different values to test year extraction
+  // 2023-06-15, 1999-12-31, 2000-01-01
+  constexpr int64_t dec31_1999_sec = 946684799LL;
+  constexpr int64_t jan1_2000_sec = 946684800LL;
+
+  auto array_sec =
+      MakeArrowArrayInt64({epoch_sec, dec31_1999_sec, jan1_2000_sec}, {true, true, true});
+  auto array_ms = MakeArrowArrayInt64(
+      {epoch_sec * 1000 + 123, dec31_1999_sec * 1000, jan1_2000_sec * 1000},
+      {true, true, true});
+  auto array_us = MakeArrowArrayInt64(
+      {epoch_sec * 1000000 + 123456, dec31_1999_sec * 1000000, jan1_2000_sec * 1000000},
+      {true, true, true});
+  auto array_ns = MakeArrowArrayInt64({epoch_sec * 1000000000LL + 123456789,
+                                       dec31_1999_sec * 1000000000LL,
+                                       jan1_2000_sec * 1000000000LL},
+                                      {true, true, true});
+
+  // Create record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_sec, array_ms, array_us, array_ns});
+
+  // Evaluate
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  ASSERT_OK(status);
+
+  // Expected results: 2023, 1999, 2000 for all precisions
+  auto exp_years = MakeArrowArrayInt64({2023, 1999, 2000}, {true, true, true});
+
+  // All precisions should give the same year values
+  EXPECT_ARROW_ARRAY_EQUALS(exp_years, outputs.at(0));  // seconds
+  EXPECT_ARROW_ARRAY_EQUALS(exp_years, outputs.at(1));  // milliseconds
+  EXPECT_ARROW_ARRAY_EQUALS(exp_years, outputs.at(2));  // microseconds
+  EXPECT_ARROW_ARRAY_EQUALS(exp_years, outputs.at(3));  // nanoseconds
+}
+
 }  // namespace gandiva

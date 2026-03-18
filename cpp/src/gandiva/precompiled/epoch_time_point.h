@@ -24,14 +24,20 @@ bool is_leap_year(int yy);
 bool did_days_overflow(arrow_vendored::date::year_month_day ymd);
 int last_possible_day_in_month(int month, int year);
 
-// A point of time measured in millis since epoch.
-class EpochTimePoint {
+// Template class for precision-aware time point operations.
+// Duration should be one of: std::chrono::seconds, milliseconds, microseconds, nanoseconds
+template <typename Duration>
+class EpochTimePointT {
  public:
-  explicit EpochTimePoint(std::chrono::milliseconds millis_since_epoch)
-      : tp_(millis_since_epoch) {}
+  using duration_type = Duration;
+  using time_point_type =
+      std::chrono::time_point<std::chrono::system_clock, Duration>;
 
-  explicit EpochTimePoint(int64_t millis_since_epoch)
-      : EpochTimePoint(std::chrono::milliseconds(millis_since_epoch)) {}
+  explicit EpochTimePointT(Duration duration_since_epoch)
+      : tp_(duration_since_epoch) {}
+
+  explicit EpochTimePointT(int64_t value_since_epoch)
+      : EpochTimePointT(Duration(value_since_epoch)) {}
 
   int TmYear() const { return static_cast<int>(YearMonthDay().year()) - 1900; }
 
@@ -62,19 +68,29 @@ class EpochTimePoint {
     return static_cast<int>(TimeOfDay().seconds().count());
   }
 
-  EpochTimePoint AddYears(int num_years) const {
-    auto ymd = YearMonthDay() + arrow_vendored::date::years(num_years);
-    return EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
-                           TimeOfDay().to_duration())
-                              .time_since_epoch());
+  // Returns sub-second component in the native duration unit
+  // For milliseconds: returns 0-999
+  // For microseconds: returns 0-999999
+  // For nanoseconds: returns 0-999999999
+  int64_t SubSeconds() const {
+    auto since_midnight = tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(since_midnight);
+    return (since_midnight - secs).count();
   }
 
-  EpochTimePoint AddMonths(int num_months) const {
+  EpochTimePointT AddYears(int num_years) const {
+    auto ymd = YearMonthDay() + arrow_vendored::date::years(num_years);
+    return EpochTimePointT(
+        std::chrono::duration_cast<Duration>(
+            (arrow_vendored::date::sys_days{ymd} + TimeOfDayDuration()).time_since_epoch()));
+  }
+
+  EpochTimePointT AddMonths(int num_months) const {
     auto ymd = YearMonthDay() + arrow_vendored::date::months(num_months);
 
-    EpochTimePoint tp = EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
-                                        TimeOfDay().to_duration())
-                                           .time_since_epoch());
+    EpochTimePointT tp(
+        std::chrono::duration_cast<Duration>(
+            (arrow_vendored::date::sys_days{ymd} + TimeOfDayDuration()).time_since_epoch()));
 
     if (did_days_overflow(ymd)) {
       int days_to_offset =
@@ -86,26 +102,36 @@ class EpochTimePoint {
     return tp;
   }
 
-  EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch = arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
+  EpochTimePointT AddDays(int num_days) const {
+    auto days_since_epoch = arrow_vendored::date::sys_days{YearMonthDay()} +
                             arrow_vendored::date::days(num_days);
-    return EpochTimePoint(
-        (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
+    return EpochTimePointT(
+        std::chrono::duration_cast<Duration>(
+            (days_since_epoch + TimeOfDayDuration()).time_since_epoch()));
   }
 
-  EpochTimePoint ClearTimeOfDay() const {
-    return EpochTimePoint((tp_ - TimeOfDay().to_duration()).time_since_epoch());
+  EpochTimePointT ClearTimeOfDay() const {
+    return EpochTimePointT(
+        std::chrono::duration_cast<Duration>(
+            (tp_ - TimeOfDayDuration()).time_since_epoch()));
   }
 
-  bool operator==(const EpochTimePoint& other) const { return tp_ == other.tp_; }
+  bool operator==(const EpochTimePointT& other) const { return tp_ == other.tp_; }
 
-  int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
+  // Returns the value in the native duration unit
+  int64_t ValueSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
-  arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
-    auto millis_since_midnight =
+  // For backward compatibility with existing code expecting milliseconds
+  int64_t MillisSinceEpoch() const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               tp_.time_since_epoch())
+        .count();
+  }
+
+  arrow_vendored::date::time_of_day<Duration> TimeOfDay() const {
+    auto duration_since_midnight =
         tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
-    return arrow_vendored::date::time_of_day<std::chrono::milliseconds>(
-        millis_since_midnight);
+    return arrow_vendored::date::time_of_day<Duration>(duration_since_midnight);
   }
 
  private:
@@ -114,5 +140,19 @@ class EpochTimePoint {
         arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
   }
 
-  std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;
+  // Returns time of day as a duration for arithmetic operations
+  Duration TimeOfDayDuration() const {
+    return tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
+  }
+
+  time_point_type tp_;
 };
+
+// Type aliases for each precision level
+using EpochTimePointSec = EpochTimePointT<std::chrono::seconds>;
+using EpochTimePointMilli = EpochTimePointT<std::chrono::milliseconds>;
+using EpochTimePointMicro = EpochTimePointT<std::chrono::microseconds>;
+using EpochTimePointNano = EpochTimePointT<std::chrono::nanoseconds>;
+
+// Backward compatibility: existing code uses EpochTimePoint with milliseconds
+using EpochTimePoint = EpochTimePointMilli;

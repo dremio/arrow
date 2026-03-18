@@ -47,6 +47,12 @@ namespace gandiva {
 
 #define NEXT_DAY_FNS(name) DATE_TYPES(NEXT_DAY_SAFE_NULL_IF_NULL, name, {})
 
+// Precision-aware extraction function for timestamp types
+// Maps to extractYear_timestamp_sec, extractYear_timestamp_ms, etc.
+#define EXTRACT_TIMESTAMP_PRECISION(NAME, ALIASES, TYPE)                       \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 int64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
+
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
@@ -61,6 +67,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       TIME_EXTRACTION_FNS(extract),
 
       NEXT_DAY_FNS(next_day),
+
+      // Precision-specific extractYear for all timestamp time units
+      TIMESTAMP_PRECISION_TYPES(EXTRACT_TIMESTAMP_PRECISION, extractYear, {"extract_year"}),
 
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
