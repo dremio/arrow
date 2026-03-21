@@ -2968,7 +2968,7 @@ function(build_xsimd)
 
   set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
   add_library(arrow::xsimd INTERFACE IMPORTED)
-  target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
+  target_include_directories(arrow::xsimd SYSTEM INTERFACE "${xsimd_INCLUDE_DIR}")
 
   set(XSIMD_VENDORED
       TRUE
@@ -2995,7 +2995,10 @@ if(xsimd_SOURCE STREQUAL "BUNDLED")
   set(ARROW_XSIMD arrow::xsimd)
 else()
   message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
-  set(ARROW_XSIMD xsimd)
+  # Wrap system xsimd with SYSTEM includes to suppress third-party header warnings
+  add_library(arrow::xsimd INTERFACE IMPORTED)
+  target_include_directories(arrow::xsimd SYSTEM INTERFACE "${xsimd_INCLUDE_DIRS}")
+  set(ARROW_XSIMD arrow::xsimd)
 endif()
 
 macro(build_zlib)
