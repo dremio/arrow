@@ -825,7 +825,8 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
 ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
-namespace gandiva {
+// Close gandiva namespace before extern "C" functions, then reopen after
+// These functions need to be at global scope for extern "C" linkage to work properly
 
 // Legacy wrapper for string-based signatures (UTF8, UTF8) -> UTF8
 // This is called by the LLVM engine with string calling convention
@@ -939,7 +940,7 @@ const char* gdv_fn_encrypt_dispatcher_5args(
           "Memory allocation failed for encryption output");
     }
 
-    int32_t cipher_len = EncryptModeDispatcher::encrypt(
+    int32_t cipher_len = gandiva::EncryptModeDispatcher::encrypt(
         data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
         iv_data_len, fifth_argument, fifth_argument_len, output);
 
@@ -966,7 +967,7 @@ const char* gdv_fn_decrypt_dispatcher_5args(
           "Memory allocation failed for decryption output");
     }
 
-    int32_t plaintext_len = EncryptModeDispatcher::decrypt(
+    int32_t plaintext_len = gandiva::EncryptModeDispatcher::decrypt(
         data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
         iv_data_len, fifth_argument, fifth_argument_len, output);
 
@@ -978,6 +979,8 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     return nullptr;
   }
 }
+
+namespace gandiva {
 
 arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;

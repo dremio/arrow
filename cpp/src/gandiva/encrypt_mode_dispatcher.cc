@@ -34,6 +34,7 @@ static const std::vector<std::string_view> SUPPORTED_MODES = {
     AES_GCM_MODE
 };
 
+// Internal enum for dispatching to the right encryption implementation
 enum class EncryptionMode {
   ECB,
   ECB_PKCS7,
@@ -45,7 +46,10 @@ enum class EncryptionMode {
   UNKNOWN
 };
 
-EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
+// Forward declaration
+static EncryptionMode ParseEncryptionMode(std::string_view mode_str);
+
+static EncryptionMode ParseEncryptionMode(std::string_view mode_str) {
   if (mode_str == AES_ECB_MODE) return EncryptionMode::ECB;
   if (mode_str == AES_ECB_PKCS7_MODE) return EncryptionMode::ECB_PKCS7;
   if (mode_str == AES_ECB_NONE_MODE) return EncryptionMode::ECB_NONE;
