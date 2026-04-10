@@ -17,8 +17,8 @@ consumers to fall back to a non-LLVM execution path.
 
 This document proposes adding native `Timestamp(MICRO)` and `Timestamp(NANO)`
 support to Gandiva, covering the full function set currently available for
-`Timestamp(MILLI)`: all extract functions, all `date_trunc` levels, cast
-functions, and timestamp arithmetic.
+`Timestamp(MILLI)`: all extract functions, all `date_trunc` levels, and cast
+functions.
 
 **Performance objective:** Expression evaluation over MICRO/NANO timestamp
 columns should match MILLI throughput — no additional branching per row.
@@ -34,8 +34,10 @@ columns should match MILLI throughput — no additional branching per row.
 - **Java / Flight SQL / Substrait layers**: Gandiva C++ only. Consumers that
   already route expressions to Gandiva need no changes once the registry
   contains the new signatures.
-- **Runtime overflow detection for arithmetic**: overflow behavior is documented
-  rather than checked (see Overflow Behavior section).
+- **Timestamp arithmetic** (`timestampadd`, `timestampdiff`): not currently
+  registered in Gandiva for any precision. Out of scope.
+- **`datediff`, `to_utc_timestamp`, `from_utc_timestamp`**: registered for MILLI
+  but deferred pending scope decision (see Open Questions).
 
 ## System Design
 
@@ -103,6 +105,61 @@ FORCE_INLINE gdv_int64 extractYear_timestamp(gdv_timestamp millis) {
 }
 ```
 
+### The `EpochTimePoint` Conversion Problem
+
+`EpochTimePoint` (`precompiled/epoch_time_point.h`) is hardcoded to millisecond
+precision — its constructor takes `int64_t millis_since_epoch` and it stores a
+`time_point<system_clock, milliseconds>`. Multiple macro families pass their
+input directly to `EpochTimePoint` without conversion:
+
+- **Extract macros** (`EXTRACT_YEAR`, `EXTRACT_MONTH`, etc.) construct
+  `EpochTimePoint(millis)` — passing microseconds or nanoseconds would be
+  misinterpreted as milliseconds, producing wrong dates.
+- **`DATE_TRUNC_WEEK`**, **`DATE_TRUNC_MONTH_UNITS`**, and
+  **`DATE_TRUNC_YEAR_UNITS`** construct `EpochTimePoint` *and* return
+  `.MillisSinceEpoch()` — both input and output would be wrong.
+- **`DATE_TRUNC_FIXED_UNIT`** is pure integer math (no `EpochTimePoint`) and
+  is safe to use directly with MICRO/NANO constants.
+
+Simply extending `DATE_TYPES` in `time.cc` to include `timestamp_micro` and
+`timestamp_nano` would silently produce wrong results for all
+EpochTimePoint-dependent functions.
+
+Three approaches were considered:
+
+**Approach A — Add conversion parameters to existing macros.** Modify each
+macro to accept `TO_MILLIS` / `FROM_MILLIS` parameters and change the
+`DATE_TYPES` macro signature to pass converters alongside the type. This reuses
+existing macro bodies but changes the `DATE_TYPES` contract in `time.cc`,
+rippling to every consumer. The two-file `DATE_TYPES` divergence (registry has
+3-arg `(INNER, NAME, ALIASES)`, implementation has 1-arg `(INNER)`) would grow
+into a 3-arg implementation variant, increasing macro complexity.
+
+**Approach B — Delegation wrappers for MICRO/NANO.** Leave existing macros and
+`DATE_TYPES` in `time.cc` unchanged. MICRO/NANO extract functions delegate to
+the existing MILLI implementation after converting the input; MICRO/NANO
+EpochTimePoint-based `date_trunc` functions delegate to the MILLI
+implementation then convert the result back. `DATE_TRUNC_FIXED_UNIT`-based
+functions (Second, Minute, Hour, Day) are stamped out directly with MICRO/NANO
+constants since they are pure integer math. Zero changes to existing code paths.
+
+**Approach C — Templatize `EpochTimePoint`.** Make `EpochTimePoint` a class
+template parameterized on `Duration` (`milliseconds`, `microseconds`,
+`nanoseconds`), replace `MillisSinceEpoch()` with `UnitsSinceEpoch()`, and
+dispatch via `EPT_FOR_##TYPE` macros. This is the cleanest long-term design but
+modifies shared infrastructure, requires verifying that templated C++ compiles
+correctly through Gandiva's clang-to-LLVM-bitcode precompilation pipeline, and
+has the largest blast radius.
+
+**Chosen: Approach B (delegation wrappers).** It carries zero risk to existing
+MILLI/date64 behavior and requires no changes to `EpochTimePoint` or the
+existing macro structure. The delegation round-trip (convert to millis →
+delegate → convert back) is exact for EpochTimePoint-based `date_trunc`
+because truncation to day/month/year boundaries always zeroes out the
+sub-millisecond remainder. The maintenance cost — parallel wrapper lists that
+must be updated if new extract/trunc functions are added upstream — is
+acceptable given the function set is stable.
+
 ### Target State
 
 ```
@@ -114,10 +171,10 @@ function_registry_common.h              precompiled/time_constants.h
 function_registry_datetime.cc             gdv_timestamp_nano  = int64_t
   all existing registrations now
   auto-expanded for MICRO and NANO      precompiled/time.cc
-  + explicit sub-second date_trunc        DATE_TYPES extended → 4 entries
-    registrations                         MICROS_TO_MILLIS_FLOOR / NANOS_TO_MILLIS_FLOOR
-                                          extract variants via EpochTimePoint
-                                          date_trunc via DATE_TRUNC_FIXED_UNIT
+  + explicit sub-second date_trunc        DATE_TYPES unchanged (date64, timestamp)
+    registrations                         EXTRACT_MICRO / EXTRACT_NANO wrappers
+                                          DATE_TRUNC_MICRO / DATE_TRUNC_NANO wrappers
+                                          DATE_TRUNC_FIXED_UNIT for sub-day MICRO/NANO
                                           castVARCHAR extended format/length
                                           castTIMESTAMP_utf8 extended parser
 ```
@@ -163,9 +220,9 @@ both UTC and timezone-aware variants.
 | `date_trunc_Millisecond` | identity — not registered | new | new |
 | `date_trunc_Microsecond` | N/A | identity — not registered | new |
 
-**Cast and arithmetic functions**: `castTIMESTAMP_utf8`, `castTIMESTAMP_date64`,
+**Cast functions**: `castTIMESTAMP_utf8`, `castTIMESTAMP_date64`,
 `castTIMESTAMP_int64`, `castDATE_timestamp`, `castVARCHAR_timestamp_int64`,
-`to_timestamp_*`, `timestampadd_*`, `timestampdiff_*`
+`to_timestamp_*`
 
 ### `castVARCHAR` Format Extension
 
@@ -197,13 +254,9 @@ documented in function header comments:
 |---|---|---|---|
 | `castTIMESTAMP_int64` / `to_timestamp_*` out of range | safe | overflows past 2262/1677 | **null output** |
 | `castTIMESTAMP_utf8` out of range date | safe | overflows past 2262/1677 | **null output** |
-| `timestampadd_*` interval multiply | rare | operational (>~107K days) | documented undefined |
-| `timestampdiff_*` subtraction at range extremes | safe | overflows (range ~585 yrs) | documented undefined |
 
 Cast inputs are detectable as out-of-range before the multiply
-(`|seconds| > LLONG_MAX / NANOS_IN_SEC`); those return null. Arithmetic
-overflows are not checked, matching the behavior of existing MILLI arithmetic
-functions under equivalent conditions.
+(`|seconds| > LLONG_MAX / NANOS_IN_SEC`); those return null.
 
 ### Backward Compatibility
 
@@ -218,8 +271,8 @@ additions are new registry entries alongside existing ones.
 |---|---|
 | `cpp/src/gandiva/precompiled/types.h` | Add `gdv_timestamp_micro`, `gdv_timestamp_nano` type aliases |
 | `cpp/src/gandiva/precompiled/time_constants.h` | Add `MICROS_IN_*` and `NANOS_IN_*` `#define` constants |
-| `cpp/src/gandiva/precompiled/time.cc` | All new implementations (extract, date_trunc, cast, arithmetic) |
-| `cpp/src/gandiva/function_registry_common.h` | `timestamp_micro()`, `timestamp_nano()` helpers; extend both `DATE_TYPES` macros |
+| `cpp/src/gandiva/precompiled/time.cc` | Delegation wrappers (extract, date_trunc); direct `DATE_TRUNC_FIXED_UNIT` expansions; cast implementations |
+| `cpp/src/gandiva/function_registry_common.h` | `timestamp_micro()`, `timestamp_nano()` helpers; extend registry `DATE_TYPES` macro |
 | `cpp/src/gandiva/function_registry_datetime.cc` | Register all new signatures; explicit sub-second `date_trunc` entries |
 | `cpp/src/gandiva/gandiva_test.cc` (or new file) | Unit tests |
 
@@ -256,11 +309,14 @@ how Gandiva's registry links the symbol to the correct Arrow type signature.
 #define NANOS_IN_WEEK     INT64_C(604800000000000)
 ```
 
-### Macro Extension (`function_registry_common.h` and `precompiled/time.cc`)
+### Macro Extension (`function_registry_common.h`)
 
-`DATE_TYPES` exists in two forms — both must be extended.
+`DATE_TYPES` exists in two forms with different signatures. Only the registry
+form is extended; the implementation form in `time.cc` is left unchanged.
 
-**`function_registry_common.h`** (drives registry entry generation):
+**`function_registry_common.h`** (drives registry entry generation) — extended
+to 4 entries so all extract and `date_trunc` functions are automatically
+registered for MICRO and NANO:
 ```cpp
 inline DataTypePtr timestamp_micro() { return arrow::timestamp(arrow::TimeUnit::MICRO); }
 inline DataTypePtr timestamp_nano()  { return arrow::timestamp(arrow::TimeUnit::NANO);  }
@@ -272,24 +328,25 @@ inline DataTypePtr timestamp_nano()  { return arrow::timestamp(arrow::TimeUnit::
   INNER(NAME, ALIASES, timestamp_nano)
 ```
 
-**`precompiled/time.cc`** (drives C function implementation generation):
+**`precompiled/time.cc`** — `DATE_TYPES(INNER)` is **not extended**. It
+remains:
 ```c
 #define DATE_TYPES(INNER) \
   INNER(date64)           \
-  INNER(timestamp)        \
-  INNER(timestamp_micro)  \
-  INNER(timestamp_nano)
+  INNER(timestamp)
 ```
 
-These two extensions together propagate all macro-generated implementations
-and registrations to both new types with no further per-function changes.
+This is intentional: the existing macros construct `EpochTimePoint` with the
+raw value and assume milliseconds (see "The `EpochTimePoint` Conversion
+Problem" above). MICRO/NANO implementations are provided via delegation
+wrappers instead.
 
 ### Extract Functions (`precompiled/time.cc`)
 
 Coarser-than-second extract functions use `EpochTimePoint`, which expects
 milliseconds. MICRO/NANO values must be floor-divided to millis before
-constructing `EpochTimePoint` — plain C integer division truncates toward zero,
-which gives the wrong year/month/day for pre-epoch timestamps:
+delegating — plain C integer division truncates toward zero, which gives
+the wrong year/month/day for pre-epoch timestamps:
 
 ```c
 // e.g. -1 µs / 1000 = 0 in C  → extractYear returns 1970 (wrong)
@@ -305,34 +362,113 @@ which gives the wrong year/month/day for pre-epoch timestamps:
 ```
 
 This pattern is consistent with the floor division already used in
-`DATE_TRUNC_FIXED_UNIT`. Example expansion (generated via `DATE_TYPES` macro):
+`DATE_TRUNC_FIXED_UNIT`.
+
+MICRO/NANO extract functions are implemented as delegation wrappers that
+convert to millis and call the existing `_timestamp` implementation:
 
 ```c
-FORCE_INLINE gdv_int64 extractYear_timestamp_micro(gdv_timestamp_micro micros) {
-  EpochTimePoint tp(MICROS_TO_MILLIS_FLOOR(micros));
-  return 1900 + tp.TmYear();
-}
+#define EXTRACT_MICRO(NAME)                                              \
+  FORCE_INLINE                                                           \
+  gdv_int64 NAME##_timestamp_micro(gdv_timestamp_micro micros) {         \
+    return NAME##_timestamp(MICROS_TO_MILLIS_FLOOR(micros));             \
+  }
+
+#define EXTRACT_NANO(NAME)                                               \
+  FORCE_INLINE                                                           \
+  gdv_int64 NAME##_timestamp_nano(gdv_timestamp_nano nanos) {            \
+    return NAME##_timestamp(NANOS_TO_MILLIS_FLOOR(nanos));               \
+  }
+
+EXTRACT_MICRO(extractYear)
+EXTRACT_MICRO(extractQuarter)
+EXTRACT_MICRO(extractMonth)
+EXTRACT_MICRO(extractWeek)
+EXTRACT_MICRO(extractDay)
+EXTRACT_MICRO(extractDow)
+EXTRACT_MICRO(extractDoy)
+EXTRACT_MICRO(extractHour)
+EXTRACT_MICRO(extractMinute)
+EXTRACT_MICRO(extractSecond)
+EXTRACT_MICRO(extractEpoch)
+EXTRACT_MICRO(extractDecade)
+EXTRACT_MICRO(extractCentury)
+EXTRACT_MICRO(extractMillennium)
+
+EXTRACT_NANO(extractYear)
+// ... same list for NANO ...
 ```
+
+Each wrapper compiles to a floor-division + tail call. With `FORCE_INLINE`, the
+LLVM backend should inline the delegation away entirely, meeting the
+performance objective.
 
 ### `date_trunc_*` Functions (`precompiled/time.cc`)
 
-`DATE_TRUNC_FIXED_UNIT` is parameterized by the unit constant, so MICRO/NANO
-expansions simply pass the appropriate constant. Floor division correctness
-is already built into the macro:
+The existing `date_trunc` macros fall into two categories that require
+different treatment:
+
+**Pure integer math (`DATE_TRUNC_FIXED_UNIT`):** Used for Second, Minute, Hour,
+Day. These have no `EpochTimePoint` dependency and are stamped out directly
+with MICRO/NANO constants:
 
 ```c
-// Generated for MICRO by DATE_TRUNC_FUNCTIONS(timestamp_micro):
+// MICRO
 DATE_TRUNC_FIXED_UNIT(date_trunc_Second, timestamp_micro, MICROS_IN_SEC)
-// expands to:
-FORCE_INLINE gdv_timestamp_micro
-date_trunc_Second_timestamp_micro(gdv_timestamp_micro micros) {
-  return micros >= 0 ? ((micros / MICROS_IN_SEC) * MICROS_IN_SEC)
-                     : (((micros - MICROS_IN_SEC + 1) / MICROS_IN_SEC) * MICROS_IN_SEC);
-}
+DATE_TRUNC_FIXED_UNIT(date_trunc_Minute, timestamp_micro, MICROS_IN_MIN)
+DATE_TRUNC_FIXED_UNIT(date_trunc_Hour,   timestamp_micro, MICROS_IN_HOUR)
+DATE_TRUNC_FIXED_UNIT(date_trunc_Day,    timestamp_micro, MICROS_IN_DAY)
+
+// NANO
+DATE_TRUNC_FIXED_UNIT(date_trunc_Second, timestamp_nano, NANOS_IN_SEC)
+DATE_TRUNC_FIXED_UNIT(date_trunc_Minute, timestamp_nano, NANOS_IN_MIN)
+DATE_TRUNC_FIXED_UNIT(date_trunc_Hour,   timestamp_nano, NANOS_IN_HOUR)
+DATE_TRUNC_FIXED_UNIT(date_trunc_Day,    timestamp_nano, NANOS_IN_DAY)
 ```
 
-The sub-second truncation levels are new function names registered explicitly
-in `function_registry_datetime.cc` since they do not exist for all types:
+**EpochTimePoint-based (`DATE_TRUNC_WEEK`, `DATE_TRUNC_MONTH_UNITS`,
+`DATE_TRUNC_YEAR_UNITS`):** Used for Week, Month, Quarter, Year, Decade,
+Century, Millennium. These construct `EpochTimePoint(millis)` and return
+`.MillisSinceEpoch()`, so they cannot be directly expanded for MICRO/NANO.
+Instead, delegation wrappers convert in, delegate to the existing `_timestamp`
+implementation, and convert back:
+
+```c
+#define DATE_TRUNC_MICRO(NAME)                                                  \
+  FORCE_INLINE                                                                  \
+  gdv_timestamp_micro NAME##_timestamp_micro(gdv_timestamp_micro micros) {      \
+    gdv_timestamp millis_result =                                               \
+        NAME##_timestamp(MICROS_TO_MILLIS_FLOOR(micros));                       \
+    return millis_result * MICROS_IN_MILLIS;                                    \
+  }
+
+#define DATE_TRUNC_NANO(NAME)                                                   \
+  FORCE_INLINE                                                                  \
+  gdv_timestamp_nano NAME##_timestamp_nano(gdv_timestamp_nano nanos) {          \
+    gdv_timestamp millis_result =                                               \
+        NAME##_timestamp(NANOS_TO_MILLIS_FLOOR(nanos));                         \
+    return millis_result * NANOS_IN_MILLIS;                                     \
+  }
+
+DATE_TRUNC_MICRO(date_trunc_Week)
+DATE_TRUNC_MICRO(date_trunc_Month)
+DATE_TRUNC_MICRO(date_trunc_Quarter)
+DATE_TRUNC_MICRO(date_trunc_Year)
+DATE_TRUNC_MICRO(date_trunc_Decade)
+DATE_TRUNC_MICRO(date_trunc_Century)
+DATE_TRUNC_MICRO(date_trunc_Millennium)
+
+DATE_TRUNC_NANO(date_trunc_Week)
+// ... same list for NANO ...
+```
+
+The `millis_result * MICROS_IN_MILLIS` multiply-back is exact: EpochTimePoint-
+based truncation always lands on a day boundary (or coarser), so the truncated
+millis value has no sub-millisecond remainder to lose.
+
+**New sub-second truncation levels** are pure integer math, registered
+explicitly in `function_registry_datetime.cc` since they do not exist for all
+types:
 
 ```c
 DATE_TRUNC_FIXED_UNIT(date_trunc_Millisecond, timestamp_micro, MICROS_IN_MILLIS)
@@ -416,7 +552,9 @@ arithmetic overflow is handled.
 
 ## Open Questions
 
-None — all design decisions are resolved.
+- **`datediff`, `to_utc_timestamp`, `from_utc_timestamp`**: these are registered
+  for `Timestamp(MILLI)` but not mentioned in scope. Should MICRO/NANO variants
+  be added in this contribution or deferred to a follow-up?
 
 ## References
 
