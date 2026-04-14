@@ -229,7 +229,7 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  jit_builder.setDataLayout(std::make_optional(data_layout));
+  jit_builder.setDataLayout(llvm::Optional<llvm::DataLayout>(data_layout));
 
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(

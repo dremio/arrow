@@ -71,29 +71,24 @@ class TimestampIR : public FunctionIRBuilder {
   // Generic calendar wrapper: handles both arg orders and int32/int64 count
   Status BuildTimestampaddCalendarGeneric(const std::string& fn,
                                           const std::string& precompiled_fn,
-                                          arrow::TimeUnit::type unit,
-                                          bool count_first,
+                                          arrow::TimeUnit::type unit, bool count_first,
                                           llvm::Type* count_type);
 
   // Extract: convert ts to millis, call precompiled, return int64
   // fn(int64 ts) -> int64
-  Status BuildExtractWrapper(const std::string& fn,
-                             const std::string& precompiled_fn,
+  Status BuildExtractWrapper(const std::string& fn, const std::string& precompiled_fn,
                              arrow::TimeUnit::type unit);
 
   // date_trunc: convert ts to millis, call precompiled trunc, scale back
   // The truncation zeroes sub-unit data, so no remainder recombination.
   // fn(int64 ts) -> int64
-  Status BuildTruncWrapper(const std::string& fn,
-                           const std::string& precompiled_fn,
+  Status BuildTruncWrapper(const std::string& fn, const std::string& precompiled_fn,
                            arrow::TimeUnit::type unit);
 
   // Diff: convert both ts inputs to millis, call precompiled, return scalar
   // fn(int64 ts1, int64 ts2) -> int32 or float64
-  Status BuildDiffWrapper(const std::string& fn,
-                          const std::string& precompiled_fn,
-                          arrow::TimeUnit::type unit,
-                          llvm::Type* return_type);
+  Status BuildDiffWrapper(const std::string& fn, const std::string& precompiled_fn,
+                          arrow::TimeUnit::type unit, llvm::Type* return_type);
 
   // Cast: convert ts to millis, call precompiled cast (variable signatures)
   Status BuildCastFromTimestampWrapper(const std::string& fn,
@@ -103,14 +98,12 @@ class TimestampIR : public FunctionIRBuilder {
 
   // Timezone: split-recombine wrapper for to_utc/from_utc
   // fn(context, ts, tz_str, tz_len) -> ts
-  Status BuildTimezoneWrapper(const std::string& fn,
-                              const std::string& precompiled_fn,
+  Status BuildTimezoneWrapper(const std::string& fn, const std::string& precompiled_fn,
                               arrow::TimeUnit::type unit);
 
   // castVARCHAR: scale ts to millis before formatting
   // fn(context, ts, len, &out_len) -> const char*
-  Status BuildCastVARCHARWrapper(const std::string& fn,
-                                 const std::string& precompiled_fn,
+  Status BuildCastVARCHARWrapper(const std::string& fn, const std::string& precompiled_fn,
                                  arrow::TimeUnit::type unit);
 
   // Floor division: ts / divisor rounded toward negative infinity.
@@ -123,7 +116,7 @@ class TimestampIR : public FunctionIRBuilder {
   // quotient * divisor + remainder == ts and 0 <= remainder < divisor.
   // Used by split-recombine wrappers (timezone, calendar add).
   std::pair<llvm::Value*, llvm::Value*> FloorDivRem(llvm::Value* ts,
-                                                     llvm::Value* divisor);
+                                                    llvm::Value* divisor);
 };
 
 }  // namespace gandiva

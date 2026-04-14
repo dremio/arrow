@@ -220,8 +220,8 @@ Status TimestampIR::BuildTimestampaddFixed(const std::string& function_name,
   // result = ts + (int64)count * units_per_fixed_unit
   int64_t units_per_fixed_unit = seconds_per_unit * UnitsPerSecond(time_unit);
   auto count_i64 = ir_builder()->CreateSExt(count, i64);
-  auto delta = ir_builder()->CreateMul(
-      count_i64, llvm::ConstantInt::get(i64, units_per_fixed_unit));
+  auto delta = ir_builder()->CreateMul(count_i64,
+                                       llvm::ConstantInt::get(i64, units_per_fixed_unit));
   auto result = ir_builder()->CreateAdd(ts, delta);
 
   ir_builder()->CreateRet(result);
@@ -229,8 +229,7 @@ Status TimestampIR::BuildTimestampaddFixed(const std::string& function_name,
 }
 
 Status TimestampIR::BuildDateArithFixed(const std::string& function_name,
-                                        bool count_first,
-                                        int64_t seconds_per_count,
+                                        bool count_first, int64_t seconds_per_count,
                                         arrow::TimeUnit::type time_unit,
                                         llvm::Type* count_type) {
   auto i64 = types()->i64_type();
@@ -249,8 +248,8 @@ Status TimestampIR::BuildDateArithFixed(const std::string& function_name,
 
   int64_t units_per_count = seconds_per_count * UnitsPerSecond(time_unit);
   auto count_i64 = (count_type == i64) ? count : ir_builder()->CreateSExt(count, i64);
-  auto delta = ir_builder()->CreateMul(
-      count_i64, llvm::ConstantInt::get(i64, units_per_count));
+  auto delta =
+      ir_builder()->CreateMul(count_i64, llvm::ConstantInt::get(i64, units_per_count));
   auto result = ir_builder()->CreateAdd(ts, delta);
 
   ir_builder()->CreateRet(result);
@@ -287,11 +286,8 @@ Status TimestampIR::BuildTimestampaddCalendar(const std::string& function_name,
 }
 
 Status TimestampIR::BuildTimestampaddCalendarGeneric(
-    const std::string& function_name,
-    const std::string& precompiled_millis_fn,
-    arrow::TimeUnit::type time_unit,
-    bool count_first,
-    llvm::Type* count_type) {
+    const std::string& function_name, const std::string& precompiled_millis_fn,
+    arrow::TimeUnit::type time_unit, bool count_first, llvm::Type* count_type) {
   auto precompiled_fn = module()->getFunction(precompiled_millis_fn);
   if (!precompiled_fn) {
     return Status::Invalid("Precompiled function not found: ", precompiled_millis_fn);
@@ -313,8 +309,7 @@ Status TimestampIR::BuildTimestampaddCalendarGeneric(
 
   // Convert count to i32 if needed (precompiled fn takes int32 count for millis version)
   auto i32 = types()->i32_type();
-  auto count_i32 = (count_type == i32) ? count
-                                       : ir_builder()->CreateTrunc(count, i32);
+  auto count_i32 = (count_type == i32) ? count : ir_builder()->CreateTrunc(count, i32);
 
   int64_t upm = UnitsPerMilli(time_unit);
   auto upm_const = llvm::ConstantInt::get(i64, upm);
@@ -386,8 +381,7 @@ Status TimestampIR::BuildDiffWrapper(const std::string& function_name,
   }
 
   auto i64 = types()->i64_type();
-  auto function = BuildFunction(function_name, return_type,
-                                {{"ts1", i64}, {"ts2", i64}});
+  auto function = BuildFunction(function_name, return_type, {{"ts1", i64}, {"ts2", i64}});
   auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
   ir_builder()->SetInsertPoint(entry);
 
@@ -403,10 +397,8 @@ Status TimestampIR::BuildDiffWrapper(const std::string& function_name,
 }
 
 Status TimestampIR::BuildCastFromTimestampWrapper(
-    const std::string& function_name,
-    const std::string& precompiled_millis_fn,
-    arrow::TimeUnit::type time_unit,
-    llvm::Type* return_type) {
+    const std::string& function_name, const std::string& precompiled_millis_fn,
+    arrow::TimeUnit::type time_unit, llvm::Type* return_type) {
   auto precompiled_fn = module()->getFunction(precompiled_millis_fn);
   if (!precompiled_fn) {
     return Status::Invalid("Precompiled function not found: ", precompiled_millis_fn);
@@ -439,8 +431,8 @@ Status TimestampIR::BuildTimezoneWrapper(const std::string& function_name,
   auto i64 = types()->i64_type();
   auto i32 = types()->i32_type();
   auto i8ptr = llvm::Type::getInt8Ty(*context())->getPointerTo();
-  auto function = BuildFunction(function_name, i64,
-      {{"ctx", i64}, {"ts", i64}, {"tz", i8ptr}, {"tz_len", i32}});
+  auto function = BuildFunction(
+      function_name, i64, {{"ctx", i64}, {"ts", i64}, {"tz", i8ptr}, {"tz_len", i32}});
   auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
   ir_builder()->SetInsertPoint(entry);
 
@@ -454,7 +446,8 @@ Status TimestampIR::BuildTimezoneWrapper(const std::string& function_name,
   auto upm_const = llvm::ConstantInt::get(i64, upm);
   auto [millis, remainder] = FloorDivRem(ts, upm_const);
 
-  auto result_millis = ir_builder()->CreateCall(precompiled_fn, {ctx, millis, tz, tz_len});
+  auto result_millis =
+      ir_builder()->CreateCall(precompiled_fn, {ctx, millis, tz, tz_len});
   auto result_scaled = ir_builder()->CreateMul(result_millis, upm_const);
   auto result = ir_builder()->CreateAdd(result_scaled, remainder);
 
@@ -478,13 +471,14 @@ Status TimestampIR::BuildCastVARCHARWrapper(const std::string& function_name,
   auto i8 = llvm::Type::getInt8Ty(*context());
   auto i8ptr = i8->getPointerTo();
   auto i32ptr = i32->getPointerTo();
-  auto function = BuildFunction(function_name, i8ptr,
-      {{"ctx", i64}, {"ts", i64}, {"len", i64}, {"out_len", i32ptr}});
+  auto function =
+      BuildFunction(function_name, i8ptr,
+                    {{"ctx", i64}, {"ts", i64}, {"len", i64}, {"out_len", i32ptr}});
 
   int64_t upm = UnitsPerMilli(time_unit);
-  int extra_digits = (time_unit == arrow::TimeUnit::MICRO) ? 3
-                   : (time_unit == arrow::TimeUnit::NANO)  ? 6
-                                                           : 0;
+  int extra_digits = (time_unit == arrow::TimeUnit::MICRO)  ? 3
+                     : (time_unit == arrow::TimeUnit::NANO) ? 6
+                                                            : 0;
 
   if (extra_digits == 0) {
     // MILLI: pass through directly
@@ -513,7 +507,8 @@ Status TimestampIR::BuildCastVARCHARWrapper(const std::string& function_name,
 
   auto upm_const = llvm::ConstantInt::get(i64, upm);
   auto millis = FloorDiv(ts, upm_const);
-  auto base_buf = ir_builder()->CreateCall(precompiled_fn, {ctx, millis, len, out_len_ptr});
+  auto base_buf =
+      ir_builder()->CreateCall(precompiled_fn, {ctx, millis, len, out_len_ptr});
   auto base_len = ir_builder()->CreateLoad(i32, out_len_ptr);
 
   // Check if length allows extra digits
@@ -537,8 +532,8 @@ Status TimestampIR::BuildCastVARCHARWrapper(const std::string& function_name,
   auto new_buf = ir_builder()->CreateCall(arena_fn, {ctx, clamped_len});
 
   // memcpy(new_buf, base_buf, base_len)
-  ir_builder()->CreateMemCpy(
-      new_buf, llvm::MaybeAlign(1), base_buf, llvm::MaybeAlign(1), base_len);
+  ir_builder()->CreateMemCpy(new_buf, llvm::MaybeAlign(1), base_buf, llvm::MaybeAlign(1),
+                             base_len);
 
   // Compute the non-negative sub-ms remainder consistent with floor division.
   // FloorDivRem guarantees remainder is in [0, upm), even for negative timestamps.
@@ -554,16 +549,14 @@ Status TimestampIR::BuildCastVARCHARWrapper(const std::string& function_name,
 
   llvm::BasicBlock* last_append_bb = nullptr;
   for (int i = 0; i < extra_digits; ++i) {
-    auto idx = ir_builder()->CreateAdd(base_len,
-        llvm::ConstantInt::get(i32, i));
+    auto idx = ir_builder()->CreateAdd(base_len, llvm::ConstantInt::get(i32, i));
     auto write_pos = ir_builder()->CreateICmpSLT(idx, clamped_len);
 
     // digit = (abs_rem / divisor) % 10 + '0'
-    auto d = ir_builder()->CreateSDiv(abs_rem,
-        llvm::ConstantInt::get(i64, divisor));
+    auto d = ir_builder()->CreateSDiv(abs_rem, llvm::ConstantInt::get(i64, divisor));
     auto digit = ir_builder()->CreateSRem(d, llvm::ConstantInt::get(i64, 10));
-    auto ch = ir_builder()->CreateAdd(
-        ir_builder()->CreateTrunc(digit, i8), llvm::ConstantInt::get(i8, '0'));
+    auto ch = ir_builder()->CreateAdd(ir_builder()->CreateTrunc(digit, i8),
+                                      llvm::ConstantInt::get(i8, '0'));
 
     auto gep = ir_builder()->CreateGEP(i8, new_buf, idx);
 
@@ -607,8 +600,8 @@ llvm::Value* TimestampIR::FloorDiv(llvm::Value* ts, llvm::Value* divisor) {
                                  ir_builder()->CreateSelect(needs_adjust, one, zero));
 }
 
-std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
-    llvm::Value* ts, llvm::Value* divisor) {
+std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(llvm::Value* ts,
+                                                               llvm::Value* divisor) {
   auto i64 = types()->i64_type();
   auto zero = llvm::ConstantInt::get(i64, 0);
   auto one = llvm::ConstantInt::get(i64, 1);
@@ -639,8 +632,8 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
       if (status.ok() || status.IsInvalid()) {
         return;  // OK or precompiled function not found — expected
       }
-      ARROW_LOG(DEBUG) << "TimestampIR: unexpected error building " << ir_name
-                       << ": " << status.ToString();
+      ARROW_LOG(DEBUG) << "TimestampIR: unexpected error building " << ir_name << ": "
+                       << status.ToString();
     };
 
     // Fixed-unit: pure IR (always succeeds)
@@ -653,50 +646,51 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
     for (const auto* ca : kCalendarAdds) {
       auto ir_name = std::string(ca) + "_int32_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildTimestampaddCalendar(ir_name,
-                       std::string(ca) + "_int32_timestamp", unit));
+                ts_ir->BuildTimestampaddCalendar(ir_name,
+                                                 std::string(ca) + "_int32_timestamp",
+                                                 unit));
     }
 
     // Extract functions
     for (const auto* ex : kExtracts) {
       auto ir_name = std::string(ex) + "_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildExtractWrapper(ir_name,
-                       std::string(ex) + "_timestamp", unit));
+                ts_ir->BuildExtractWrapper(ir_name, std::string(ex) + "_timestamp",
+                                           unit));
     }
 
     // date_trunc functions
     for (const auto* tr : kTruncs) {
       auto ir_name = std::string(tr) + "_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildTruncWrapper(ir_name,
-                       std::string(tr) + "_timestamp", unit));
+                ts_ir->BuildTruncWrapper(ir_name, std::string(tr) + "_timestamp", unit));
     }
 
     // timestampdiff functions (two ts -> int32)
     for (const auto* di : kDiffs) {
       auto ir_name = std::string(di) + "_timestamp_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildDiffWrapper(ir_name,
-                       std::string(di) + "_timestamp_timestamp", unit, i32));
+                ts_ir->BuildDiffWrapper(ir_name,
+                                        std::string(di) + "_timestamp_timestamp", unit,
+                                        i32));
     }
 
     // months_between / datediff
     for (const auto& ts2 : kTwoTsScalars) {
       auto ir_name = std::string(ts2.name) + "_timestamp_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildDiffWrapper(ir_name,
-                       std::string(ts2.name) + "_timestamp_timestamp", unit,
-                       ts2.returns_float ? f64 : i32));
+                ts_ir->BuildDiffWrapper(ir_name,
+                                        std::string(ts2.name) + "_timestamp_timestamp",
+                                        unit, ts2.returns_float ? f64 : i32));
     }
 
     // Cast from timestamp
     for (const auto& c : kCastsFromTs) {
       auto ir_name = std::string(c.name) + "_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildCastFromTimestampWrapper(ir_name,
-                       std::string(c.name) + "_timestamp", unit,
-                       c.returns_i32 ? i32 : i64));
+                ts_ir->BuildCastFromTimestampWrapper(ir_name,
+                                                     std::string(c.name) + "_timestamp",
+                                                     unit, c.returns_i32 ? i32 : i64));
     }
 
     // date_add/add/date_sub/subtract/date_diff with int32 and int64
@@ -710,8 +704,8 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
           ir_name = std::string(da.name) + "_timestamp_" + type_name + sfx;
         }
         try_build(ir_name,
-                     ts_ir->BuildDateArithFixed(ir_name, da.count_first,
-                         da.sign * 86400LL, unit, count_type));
+                  ts_ir->BuildDateArithFixed(ir_name, da.count_first,
+                                             da.sign * 86400LL, unit, count_type));
       }
     }
 
@@ -719,20 +713,20 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
     for (const auto& fa : kFixedAdds) {
       auto ir_name = std::string(fa.name) + "_int64_timestamp" + sfx;
       try_build(ir_name,
-                   ts_ir->BuildDateArithFixed(ir_name, /*count_first=*/true,
-                       fa.seconds, unit, i64));
+                ts_ir->BuildDateArithFixed(ir_name, /*count_first=*/true,
+                                           fa.seconds, unit, i64));
     }
 
     // Reversed-arg variants: timestampaddX(timestamp, int32/int64) -> timestamp
     for (const auto& fa : kFixedAdds) {
       auto ir32 = std::string(fa.name) + "_timestamp_int32" + sfx;
       try_build(ir32,
-                   ts_ir->BuildDateArithFixed(ir32, /*count_first=*/false,
-                       fa.seconds, unit, i32));
+                ts_ir->BuildDateArithFixed(ir32, /*count_first=*/false,
+                                           fa.seconds, unit, i32));
       auto ir64 = std::string(fa.name) + "_timestamp_int64" + sfx;
       try_build(ir64,
-                   ts_ir->BuildDateArithFixed(ir64, /*count_first=*/false,
-                       fa.seconds, unit, i64));
+                ts_ir->BuildDateArithFixed(ir64, /*count_first=*/false,
+                                           fa.seconds, unit, i64));
     }
 
     // Reversed-arg calendar: timestampaddMonth/Quarter/Year(timestamp, int32/int64)
@@ -743,37 +737,36 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
       // (timestamp, int32) variant
       auto rev32 = std::string(ca) + "_timestamp_int32" + sfx;
       try_build(rev32,
-                   ts_ir->BuildTimestampaddCalendarGeneric(rev32, millis_fn, unit,
-                       /*count_first=*/false, i32));
+                ts_ir->BuildTimestampaddCalendarGeneric(rev32, millis_fn, unit,
+                                                        /*count_first=*/false, i32));
       // (timestamp, int64) variant
       auto rev64 = std::string(ca) + "_timestamp_int64" + sfx;
       try_build(rev64,
-                   ts_ir->BuildTimestampaddCalendarGeneric(rev64, millis_fn, unit,
-                       /*count_first=*/false, i64));
+                ts_ir->BuildTimestampaddCalendarGeneric(rev64, millis_fn, unit,
+                                                        /*count_first=*/false, i64));
       // (int64, timestamp) variant
       auto fwd64 = std::string(ca) + "_int64_timestamp" + sfx;
       try_build(fwd64,
-                   ts_ir->BuildTimestampaddCalendarGeneric(fwd64, millis_fn, unit,
-                       /*count_first=*/true, i64));
+                ts_ir->BuildTimestampaddCalendarGeneric(fwd64, millis_fn, unit,
+                                                        /*count_first=*/true, i64));
     }
 
     // Timezone functions: to_utc/from_utc (split-recombine)
     {
       std::string ir_to = std::string("to_utc_timezone_timestamp") + sfx;
       try_build(ir_to,
-                   ts_ir->BuildTimezoneWrapper(ir_to, "to_utc_timezone_timestamp", unit));
+                ts_ir->BuildTimezoneWrapper(ir_to, "to_utc_timezone_timestamp", unit));
       std::string ir_from = std::string("from_utc_timezone_timestamp") + sfx;
       try_build(ir_from,
-                   ts_ir->BuildTimezoneWrapper(ir_from, "from_utc_timezone_timestamp",
-                                               unit));
+                ts_ir->BuildTimezoneWrapper(ir_from, "from_utc_timezone_timestamp", unit));
     }
 
     // castVARCHAR(timestamp, int64): scale to millis
     {
       std::string ir_name = std::string("castVARCHAR_timestamp_int64") + sfx;
       try_build(ir_name,
-                   ts_ir->BuildCastVARCHARWrapper(ir_name, "castVARCHAR_timestamp_int64",
-                                                   unit));
+                ts_ir->BuildCastVARCHARWrapper(ir_name, "castVARCHAR_timestamp_int64",
+                                               unit));
     }
   }
 
@@ -790,7 +783,8 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
   for (auto& fn : *ts_ir->module()) {
     auto name = fn.getName().str();
     // Only check functions with unit suffixes that we generate
-    if ((name.find("_us") != std::string::npos || name.find("_ns") != std::string::npos) &&
+    if ((name.find("_us") != std::string::npos ||
+         name.find("_ns") != std::string::npos) &&
         expected.find(name) == expected.end()) {
       ARROW_LOG(WARNING) << "TimestampIR: function " << name
                          << " was created but is not in AllFunctionNames() — "
