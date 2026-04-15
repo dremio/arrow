@@ -229,7 +229,11 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+#if LLVM_VERSION_MAJOR >= 17
+  jit_builder.setDataLayout(std::make_optional(data_layout));
+#else
   jit_builder.setDataLayout(llvm::Optional<llvm::DataLayout>(data_layout));
+#endif
 
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(
