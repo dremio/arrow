@@ -135,6 +135,8 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     bool has_arena_allocs() { return has_arena_allocs_; }
 
+    const Status& status() const { return status_; }
+
    private:
     enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
@@ -158,7 +160,8 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     // Generate code to invoke a function call.
     LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
-                                std::vector<llvm::Value*>* params);
+                                std::vector<llvm::Value*>* params,
+                                const FuncDescriptorPtr& descriptor = nullptr);
 
     // Generate code for an if-else condition.
     LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
@@ -179,6 +182,7 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     LLVMGenerator* generator_;
     LValuePtr result_;
+    Status status_;
     llvm::Function* function_;
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;

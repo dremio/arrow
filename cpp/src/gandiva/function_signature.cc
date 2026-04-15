@@ -45,6 +45,15 @@ bool DataTypeEquals(const DataTypePtr& left, const DataTypePtr& right) {
         return (dleft != NULL) && (dright != NULL) &&
                (dleft->byte_width() == dright->byte_width());
       }
+      case arrow::Type::TIMESTAMP: {
+        // For timestamp types, the TimeUnit isn't part of the signature
+        // (conversion is handled at codegen time by TimestampIR).
+        // However, timezone IS significant — a function registered for
+        // timestamp(null tz) should not match timestamp("America/New_York").
+        auto tleft = checked_cast<arrow::TimestampType*>(left.get());
+        auto tright = checked_cast<arrow::TimestampType*>(right.get());
+        return tleft->timezone() == tright->timezone();
+      }
       default:
         return left->Equals(right);
     }

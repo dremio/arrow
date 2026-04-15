@@ -442,10 +442,17 @@ EXTRACT_MINUTE_TIME(time32)
 
 EXTRACT_HOUR_TIME(time32)
 
-#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT) \
-  FORCE_INLINE                                             \
-  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {            \
-    return ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
+#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT)                         \
+  FORCE_INLINE                                                                     \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                                    \
+    /* Use floor division to correctly handle negative timestamps (pre-epoch). */  \
+    /* C++ integer division truncates toward zero; we need toward negative inf. */ \
+    gdv_##TYPE q = millis / NMILLIS_IN_UNIT;                                       \
+    gdv_##TYPE r = millis % NMILLIS_IN_UNIT;                                       \
+    if (r != 0 && (millis ^ NMILLIS_IN_UNIT) < 0) {                                \
+      --q;                                                                         \
+    }                                                                              \
+    return q * NMILLIS_IN_UNIT;                                                    \
   }
 
 #define DATE_TRUNC_WEEK(TYPE)                                               \
@@ -927,7 +934,9 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
   gdv_int64 hour = extractHour_timestamp(in);
   gdv_int64 minute = extractMinute_timestamp(in);
   gdv_int64 second = extractSecond_timestamp(in);
+  // Use non-negative remainder for sub-second millis (pre-epoch safe).
   gdv_int64 millis = in % MILLIS_IN_SEC;
+  if (millis < 0) millis += MILLIS_IN_SEC;
 
   static const int kTimeStampStringLen = 23;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
