@@ -28,6 +28,7 @@
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/tests/test_util.h"
+#include "gandiva/timestamp_ir.h"
 
 namespace gandiva {
 
@@ -150,6 +151,78 @@ TEST_F(TestLLVMGenerator, VerifyExtendedCFunctions) {
   VerifyFunctionMapping("multiply_by_n_int32_int32", [](auto registry) {
     return TestConfigWithHolderFunction(std::move(registry));
   });
+}
+
+TEST_F(TestLLVMGenerator, ResolveTimestampPcName) {
+  // Empty params — name unchanged
+  {
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimestampPcName("extractDay", {}));
+    EXPECT_EQ(name, "extractDay");
+  }
+
+  // Non-timestamp params — name unchanged
+  {
+    DataTypeVector params{arrow::int32(), arrow::int32()};
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimestampPcName("add", params));
+    EXPECT_EQ(name, "add");
+  }
+
+  // Single timestamp[ms] — no remap (ms is the native precompiled unit)
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::MILLI)};
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimestampPcName("extractDay", params));
+    EXPECT_EQ(name, "extractDay");
+  }
+
+  // Single timestamp[us] with a known IR function — gets _us suffix
+  // pc_name is the precompiled name (includes type suffix), not the expression name
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::MICRO)};
+    ASSERT_OK_AND_ASSIGN(
+        auto name,
+        LLVMGenerator::ResolveTimestampPcName("extractDay_timestamp", params));
+    EXPECT_EQ(name, "extractDay_timestamp_us");
+  }
+
+  // Single timestamp[ns] with a known IR function — gets _ns suffix
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::NANO)};
+    ASSERT_OK_AND_ASSIGN(
+        auto name,
+        LLVMGenerator::ResolveTimestampPcName("extractDay_timestamp", params));
+    EXPECT_EQ(name, "extractDay_timestamp_ns");
+  }
+
+  // Two timestamp[us] params (e.g. datediff) — remapped with _us
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::MICRO),
+                          arrow::timestamp(arrow::TimeUnit::MICRO)};
+    ASSERT_OK_AND_ASSIGN(
+        auto name, LLVMGenerator::ResolveTimestampPcName("datediff_timestamp_timestamp",
+                                                          params));
+    EXPECT_EQ(name, "datediff_timestamp_timestamp_us");
+  }
+
+  // Mixed timestamp units — returns Invalid status
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::MICRO),
+                          arrow::timestamp(arrow::TimeUnit::NANO)};
+    auto result = LLVMGenerator::ResolveTimestampPcName("datediff_timestamp_timestamp",
+                                                         params);
+    EXPECT_FALSE(result.ok());
+    EXPECT_THAT(result.status().message(), testing::HasSubstr("mixed timestamp units"));
+  }
+
+  // Non-ms timestamp but no corresponding IR function — name unchanged
+  {
+    DataTypeVector params{arrow::timestamp(arrow::TimeUnit::MICRO)};
+    ASSERT_OK_AND_ASSIGN(
+        auto name, LLVMGenerator::ResolveTimestampPcName("no_such_function", params));
+    EXPECT_EQ(name, "no_such_function");
+  }
 }
 
 }  // namespace gandiva

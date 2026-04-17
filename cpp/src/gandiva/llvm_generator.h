@@ -61,6 +61,12 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// \brief Set LLVM ObjectCache.
   Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
+  /// \brief Resolve the precompiled function name, remapping to a TimestampIR variant
+  /// when the function's params include a non-millisecond timestamp argument.
+  /// Returns an error if params contain mixed timestamp TimeUnits.
+  static Result<std::string> ResolveTimestampPcName(const std::string& pc_name,
+                                                     const DataTypeVector& params);
+
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
@@ -135,6 +141,8 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     bool has_arena_allocs() { return has_arena_allocs_; }
 
+    const Status& status() const { return status_; }
+
    private:
     enum BufferType { kBufferTypeValidity = 0, kBufferTypeData, kBufferTypeOffsets };
 
@@ -158,7 +166,8 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     // Generate code to invoke a function call.
     LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
-                                std::vector<llvm::Value*>* params);
+                                std::vector<llvm::Value*>* params,
+                                const FuncDescriptorPtr& descriptor = nullptr);
 
     // Generate code for an if-else condition.
     LValuePtr BuildIfElse(llvm::Value* condition, std::function<LValuePtr()> then_func,
@@ -179,6 +188,7 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     LLVMGenerator* generator_;
     LValuePtr result_;
+    Status status_;
     llvm::Function* function_;
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
