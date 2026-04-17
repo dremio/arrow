@@ -189,6 +189,7 @@ static std::unordered_set<std::string> BuildAllFunctionNames() {
     names.insert(std::string("to_utc_timezone_timestamp") + sfx);
     names.insert(std::string("from_utc_timezone_timestamp") + sfx);
     names.insert(std::string("castVARCHAR_timestamp_int64") + sfx);
+    names.insert(std::string("next_day_from_timestamp") + sfx);
   }
   return names;
 }
@@ -457,6 +458,40 @@ Status TimestampIR::BuildTimezoneWrapper(const std::string& function_name,
   auto result_millis = ir_builder()->CreateCall(precompiled_fn, {ctx, millis, tz, tz_len});
   auto result_scaled = ir_builder()->CreateMul(result_millis, upm_const);
   auto result = ir_builder()->CreateAdd(result_scaled, remainder);
+
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
+Status TimestampIR::BuildNextDayWrapper(const std::string& function_name,
+                                        const std::string& precompiled_millis_fn,
+                                        arrow::TimeUnit::type time_unit) {
+  // fn(context, ts, day_str, day_len) -> date64
+  // next_day returns the date of the next weekday (e.g. 'MO' for Monday) at midnight,
+  // so sub-ms precision is not relevant in the result — just scale the input to millis.
+  auto precompiled_fn = module()->getFunction(precompiled_millis_fn);
+  if (!precompiled_fn) {
+    return Status::Invalid("Precompiled function not found: ", precompiled_millis_fn);
+  }
+
+  auto i64 = types()->i64_type();
+  auto i32 = types()->i32_type();
+  auto i8ptr = llvm::PointerType::get(*context(), 0);
+  auto function = BuildFunction(
+      function_name, i64,
+      {{"ctx", i64}, {"ts", i64}, {"day", i8ptr}, {"day_len", i32}});
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  auto arg_iter = function->arg_begin();
+  auto ctx = &arg_iter[0];
+  auto ts = &arg_iter[1];
+  auto day = &arg_iter[2];
+  auto day_len = &arg_iter[3];
+
+  int64_t upm = UnitsPerMilli(time_unit);
+  auto millis = FloorDiv(ts, llvm::ConstantInt::get(i64, upm));
+  auto result = ir_builder()->CreateCall(precompiled_fn, {ctx, millis, day, day_len});
 
   ir_builder()->CreateRet(result);
   return Status::OK();
@@ -774,6 +809,13 @@ std::pair<llvm::Value*, llvm::Value*> TimestampIR::FloorDivRem(
       try_build(ir_name,
                    ts_ir->BuildCastVARCHARWrapper(ir_name, "castVARCHAR_timestamp_int64",
                                                    unit));
+    }
+
+    // next_day(timestamp, utf8): scale to millis, return date64
+    {
+      std::string ir_name = std::string("next_day_from_timestamp") + sfx;
+      try_build(ir_name,
+                ts_ir->BuildNextDayWrapper(ir_name, "next_day_from_timestamp", unit));
     }
   }
 
