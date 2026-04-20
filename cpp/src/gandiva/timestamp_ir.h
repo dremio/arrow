@@ -113,6 +113,12 @@ class TimestampIR : public FunctionIRBuilder {
                                  const std::string& precompiled_fn,
                                  arrow::TimeUnit::type unit);
 
+  // next_day: scale ts to millis, call precompiled, return date64
+  // fn(context, ts, day_str, day_len) -> int64
+  Status BuildNextDayWrapper(const std::string& fn,
+                             const std::string& precompiled_fn,
+                             arrow::TimeUnit::type unit);
+
   // Floor division: ts / divisor rounded toward negative infinity.
   // C/LLVM SDiv truncates toward zero, which gives wrong millis for negative
   // timestamps with non-zero sub-ms components (e.g., SDiv(-456, 1000) = 0
