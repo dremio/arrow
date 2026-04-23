@@ -40,4 +40,17 @@ static inline gdv_timestamp StringToTimestamp(const std::string& s) {
   return out * 1000;
 }
 
+// Parse timestamp with optional fractional seconds, returning value in the specified
+// unit. Supports formats like "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM:SS.sssssssss"
+// where fractional seconds can have 1-9 digits depending on the time unit.
+static inline gdv_timestamp StringToTimestampWithUnit(const std::string& s,
+                                                      ::arrow::TimeUnit::type unit) {
+  int64_t out = 0;
+  bool success = ::arrow::internal::ParseTimestampISO8601(
+      s.c_str(), s.length(), unit, &out, /*out_zone_offset_present=*/nullptr);
+  DCHECK(success);
+  ARROW_UNUSED(success);
+  return out;
+}
+
 }  // namespace gandiva
