@@ -61,6 +61,7 @@ set(SRC_FILES
     context_helper.cc
     decimal_ir.cc
     decimal_type_util.cc
+    timestamp_ir.cc
     decimal_xlarge.cc
     engine.cc
     date_utils.cc

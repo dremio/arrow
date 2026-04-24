@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
@@ -30,6 +31,7 @@
 #include "gandiva/llvm_types.h"
 #include "gandiva/llvm_util_internal.h"
 #include "gandiva/lvalue.h"
+#include "gandiva/timestamp_ir.h"
 
 namespace gandiva {
 
@@ -386,6 +388,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   Visitor visitor(this, fn, loop_entry, arg_addrs, arg_local_bitmaps, arg_holder_ptrs,
                   slice_offsets, arg_context_ptr, position_var);
   value_expr->Accept(visitor);
+  ARROW_RETURN_NOT_OK(visitor.status());
   LValuePtr output_value = visitor.result();
 
   // The "current" block may have changed due to code generation in the visitor.
@@ -816,7 +819,8 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     auto then_lambda = [&] {
       ADD_VISITOR_TRACE("fn " + function_name +
                         " can return errors : all args valid, invoke fn");
-      return BuildFunctionCall(native_function, arrow_return_type, &params);
+      return BuildFunctionCall(native_function, arrow_return_type, &params,
+                               dex.func_descriptor());
     };
 
     // else block
@@ -834,7 +838,9 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
     result_ = BuildIfElse(is_valid, then_lambda, else_lambda, arrow_return_type);
   } else {
     // fast path : invoke function without computing validities.
-    result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
+    result_ = BuildFunctionCall(native_function, arrow_return_type, &params,
+                                dex.func_descriptor());
+    if (!status_.ok()) return;
   }
 }
 
@@ -847,7 +853,8 @@ void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
                             native_function->NeedsContext());
 
   auto arrow_return_type = dex.func_descriptor()->return_type();
-  result_ = BuildFunctionCall(native_function, arrow_return_type, &params);
+  result_ = BuildFunctionCall(native_function, arrow_return_type, &params,
+                              dex.func_descriptor());
 }
 
 void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
@@ -884,6 +891,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
 
   // Evaluate condition.
   LValuePtr if_condition = BuildValueAndValidity(dex.condition_vv());
+  if (!status_.ok()) return;
 
   // Check if the result is valid, and there is match.
   llvm::Value* validAndMatched =
@@ -893,6 +901,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   auto then_lambda = [&] {
     ADD_VISITOR_TRACE("branch to then block");
     LValuePtr then_lvalue = BuildValueAndValidity(dex.then_vv());
+    if (then_lvalue == nullptr) return then_lvalue;
     ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), then_lvalue->validity());
     ADD_VISITOR_TRACE("IfExpression result validity %T in matching then",
                       then_lvalue->validity());
@@ -906,6 +915,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
       ADD_VISITOR_TRACE("branch to terminal else block");
 
       else_lvalue = BuildValueAndValidity(dex.else_vv());
+      if (else_lvalue == nullptr) return else_lvalue;
       // update the local bitmap with the validity.
       ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), else_lvalue->validity());
       ADD_VISITOR_TRACE("IfExpression result validity %T in terminal else",
@@ -923,6 +933,7 @@ void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
 
   // build the if-else condition.
   result_ = BuildIfElse(validAndMatched, then_lambda, else_lambda, dex.result_type());
+  if (!status_.ok()) return;
   if (arrow::is_binary_like(dex.result_type()->id())) {
     ADD_VISITOR_TRACE("IfElse result length %T", result_->length());
   }
@@ -1087,6 +1098,9 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   for (auto& pair : dex.args()) {
     DexPtr value_expr = pair->value_expr();
     value_expr->Accept(*this);
+    if (!status_.ok()) {
+      return;
+    }
     LValue& result_ref = *result();
     params.push_back(result_ref.data());
 
@@ -1198,6 +1212,7 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
   // Emit the then block.
   builder->SetInsertPoint(then_bb);
   LValuePtr then_lvalue = then_func();
+  if (then_lvalue == nullptr) return nullptr;
   builder->CreateBr(merge_bb);
 
   // refresh then_bb for phi (could have changed due to code generation of then_vv).
@@ -1206,6 +1221,7 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
   // Emit the else block.
   builder->SetInsertPoint(else_bb);
   LValuePtr else_lvalue = else_func();
+  if (else_lvalue == nullptr) return nullptr;
   builder->CreateBr(merge_bb);
 
   // refresh else_bb for phi (could have changed due to code generation of else_vv).
@@ -1245,6 +1261,9 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
   // generate code for value
   auto value_expr = pair.value_expr();
   value_expr->Accept(*this);
+  if (!status_.ok()) {
+    return nullptr;
+  }
   auto value = result()->data();
   auto length = result()->length();
 
@@ -1254,13 +1273,66 @@ LValuePtr LLVMGenerator::Visitor::BuildValueAndValidity(const ValueValidityPair&
   return std::make_shared<LValue>(value, length, validity);
 }
 
+Result<std::string> LLVMGenerator::ResolveTimestampPcName(const std::string& pc_name,
+                                                           const DataTypeVector& params) {
+  arrow::TimeUnit::type ts_unit = arrow::TimeUnit::MILLI;
+  bool found_ts = false;
+  for (const auto& param : params) {
+    if (param->id() == arrow::Type::TIMESTAMP) {
+      auto unit =
+          arrow::internal::checked_cast<const arrow::TimestampType&>(*param).unit();
+      if (!found_ts) {
+        ts_unit = unit;
+        found_ts = true;
+      } else if (unit != ts_unit) {
+        return Status::Invalid(
+            "Gandiva cannot compile expression: mixed timestamp units in function '",
+            pc_name, "'. All timestamp arguments must have the same TimeUnit.");
+      }
+    }
+  }
+  if (found_ts
+      && (ts_unit == arrow::TimeUnit::MICRO || ts_unit == arrow::TimeUnit::NANO)) {
+    std::string suffix = (ts_unit == arrow::TimeUnit::MICRO) ? "_us" : "_ns";
+    std::string remapped = pc_name + suffix;
+    ARROW_LOG(DEBUG) << "TimestampIR remap: " << pc_name << " -> " << remapped;
+    if (TimestampIR::IsTimestampIRFunction(remapped)) {
+      return remapped;
+    }
+    // No TimestampIR variant exists for this unit. Return an error so the caller
+    // fails loudly (wrong-result-silent is worse than a build-time error).
+    // The Java sieve (GandivaPushdownSieve.TIMESTAMP_IR_EXPR_NAMES) should have
+    // already routed unsupported functions to Java before reaching this point.
+    return Status::Invalid(
+        "Gandiva: no TimestampIR variant for '", pc_name,
+        "' with timestamp TimeUnit=",
+        (ts_unit == arrow::TimeUnit::MICRO ? "MICRO" : "NANO"),
+        ". Add the function to TIMESTAMP_IR_EXPR_NAMES in GandivaPushdownSieve"
+        " or add a TimestampIR variant in timestamp_ir.cc.");
+  }
+  return pc_name;
+}
+
 LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
                                                     DataTypePtr arrow_return_type,
-                                                    std::vector<llvm::Value*>* params) {
+                                                    std::vector<llvm::Value*>* params,
+                                                    const FuncDescriptorPtr& descriptor) {
   auto types = generator_->types();
   auto arrow_return_type_id = arrow_return_type->id();
   auto llvm_return_type = types->IRType(arrow_return_type_id);
   DecimalIR decimalIR(generator_->engine_.get());
+
+  // Resolve the function name — may remap to a TimestampIR-built variant
+  // based on the actual TimeUnit from the expression tree.
+  std::string pc_name = func->pc_name();
+  if (descriptor != nullptr) {
+    auto resolve_result = ResolveTimestampPcName(pc_name, descriptor->params());
+    if (!resolve_result.ok()) {
+      status_ = resolve_result.status();
+      return nullptr;
+    }
+    pc_name = resolve_result.MoveValueUnsafe();
+  }
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
     // For decimal fns, the output precision/scale are passed along as parameters.
@@ -1276,7 +1348,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     params->push_back(ret_lvalue->scale());
 
     // Make the function call
-    auto out = decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params);
+    auto out = decimalIR.CallDecimalFunction(pc_name, llvm_return_type, *params);
     ret_lvalue->set_data(out);
     return ret_lvalue;
   } else {
@@ -1297,10 +1369,14 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
 
     // Make the function call
     llvm::IRBuilder<>* builder = ir_builder();
-    auto value =
-        isDecimalFunction
-            ? decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params)
-            : generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+    llvm::Value* value;
+    if (isDecimalFunction) {
+      value = decimalIR.CallDecimalFunction(pc_name, llvm_return_type, *params);
+    } else if (auto* ir_fn = generator_->engine_->module()->getFunction(pc_name)) {
+      value = ir_builder()->CreateCall(ir_fn, *params);
+    } else {
+      value = generator_->AddFunctionCall(pc_name, llvm_return_type, *params);
+    }
     auto value_len =
         (result_len_ptr == nullptr)
             ? nullptr

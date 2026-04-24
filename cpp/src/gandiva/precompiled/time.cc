@@ -447,12 +447,17 @@ EXTRACT_MINUTE_TIME(time32)
 
 EXTRACT_HOUR_TIME(time32)
 
-#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT)                               \
-  FORCE_INLINE                                                                           \
-  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                                          \
-    return millis >= 0                                                                   \
-               ? ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT)                          \
-               : (((millis - NMILLIS_IN_UNIT + 1) / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
+#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT)                         \
+  FORCE_INLINE                                                                     \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                                    \
+    /* Use floor division to correctly handle negative timestamps (pre-epoch). */  \
+    /* C++ integer division truncates toward zero; we need toward negative inf. */ \
+    gdv_##TYPE q = millis / NMILLIS_IN_UNIT;                                       \
+    gdv_##TYPE r = millis % NMILLIS_IN_UNIT;                                       \
+    if (r != 0 && (millis ^ NMILLIS_IN_UNIT) < 0) {                                \
+      --q;                                                                         \
+    }                                                                              \
+    return q * NMILLIS_IN_UNIT;                                                    \
   }
 
 #define DATE_TRUNC_WEEK(TYPE)                                               \
@@ -928,15 +933,15 @@ gdv_time32 castTIME_int32(int32_t int_val) {
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
-  EpochTimePoint tp(in);
-  gdv_int64 year = 1900 + tp.TmYear();
-  gdv_int64 month = 1 + tp.TmMon();
-  gdv_int64 day = tp.TmMday();
-  gdv_int64 hour = tp.TmHour();
-  gdv_int64 minute = tp.TmMin();
-  gdv_int64 second = tp.TmSec();
-  // Use TimeOfDay().subseconds() to correctly handle negative timestamps
-  gdv_int64 millis = tp.TimeOfDay().subseconds().count();
+  gdv_int64 year = extractYear_timestamp(in);
+  gdv_int64 month = extractMonth_timestamp(in);
+  gdv_int64 day = extractDay_timestamp(in);
+  gdv_int64 hour = extractHour_timestamp(in);
+  gdv_int64 minute = extractMinute_timestamp(in);
+  gdv_int64 second = extractSecond_timestamp(in);
+  // Use non-negative remainder for sub-second millis (pre-epoch safe).
+  gdv_int64 millis = in % MILLIS_IN_SEC;
+  if (millis < 0) millis += MILLIS_IN_SEC;
 
   static const int kTimeStampStringLen = 23;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
