@@ -66,6 +66,7 @@ set(SRC_FILES
     engine.cc
     date_utils.cc
     encrypt_utils_common.cc
+    encrypt_utils_iv.cc
     encrypt_utils_ecb.cc
     encrypt_utils_cbc.cc
     encrypt_utils_gcm.cc
@@ -270,6 +271,7 @@ add_gandiva_test(internals-test
                  encrypt_utils_ecb_test.cc
                  encrypt_utils_cbc_test.cc
                  encrypt_utils_gcm_test.cc
+                 encrypt_utils_iv_test.cc
                  encrypt_utils_common_test.cc
                  expr_decomposer_test.cc
                  exported_funcs_registry_test.cc

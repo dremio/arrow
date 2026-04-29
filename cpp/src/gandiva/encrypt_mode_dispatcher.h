@@ -33,47 +33,57 @@ class EncryptModeDispatcher {
    *
    * @param plaintext The data to encrypt
    * @param plaintext_len Length of plaintext in bytes
-   * @param key The encryption key
+   * @param key The encryption key (16, 24, or 32 bytes for AES-128/192/256)
    * @param key_len Length of key in bytes
-   * @param mode Mode string
+   * @param key_validity Whether key is valid
+   * @param mode Mode string (case-insensitive)
    * @param mode_len Length of mode string in bytes
-   * @param iv The initialization vector (optional, only for modes that support it)
+   * @param mode_validity Whether mode is valid
+   * @param iv The initialization vector
    * @param iv_len Length of the IV in bytes
-   * @param fifth_argument Additional parameter (optional, only for modes that support it)
+   * @param iv_validity Whether IV is valid
+   * @param fifth_argument Additional parameter (e.g. AAD for the GCM mode)
    * @param fifth_argument_len Length of fifth_argument in bytes
+   * @param fifth_argument_validity Whether fifth_argument is valid
    * @param cipher Output buffer for encrypted data
    * @return Length of encrypted data in bytes
-   * @throws std::runtime_error on encryption failure or unsupported mode
+   * @throws std::runtime_error on encryption failure, unsupported mode, or invalid parameters
    */
   static int32_t encrypt(const char* plaintext, int32_t plaintext_len,
-                         const char* key, int32_t key_len,
-                         const char* mode, int32_t mode_len,
-                         const char* iv, int32_t iv_len,
+                         const char* key, int32_t key_len, bool key_validity,
+                         const char* mode, int32_t mode_len, bool mode_validity,
+                         const char* iv, int32_t iv_len, bool iv_validity,
                          const char* fifth_argument, int32_t fifth_argument_len,
+                         bool fifth_argument_validity,
                          unsigned char* cipher);
 
   /**
    * Decrypt data using the specified mode
    *
-   * @param ciphertext The data to decrypt
+   * @param ciphertext The data to decrypt (format depends on mode and IV parameter)
    * @param ciphertext_len Length of ciphertext in bytes
-   * @param key The decryption key
+   * @param key The decryption key (16, 24, or 32 bytes for AES-128/192/256)
    * @param key_len Length of key in bytes
-   * @param mode Mode string
+   * @param key_validity Whether key is valid
+   * @param mode Mode string (case-insensitive)
    * @param mode_len Length of mode string in bytes
-   * @param iv The initialization vector (optional, only for modes that support it)
+   * @param mode_validity Whether mode is valid
+   * @param iv The initialization vector
    * @param iv_len Length of the IV in bytes
-   * @param fifth_argument Additional parameter (optional, only for modes that support it)
+   * @param iv_validity Whether IV is valid
+   * @param fifth_argument Additional parameter (e.g. AAD for the GCM mode)
    * @param fifth_argument_len Length of fifth_argument in bytes
+   * @param fifth_argument_validity Whether fifth_argument is valid
    * @param plaintext Output buffer for decrypted data
-   * @return Length of decrypted data in bytes
-   * @throws std::runtime_error on decryption failure or unsupported mode
+   * @return Length of decrypted data in bytes (plaintext only, IV and tag removed)
+   * @throws std::runtime_error on decryption failure, unsupported mode, invalid parameters, or authentication failure
    */
   static int32_t decrypt(const char* ciphertext, int32_t ciphertext_len,
-                         const char* key, int32_t key_len,
-                         const char* mode, int32_t mode_len,
-                         const char* iv, int32_t iv_len,
+                         const char* key, int32_t key_len, bool key_validity,
+                         const char* mode, int32_t mode_len, bool mode_validity,
+                         const char* iv, int32_t iv_len, bool iv_validity,
                          const char* fifth_argument, int32_t fifth_argument_len,
+                         bool fifth_argument_validity,
                          unsigned char* plaintext);
 };
 

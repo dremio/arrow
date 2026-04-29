@@ -26,22 +26,34 @@ namespace gandiva {
 // GCM mode identifier
 constexpr const char* AES_GCM_MODE = "AES-GCM";
 
+// GCM IV length in bytes
+constexpr int32_t GCM_IV_LENGTH = 12;  // 12 bytes (96 bits) - recommended for GCM but agreed to enforce it
+
 // GCM authentication tag length in bytes
 constexpr int32_t GCM_TAG_LENGTH = 16;
 
 /**
  * Encrypt data using AES-GCM algorithm
  *
+ * Output format:
+ * - With NULL IV (auto-generated): [12-byte IV][ciphertext][16-byte authentication tag]
+ * - With user-supplied IV: [ciphertext][16-byte authentication tag]
+ *
+ * IV Handling:
+ * - If iv is NULL: A cryptographically secure random 12-byte IV
+ *   is automatically generated using OpenSSL RAND_bytes and prepended to output
+ * - If iv is provided: It must be exactly 12 bytes, will be used as-is, and not prepended
+ *
  * @param plaintext The data to encrypt
  * @param plaintext_len Length of plaintext in bytes
  * @param key The encryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (variable length, typically 12 bytes)
+ * @param iv The initialization vector (NULL for auto-generation, or exactly 12 bytes)
  * @param iv_len Length of IV in bytes
  * @param aad Optional additional authenticated data (can be null)
- * @param aad_len Length of AAD in bytes (0 if aad is null)
- * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 16 bytes)
- * @return Length of encrypted data in bytes (plaintext_len + 16 for the tag)
+ * @param aad_len Length of AAD in bytes
+ * @param cipher Output buffer for encrypted data (must be at least plaintext_len + 28 bytes)
+ * @return Length of encrypted data in bytes (12 + plaintext_len + 16)
  * @throws std::runtime_error on encryption failure or invalid parameters
  */
 GANDIVA_EXPORT
@@ -52,16 +64,24 @@ int32_t aes_encrypt_gcm(const char* plaintext, int32_t plaintext_len, const char
 /**
  * Decrypt data using AES-GCM algorithm
  *
- * @param ciphertext The data to decrypt (includes 16-byte authentication tag at the end)
- * @param ciphertext_len Length of ciphertext in bytes (includes tag)
+ * IV Handling:
+ * - If iv is NULL or iv_len is 0: IV is extracted from the first 12 bytes of ciphertext
+ *   (expects format: [12-byte IV][ciphertext][16-byte tag])
+ * - If iv is provided: It must be exactly 12 bytes, and ciphertext should be
+ *   [ciphertext][16-byte tag] without embedded IV
+ *
+ * @param ciphertext The data to decrypt
+ *   - With NULL IV: [12-byte IV][ciphertext][16-byte tag] (min 28 bytes)
+ *   - With provided IV: [ciphertext][16-byte tag] (min 16 bytes)
+ * @param ciphertext_len Length of ciphertext in bytes (includes IV if embedded, and tag)
  * @param key The decryption key (16, 24, or 32 bytes for 128, 192, 256-bit keys)
  * @param key_len Length of key in bytes
- * @param iv The initialization vector (variable length, typically 12 bytes)
- * @param iv_len Length of IV in bytes
+ * @param iv The initialization vector (NULL for extraction, or exactly 12 bytes)
+ * @param iv_len Length of IV in bytes (0 for extraction, or 12)
  * @param aad Optional additional authenticated data (can be null)
  * @param aad_len Length of AAD in bytes (0 if aad is null)
  * @param plaintext Output buffer for decrypted data
- * @return Length of decrypted data in bytes (ciphertext_len - 16)
+ * @return Length of decrypted data in bytes
  * @throws std::runtime_error on decryption failure, invalid parameters, or tag verification failure
  */
 GANDIVA_EXPORT

@@ -778,12 +778,16 @@ const char* gdv_fn_aes_encrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
+  bool out_valid = true;
+
+  // Passing `true` for validity parameters because this function is marked as kResultNullIfNull,
+  // so if we're here the inputs are guaranteed to be non-NULL
   const char* result = gdv_fn_encrypt_dispatcher_3args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+      context, data, data_len, true, key_data, key_data_len, true, mode, mode_len, true,
+      &out_valid, out_len);
 
   // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
+  if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
   }
@@ -805,12 +809,16 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
   // This function is ECB-only, so we enforce the mode
   const char* mode = "AES-ECB";
   int32_t mode_len = 7;
+  bool out_valid = true;
+
+  // Passing `true` for validity parameters because this function is marked as kResultNullIfNull,
+  // so if we're here the inputs are guaranteed to be non-NULL
   const char* result = gdv_fn_decrypt_dispatcher_3args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, out_len);
+      context, data, data_len, true, key_data, key_data_len, true, mode, mode_len, true,
+      &out_valid, out_len);
 
   // Add null terminator for string compatibility
-  // Note: This may not be valid UTF-8, but it's needed for string handling
-  if (result != nullptr) {
+  if (result != nullptr && out_valid) {
     char* mutable_result = const_cast<char*>(result);
     mutable_result[*out_len] = '\0';
   }
@@ -821,69 +829,96 @@ const char* gdv_fn_aes_decrypt_ecb_legacy(int64_t context, const char* data,
 // The 3- and 4-arg signatures exist to support optional IV and other arguments
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_3args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_encrypt_dispatcher_5args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
-      0, nullptr, 0, out_len);
+      context, data, data_len, data_validity, key_data, key_data_len, key_validity,
+      mode, mode_len, mode_validity, nullptr, 0, false, nullptr, 0, false,
+      out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_3args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_decrypt_dispatcher_5args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, nullptr,
-      0, nullptr, 0, out_len);
+      context, data, data_len, data_validity, key_data, key_data_len, key_validity,
+      mode, mode_len, mode_validity, nullptr, 0, false, nullptr, 0, false,
+      out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_4args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_encrypt_dispatcher_5args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-      iv_data_len, nullptr, 0, out_len);
+      context, data, data_len, data_validity, key_data, key_data_len, key_validity,
+      mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+      nullptr, 0, false, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_4args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    bool* out_valid, int32_t* out_len) {
   return gdv_fn_decrypt_dispatcher_5args(
-      context, data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-      iv_data_len, nullptr, 0, out_len);
+      context, data, data_len, data_validity, key_data, key_data_len, key_validity,
+      mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+      nullptr, 0, false, out_valid, out_len);
 }
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_encrypt_dispatcher_5args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
-    int32_t fifth_argument_len, int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
+    bool* out_valid, int32_t* out_len) {
+  // Check if plaintext is NULL - this is the only case where we return NULL
+  if (!data_validity) {
+    *out_valid = false;
+    *out_len = 0;
+    return nullptr;
+  }
+
+  *out_valid = true;
+
   try {
-    // Allocate extra 16 bytes for AES block padding (PKCS7 padding can add
-    // up to 16 bytes for a 128-bit block cipher)
-    // In cases of no-padding modes, this extra space is not used
+    // Calculate buffer size based on mode:
+    // - ECB: data_len + 16 (padding only, no IV)
+    // - CBC: data_len + 16 (IV) + 16 (padding) = data_len + 32
+    // - GCM: data_len + 12 (IV) + 16 (tag) = data_len + 28
+    // Use maximum to handle all modes safely
+    int32_t buffer_size = data_len + 32;
+
     auto* output = reinterpret_cast<unsigned char*>(
-        gdv_fn_context_arena_malloc(context, data_len + 16));
+        gdv_fn_context_arena_malloc(context, buffer_size));
     if (output == nullptr) {
       throw std::runtime_error(
           "Memory allocation failed for encryption output");
     }
 
     int32_t cipher_len = EncryptModeDispatcher::encrypt(
-        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-        iv_data_len, fifth_argument, fifth_argument_len, output);
+        data, data_len, key_data, key_data_len, key_validity,
+        mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+        fifth_argument, fifth_argument_len, fifth_argument_validity, output);
 
     *out_len = cipher_len;
     return reinterpret_cast<const char*>(output);
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_valid = false;
     *out_len = 0;
     return nullptr;
   }
@@ -891,11 +926,26 @@ const char* gdv_fn_encrypt_dispatcher_5args(
 
 extern "C" GANDIVA_EXPORT
 const char* gdv_fn_decrypt_dispatcher_5args(
-    int64_t context, const char* data, int32_t data_len, const char* key_data,
-    int32_t key_data_len, const char* mode, int32_t mode_len,
-    const char* iv_data, int32_t iv_data_len, const char* fifth_argument,
-    int32_t fifth_argument_len, int32_t* out_len) {
+    int64_t context, const char* data, int32_t data_len, bool data_validity,
+    const char* key_data, int32_t key_data_len, bool key_validity,
+    const char* mode, int32_t mode_len, bool mode_validity,
+    const char* iv_data, int32_t iv_data_len, bool iv_validity,
+    const char* fifth_argument, int32_t fifth_argument_len, bool fifth_argument_validity,
+    bool* out_valid, int32_t* out_len) {
+  // Check if ciphertext is NULL - this is the only case where we return NULL
+  if (!data_validity) {
+    *out_valid = false;
+    *out_len = 0;
+    return nullptr;
+  }
+
+  *out_valid = true;
+
   try {
+    // Buffer size for decryption output is data_len:
+    // - Input may contain IV + ciphertext + tag/padding
+    // - Output is plaintext only (IV and tag/padding are removed)
+    // - Plaintext is always <= input size, so data_len is sufficient
     auto* output = reinterpret_cast<unsigned char*>(
         gdv_fn_context_arena_malloc(context, data_len));
     if (output == nullptr) {
@@ -904,13 +954,15 @@ const char* gdv_fn_decrypt_dispatcher_5args(
     }
 
     int32_t plaintext_len = EncryptModeDispatcher::decrypt(
-        data, data_len, key_data, key_data_len, mode, mode_len, iv_data,
-        iv_data_len, fifth_argument, fifth_argument_len, output);
+        data, data_len, key_data, key_data_len, key_validity,
+        mode, mode_len, mode_validity, iv_data, iv_data_len, iv_validity,
+        fifth_argument, fifth_argument_len, fifth_argument_validity, output);
 
     *out_len = plaintext_len;
     return reinterpret_cast<const char*>(output);
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_valid = false;
     *out_len = 0;
     return nullptr;
   }
@@ -1152,14 +1204,19 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   };
 
   // gdv_fn_encrypt_dispatcher_3args (data, key, mode)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1169,14 +1226,19 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_3args));
 
   // gdv_fn_decrypt_dispatcher_3args (data, key, mode)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1186,16 +1248,22 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       reinterpret_cast<void*>(gdv_fn_decrypt_dispatcher_3args));
 
   // gdv_fn_encrypt_dispatcher_4args (data, key, mode, iv)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i1_type(),      // iv_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1205,16 +1273,22 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
       reinterpret_cast<void*>(gdv_fn_encrypt_dispatcher_4args));
 
   // gdv_fn_decrypt_dispatcher_4args (data, key, mode, iv)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i1_type(),      // iv_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1225,18 +1299,25 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   // gdv_fn_encrypt_dispatcher_5args (data, key, mode, iv,
   // fifth_argument)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i1_type(),      // iv_validity
       types->i8_ptr_type(),  // fifth_argument (binary string)
       types->i32_type(),     // fifth_argument_length
+      types->i1_type(),      // fifth_argument_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
@@ -1247,18 +1328,25 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   // gdv_fn_decrypt_dispatcher_5args (data, key, mode, iv,
   // fifth_argument)
+  // Note: kResultNullInternal functions receive validity for each argument
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
       types->i32_type(),     // data_length
+      types->i1_type(),      // data_validity
       types->i8_ptr_type(),  // key_data
       types->i32_type(),     // key_data_length
+      types->i1_type(),      // key_validity
       types->i8_ptr_type(),  // mode (binary string)
       types->i32_type(),     // mode_length
+      types->i1_type(),      // mode_validity
       types->i8_ptr_type(),  // iv (binary string)
       types->i32_type(),     // iv_length
+      types->i1_type(),      // iv_validity
       types->i8_ptr_type(),  // fifth_argument (binary string)
       types->i32_type(),     // fifth_argument_length
+      types->i1_type(),      // fifth_argument_validity
+      types->ptr_type(types->i1_type()),  // out_valid
       types->i32_ptr_type()  // out_length
   };
 
