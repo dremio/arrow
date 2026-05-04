@@ -26,6 +26,7 @@ set(PRECOMPILED_SRCS
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
+    timestamp_unit_ops.cc
     ../../arrow/util/basic_decimal.cc)
 set(GANDIVA_PRECOMPILED_BC_FILES)
 foreach(SOURCE ${PRECOMPILED_SRCS})

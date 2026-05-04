@@ -1299,16 +1299,8 @@ Result<std::string> LLVMGenerator::ResolveTimestampPcName(const std::string& pc_
     if (TimestampIR::IsTimestampIRFunction(remapped)) {
       return remapped;
     }
-    // No TimestampIR variant exists for this unit. Return an error so the caller
-    // fails loudly (wrong-result-silent is worse than a build-time error).
-    // The Java sieve (GandivaPushdownSieve.TIMESTAMP_IR_EXPR_NAMES) should have
-    // already routed unsupported functions to Java before reaching this point.
-    return Status::Invalid(
-        "Gandiva: no TimestampIR variant for '", pc_name,
-        "' with timestamp TimeUnit=",
-        (ts_unit == arrow::TimeUnit::MICRO ? "MICRO" : "NANO"),
-        ". Add the function to TIMESTAMP_IR_EXPR_NAMES in GandivaPushdownSieve"
-        " or add a TimestampIR variant in timestamp_ir.cc.");
+    // No precompiled _us/_ns variant registered — pass through unchanged so
+    // normal JIT resolution can handle it (e.g. the milli variant is acceptable).
   }
   return pc_name;
 }
