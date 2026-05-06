@@ -17,6 +17,7 @@
 
 #include "gandiva/function_registry_string.h"
 
+#include "arrow/extension/uuid.h"
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -200,6 +201,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("castVARCHAR", {"varchar"}, DataTypeVector{decimal128(), int64()},
                      utf8(), kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("castUUID", {}, DataTypeVector{utf8()}, arrow::extension::uuid(),
+                     kResultNullIfNull, "castUUID_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
                      "gdv_fn_crc_32_utf8", NativeFunction::kNeedsContext),
