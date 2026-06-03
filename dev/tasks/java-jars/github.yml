@@ -40,7 +40,7 @@ jobs:
             archery_arch: "amd64"
             archery_arch_alias: "x86_64"
             archery_arch_short: "amd64"
-          - runs_on: ["buildjet-8vcpu-ubuntu-2204-arm"]
+          - runs_on: ["ubuntu-24.04-arm"]
             arch: "aarch_64"
             archery_arch: "arm64v8"
             archery_arch_alias: "aarch64"
@@ -67,6 +67,11 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
+          # ubuntu-24.04-arm ships Docker Compose v2 as a plugin only; archery needs standalone docker-compose
+          if ! command -v docker-compose &>/dev/null; then
+            printf '#!/bin/sh\nexec docker compose "$@"\n' | sudo tee /usr/local/bin/docker-compose >/dev/null
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
             -e ARROW_JAVA_TEST=OFF \
@@ -148,8 +153,6 @@ jobs:
           cp ./homebrew-custom/Formula/*.rb "$(brew --repo local/homebrew-custom)/Formula/"
           brew install -v local/homebrew-custom/cmake
           brew install -v local/homebrew-custom/boost
-          brew pin cmake
-          brew pin boost
           #
 
 
