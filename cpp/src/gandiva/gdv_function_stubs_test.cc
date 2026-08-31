@@ -1390,17 +1390,27 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
 
+  // An empty replacement argument means "use the default for this class", so every
+  // overload collapses to the default X/x/n masking rather than deleting characters.
+  //
+  // Deleting was both a divergence from Hive and an under-allocation bug: the output
+  // buffer is sized max(upper_len, lower_len, num_len) * data_len, which was 0 when
+  // all three arguments were empty, even though pass-through characters such as ':'
+  // and ')' still get written. SimpleArena::Allocate(0) hands back the arena cursor
+  // without advancing it, so those bytes landed in space the next row's allocation
+  // would reuse -- silent cross-row corruption in a batch rather than a crash, which
+  // is why this case previously passed while asserting ":)".
   data = "QwErTy:4)ß";
-  expected = ":)";
+  expected = "XxXxXx:n)x";
   data_len = static_cast<int32_t>(data.length());
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "", 0, "", 0,
                                     &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
-  expected = ":n)";
   result = mask_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "", 0, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
-  expected = "xxx:n)x";
   result = mask_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
 
   data = "hunny-BEE-5121";
@@ -1409,6 +1419,306 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "\?", 1, "*", 1, "#",
                                     1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
+}
+
+namespace {
+// Convenience wrapper mirroring how an engine calls mask_internal: every argument
+// supplied, defaults spelled out.
+std::string CallMaskInternal(int64_t ctx_ptr, const std::string& data,
+                             const std::string& mode, int32_t char_count,
+                             const std::string& upper = "X",
+                             const std::string& lower = "x",
+                             const std::string& digit = "n",
+                             const std::string& other = "-1") {
+  int32_t out_len = 0;
+  const char* result = gdv_fn_mask_internal(
+      ctx_ptr, data.data(), static_cast<int32_t>(data.length()), mode.data(),
+      static_cast<int32_t>(mode.length()), char_count, upper.data(),
+      static_cast<int32_t>(upper.length()), lower.data(),
+      static_cast<int32_t>(lower.length()), digit.data(),
+      static_cast<int32_t>(digit.length()), other.data(),
+      static_cast<int32_t>(other.length()), &out_len);
+  return result == nullptr ? std::string() : std::string(result, out_len);
+}
+}  // namespace
+
+TEST(TestGdvFnStubs, TestMaskInternalModes) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // FULL ignores char_count entirely.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1), "Xxx-nnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", 2), "Xxx-nnn");
+
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FIRST_N", 4), "Xxx-123");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "LAST_N", 4), "Abc-nnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "SHOW_FIRST_N", 4), "Abc-nnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "SHOW_LAST_N", 4), "Xxx-123");
+
+  // Empty input is a valid empty result, not an error.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "", "FULL", -1), "");
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+
+  // Mode matching is exact and case-sensitive.
+  CallMaskInternal(ctx_ptr, "Abc", "full", -1);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unknown mask mode: full"));
+  ctx.Reset();
+  CallMaskInternal(ctx_ptr, "Abc", "BOGUS", -1);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unknown mask mode"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestMaskInternalCharCountBoundaries) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  const std::string in = "Abc-123";  // 7 characters
+
+  for (int32_t n : {0, -5, std::numeric_limits<int32_t>::min()}) {
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "FIRST_N", n), in);
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "LAST_N", n), in);
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "SHOW_FIRST_N", n), "Xxx-nnn");
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "SHOW_LAST_N", n), "Xxx-nnn");
+  }
+
+  for (int32_t n : {7, 99, std::numeric_limits<int32_t>::max()}) {
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "FIRST_N", n), "Xxx-nnn");
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "LAST_N", n), "Xxx-nnn");
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "SHOW_FIRST_N", n), in);
+    EXPECT_EQ(CallMaskInternal(ctx_ptr, in, "SHOW_LAST_N", n), in);
+  }
+
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+}
+
+TEST(TestGdvFnStubs, TestMaskInternalReplacementArguments) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Custom replacements, including for the "other" class.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "Y", "y", "8", ":"),
+            "Yyy:888");
+
+  // The unmasked spelling disables one class at a time, and "-01" is the same
+  // sentinel while "-2" is an ordinary replacement character.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "-1"), "Axx-nnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "-01"), "Axx-nnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "-2"), "-xx-nnn");
+  // Everything unmasked returns the input verbatim.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "-1", "-1", "-1", "-1"),
+            "Abc-123");
+
+  // Multi-character arguments are truncated to the first character.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "CAP", "low", "19"),
+            "Cll-111");
+
+  // An empty argument means "use the default for this class"; the default for
+  // `other` leaves the character alone.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123", "FULL", -1, "", "", "", ""), "Xxx-nnn");
+
+  // Ranger's MASK_SHOW_LAST_4 shape: show the last four, mask the rest to 'x'.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc-123456", "SHOW_LAST_N", 4, "x", "x", "x"),
+            "xxx-xx3456");
+
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+}
+
+TEST(TestGdvFnStubs, TestMaskInternalUnicode) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // Only Lu / Ll / Nd are masked; other categories take the `other` replacement,
+  // which by default leaves them alone.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "AaÇéß٣０5", "FULL", -1), "XxXxxnnn");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "ǅ世ㅏ½²Ⅷ", "FULL", -1), "ǅ世ㅏ½²Ⅷ");
+  // With an explicit otherChar those categories are masked, which is the only way
+  // to redact an uncased script.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "王小明", "FULL", -1, "X", "x", "n", "*"), "***");
+
+  // char_count is in characters, not bytes: A 世 a ½ 5 Ⅷ is 6 characters, 11 bytes.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "A世a½5Ⅷ", "FIRST_N", 3), "X世x½5Ⅷ");
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "A世a½5Ⅷ", "LAST_N", 3), "A世a½nⅧ");
+
+  // A multi-byte replacement widens the output; the size bound must hold.
+  EXPECT_EQ(CallMaskInternal(ctx_ptr, "Abc", "FULL", -1, "Ω", "ω", "n"), "Ωωω");
+
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+
+  // Truncated UTF-8 is reported rather than read past the end of the buffer.
+  CallMaskInternal(ctx_ptr, std::string("\xE4\xB8", 2), "FULL", -1);
+  EXPECT_FALSE(ctx.get_error().empty());
+  ctx.Reset();
+}
+
+// The five-argument mask takes the Hive otherChar, which replaces every character
+// that is neither an uppercase letter, a lowercase letter nor a decimal digit. This
+// is the only form that masks uncased scripts such as CJK.
+TEST(TestGdvFnStubs, TestMaskOtherChar) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // ASCII fast path: punctuation is replaced rather than preserved.
+  std::string data = "user@dom.com";
+  auto data_len = static_cast<int32_t>(data.length());
+  const char* result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X",
+                                                     1, "x", 1, "n", 1, "*", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "xxxx*xxx*xxx");
+
+  // utf8proc path: Lo, No, Nl and punctuation all take the otherChar.
+  //   A(Lu) 世(Lo) a(Ll) ½(No) 5(Nd) Ⅷ(Nl) -(Pd)
+  data = "A世a½5Ⅷ-";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1,
+                                         "n", 1, "*", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "X*x*n**");
+
+  // The case this overload exists for: an uncased script is fully masked, where the
+  // four-argument form would return it verbatim.
+  data = "王小明";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1,
+                                         "n", 1, "*", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "***");
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1, "n",
+                                    1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), data);
+
+  // An empty otherChar means "use the default", and the default is to leave the
+  // character alone, so it matches the four-argument form.
+  data = "A世a";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1,
+                                         "n", 1, "", 0, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "X世x");
+
+  // A multi-byte otherChar widens the output; the size bound must account for it.
+  result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1,
+                                         "n", 1, "--", 2, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "X--x");
+
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+}
+
+// The output-size bound multiplies the widest replacement by the input length, both of
+// which come from user-supplied SQL expressions. In 32-bit math the product wraps
+// negative and SimpleArena::Allocate winds its cursor backwards, returning a pointer the
+// masking loop then writes past. It must be a clean error instead.
+TEST(TestGdvFnStubs, TestMaskOutputSizeOverflow) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // 40,000 * 70,000 = 2.8e9, past INT32_MAX, so the guard must fire before any
+  // allocation is attempted.
+  const std::string data(40000, 'a');
+  const std::string replacement(70000, 'z');
+  auto data_len = static_cast<int32_t>(data.length());
+  auto repl_len = static_cast<int32_t>(replacement.length());
+
+  const char* result =
+      mask_utf8_utf8_utf8_utf8(ctx_ptr, data.data(), data_len, replacement.data(),
+                               repl_len, "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceed the maximum size"));
+  ctx.Reset();
+
+  // Same via the otherChar overload, where `other` is the widest argument.
+  result = mask_utf8_utf8_utf8_utf8_utf8(ctx_ptr, data.data(), data_len, "X", 1, "x", 1,
+                                         "n", 1, replacement.data(), repl_len, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceed the maximum size"));
+  ctx.Reset();
+
+  // A replacement long enough to widen the output but well inside the bound still works,
+  // so the guard is not over-eager.
+  const std::string small(4, 'Z');
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, "Ab1", 3, small.data(), 4, "x", 1, "n", 1,
+                                    &out_len);
+  EXPECT_EQ(std::string(result, out_len), "ZZZZxn");
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
+}
+
+// Per the Hive MASK specification, only uppercase letters (Lu), lowercase letters
+// (Ll) and decimal digits (Nd) are masked. Every other Unicode general category
+// passes through unchanged. This test pins that contract for every mask variant,
+// including the categories the two families used to disagree on: `mask` masked
+// Lt/Lo/Nl/No, while mask_first_n and friends masked Nl only.
+TEST(TestGdvFnStubs, TestMaskUnicodeCategories) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // Non-ASCII Lu / Ll / Nd are masked, exactly like their ASCII counterparts.
+  //   A U+0041 Lu, a U+0061 Ll, Ç U+00C7 Lu, é U+00E9 Ll, ß U+00DF Ll,
+  //   ٣ U+0663 Nd (Arabic-Indic), ０ U+FF10 Nd (fullwidth), 5 U+0035 Nd
+  std::string data = "AaÇéß٣０5";
+  std::string expected = "XxXxxnnn";
+  auto data_len = static_cast<int32_t>(data.length());
+  const char* result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+
+  // Categories with no case and no decimal-digit meaning pass through untouched.
+  //   ǅ U+01C5 Lt (titlecase), 世 U+4E16 Lo, ㅏ U+314F Lo (Hangul),
+  //   ½ U+00BD No, ² U+00B2 No, Ⅷ U+2167 Nl (Roman numeral)
+  data = "ǅ世ㅏ½²Ⅷ";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+  EXPECT_EQ(std::string(result, out_len), data);
+
+  // Interleaved masked and pass-through characters of differing byte widths, which
+  // also exercises the output-length correction when a 2- or 3-byte character is
+  // replaced by a 1-byte one.
+  //   A(Lu) 世(Lo) a(Ll) ½(No) 5(Nd) Ⅷ(Nl)  -- 6 characters, 11 bytes
+  data = "A世a½5Ⅷ";
+  expected = "X世x½nⅧ";
+  data_len = static_cast<int32_t>(data.length());
+  EXPECT_EQ(data_len, 11);
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+
+  // Cross-family consistency: masking every character via the *_N variants must
+  // now agree with `mask`. Before the Lu/Ll/Nd narrowing these disagreed on Ⅷ
+  // (Nl), which mask_first_n masked to 'n' via an undocumented `case 10`.
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = gdv_mask_show_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 0, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = gdv_mask_show_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 0, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+
+  // Partial windows, counted in characters rather than bytes.
+  // first 3 characters are A 世 a
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "X世x½5Ⅷ");
+  // last 3 characters are ½ 5 Ⅷ
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "A世a½nⅧ");
+  result = gdv_mask_show_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "A世a½nⅧ");
+  result = gdv_mask_show_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "X世x½5Ⅷ");
+
+  // Nl in isolation, the specific character the *_N family used to mask.
+  data = "Ⅷ";
+  data_len = static_cast<int32_t>(data.length());
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), data);
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), data);
+
+  // Custom replacement characters apply to Lu/Ll/Nd only; pass-through categories
+  // are unaffected by them.
+  data = "A世a½5Ⅷ";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "U", 1, "l", 1, "#",
+                                    1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), "U世l½#Ⅷ");
+
+  EXPECT_TRUE(ctx.get_error().empty()) << ctx.get_error();
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {

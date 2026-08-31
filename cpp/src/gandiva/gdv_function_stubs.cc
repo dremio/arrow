@@ -402,20 +402,23 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
       return nullptr;
     }
 
+    // Only uppercase letters (Lu), lowercase letters (Ll) and decimal digits (Nd)
+    // are masked, per the Hive MASK specification (A-Z : X, a-z : x, 0-9 : n).
+    // Every other Unicode general category passes through unchanged -- including
+    // titlecase letters (Lt), other letters (Lo, e.g. CJK and Hangul), letter
+    // numbers (Nl, e.g. Roman numerals) and other numbers (No, e.g. fractions),
+    // which have no case or decimal-digit meaning to map onto X/x/n. This matches
+    // the ASCII mask_array above and the `mask` function below.
     switch (utf8proc_category(utf8_char)) {
-      case 1:
+      case UTF8PROC_CATEGORY_LU:
         out[out_idx] = 'X';
         out_idx++;
         break;
-      case 2:
+      case UTF8PROC_CATEGORY_LL:
         out[out_idx] = 'x';
         out_idx++;
         break;
-      case 9:
-        out[out_idx] = 'n';
-        out_idx++;
-        break;
-      case 10:
+      case UTF8PROC_CATEGORY_ND:
         out[out_idx] = 'n';
         out_idx++;
         break;
@@ -517,20 +520,17 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
+    // Only Lu / Ll / Nd are masked; see gdv_mask_first_n_utf8_int32 above.
     switch (utf8proc_category(utf8_char)) {
-      case 1:
+      case UTF8PROC_CATEGORY_LU:
         out[out_idx] = 'X';
         out_idx++;
         break;
-      case 2:
+      case UTF8PROC_CATEGORY_LL:
         out[out_idx] = 'x';
         out_idx++;
         break;
-      case 9:
-        out[out_idx] = 'n';
-        out_idx++;
-        break;
-      case 10:
+      case UTF8PROC_CATEGORY_ND:
         out[out_idx] = 'n';
         out_idx++;
         break;
@@ -547,20 +547,64 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   return out;
 }
 
-GANDIVA_EXPORT
-const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t data_len,
-                                     const char* upper, int32_t upper_length,
-                                     const char* lower, int32_t lower_length,
-                                     const char* num, int32_t num_length,
-                                     int32_t* out_len) {
+/// Shared implementation of the mask() overloads.
+///
+/// \p other is the replacement for every character that is neither an uppercase letter,
+/// a lowercase letter nor a decimal digit. A null \p other leaves those characters
+/// unchanged, which is the Hive default and what the one- to four-argument overloads
+/// pass; the five-argument overload passes the caller's replacement instead.
+static const char* mask_impl(int64_t context, const char* data, int32_t data_len,
+                             const char* upper, int32_t upper_length, const char* lower,
+                             int32_t lower_length, const char* num, int32_t num_length,
+                             const char* other, int32_t other_length, int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
     return nullptr;
   }
 
-  int32_t max_length =
-      std::max(upper_length, std::max(lower_length, num_length)) * data_len;
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
+  // An empty replacement argument means "use the default for this class", matching
+  // Hive's GenericUDFMaskBase, rather than deleting the character. The default for
+  // `other` is to leave the character alone, so an empty `other` becomes a null one.
+  //
+  // This also keeps every replacement length >= 1, which the output size bound
+  // below depends on: with max_repl >= 1 and every input character at least one
+  // byte wide, max_repl * data_len >= sum(max(max_repl, char_len_i)), so the
+  // allocation covers both replaced and passed-through characters. If an empty
+  // argument reached the bound, max_repl would be 0 and the allocation would be
+  // too small for the characters that pass through unmasked.
+  if (upper_length <= 0) {
+    upper = "X";
+    upper_length = 1;
+  }
+  if (lower_length <= 0) {
+    lower = "x";
+    lower_length = 1;
+  }
+  if (num_length <= 0) {
+    num = "n";
+    num_length = 1;
+  }
+  if (other != nullptr && other_length <= 0) {
+    other = nullptr;
+  }
+
+  // Every replacement is at least one byte and so is every input character, so
+  // max_repl_len * data_len bounds the output. Both factors are user-supplied
+  // expressions, so compute in 64 bits: in 32-bit math a long replacement over a long
+  // input wraps negative, and SimpleArena::Allocate would then wind its cursor back by
+  // that amount and hand out a pointer the masking loop writes past.
+  const int32_t max_repl_len =
+      std::max(other == nullptr ? 0 : other_length,
+               std::max(upper_length, std::max(lower_length, num_length)));
+  const int64_t max_length = static_cast<int64_t>(max_repl_len) * data_len;
+  if (max_length > std::numeric_limits<int32_t>::max()) {
+    gdv_fn_context_set_error_msg(context, "Mask output would exceed the maximum size");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  char* out = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(max_length)));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -590,6 +634,9 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
       } else if (isdigit(char_single_byte)) {
         memcpy(out + out_index, num, num_length);
         out_index += num_length;
+      } else if (other != nullptr) {
+        memcpy(out + out_index, other, other_length);
+        out_index += other_length;
       } else {
         out[out_index] = char_single_byte;
         out_index++;
@@ -606,12 +653,17 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
                          data_len, &utf8_char);
+    // Only uppercase letters (Lu), lowercase letters (Ll) and decimal digits (Nd)
+    // are masked, per the Hive MASK specification (A-Z : X, a-z : x, 0-9 : n).
+    // Every other Unicode general category passes through unchanged -- including
+    // titlecase letters (Lt), other letters (Lo, e.g. CJK and Hangul), letter
+    // numbers (Nl, e.g. Roman numerals) and other numbers (No, e.g. fractions).
+    // Those categories have no case or decimal-digit meaning to map onto X/x/n:
+    // scripts in Lo have no case at all, so masking them as "lowercase" would
+    // assert something untrue about the input. This matches the ASCII fast path
+    // above and gdv_mask_first_n_utf8_int32 / gdv_mask_last_n_utf8_int32.
     switch (utf8proc_category(utf8_char)) {
       case UTF8PROC_CATEGORY_LU:
-        memcpy(out + out_index, upper, upper_length);
-        out_index += upper_length;
-        break;
-      case UTF8PROC_CATEGORY_LT:
         memcpy(out + out_index, upper, upper_length);
         out_index += upper_length;
         break;
@@ -619,25 +671,18 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
         memcpy(out + out_index, lower, lower_length);
         out_index += lower_length;
         break;
-      case UTF8PROC_CATEGORY_LO:
-        memcpy(out + out_index, lower, lower_length);
-        out_index += lower_length;
-        break;
       case UTF8PROC_CATEGORY_ND:
         memcpy(out + out_index, num, num_length);
         out_index += num_length;
         break;
-      case UTF8PROC_CATEGORY_NL:
-        memcpy(out + out_index, num, num_length);
-        out_index += num_length;
-        break;
-      case UTF8PROC_CATEGORY_NO:
-        memcpy(out + out_index, num, num_length);
-        out_index += num_length;
-        break;
       default:
-        memcpy(out + out_index, data + bytes_read, char_len);
-        out_index += static_cast<int>(char_len);
+        if (other != nullptr) {
+          memcpy(out + out_index, other, other_length);
+          out_index += other_length;
+        } else {
+          memcpy(out + out_index, data + bytes_read, char_len);
+          out_index += static_cast<int>(char_len);
+        }
         break;
     }
     bytes_read += static_cast<int>(char_len);
@@ -647,23 +692,340 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
 }
 
 GANDIVA_EXPORT
+const char* mask_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* data,
+                                          int32_t data_len, const char* upper,
+                                          int32_t upper_length, const char* lower,
+                                          int32_t lower_length, const char* num,
+                                          int32_t num_length, const char* other,
+                                          int32_t other_length, int32_t* out_len) {
+  return mask_impl(context, data, data_len, upper, upper_length, lower, lower_length, num,
+                   num_length, other, other_length, out_len);
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t data_len,
+                                     const char* upper, int32_t upper_length,
+                                     const char* lower, int32_t lower_length,
+                                     const char* num, int32_t num_length,
+                                     int32_t* out_len) {
+  return mask_impl(context, data, data_len, upper, upper_length, lower, lower_length, num,
+                   num_length, nullptr, 0, out_len);
+}
+
+GANDIVA_EXPORT
 const char* mask_utf8_utf8_utf8(int64_t context, const char* in, int32_t length,
                                 const char* upper, int32_t upper_len, const char* lower,
                                 int32_t lower_len, int32_t* out_len) {
-  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, lower, lower_len,
-                                  "n", 1, out_len);
+  return mask_impl(context, in, length, upper, upper_len, lower, lower_len, "n", 1,
+                   nullptr, 0, out_len);
 }
 
 GANDIVA_EXPORT
 const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
                            const char* upper, int32_t upper_len, int32_t* out_len) {
-  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, "x", 1, "n", 1,
-                                  out_len);
+  return mask_impl(context, in, length, upper, upper_len, "x", 1, "n", 1, nullptr, 0,
+                   out_len);
 }
 
 GANDIVA_EXPORT
 const char* mask_utf8(int64_t context, const char* in, int32_t length, int32_t* out_len) {
-  return mask_utf8_utf8_utf8_utf8(context, in, length, "X", 1, "x", 1, "n", 1, out_len);
+  return mask_impl(context, in, length, "X", 1, "x", 1, "n", 1, nullptr, 0, out_len);
+}
+
+// ---------------------------------------------------------------------------
+// mask_internal
+//
+//   mask_internal(text, mode, char_count, upper, lower, digit, other) -> utf8
+//
+// A single entry point covering all five Hive masking modes with caller-supplied
+// replacements, so an engine that normalises MASK / MASK_FIRST_N / MASK_LAST_N /
+// MASK_SHOW_FIRST_N / MASK_SHOW_LAST_N into one call can evaluate every shape
+// natively instead of one function per mode and arity.
+//
+// Classification matches the mask() family above: only uppercase letters (Lu),
+// lowercase letters (Ll) and decimal digits (Nd) are masked. Everything else takes
+// the `other` replacement, whose default leaves the character unchanged.
+//
+// Known divergence from a UTF-16 host implementation: character counts here are in
+// Unicode codepoints, so a non-BMP character counts once rather than twice. This is
+// visible only when a char_count boundary falls inside a surrogate pair.
+// ---------------------------------------------------------------------------
+
+enum MaskInternalSlot {
+  kMaskSlotUpper = 0,
+  kMaskSlotLower = 1,
+  kMaskSlotDigit = 2,
+  kMaskSlotOther = 3,
+  kMaskSlotCount = 4
+};
+
+enum MaskInternalMode {
+  kMaskModeFull = 0,
+  kMaskModeFirstN,
+  kMaskModeLastN,
+  kMaskModeShowFirstN,
+  kMaskModeShowLastN
+};
+
+// One resolved replacement. A zero length means "leave this class unchanged".
+struct MaskInternalRepl {
+  char bytes[4];
+  int32_t len;
+};
+
+// "Leave unmasked" is spelled as an argument that parses to -1, i.e. '-' followed by
+// any number of '0's and a final '1'. Anything else either parses to a different
+// value or is not numeric at all, and is used as a replacement character.
+static inline bool is_mask_internal_unmasked(const char* arg, int32_t len) {
+  if (len < 2 || arg[0] != '-') {
+    return false;
+  }
+  int32_t i = 1;
+  while (i < len - 1 && arg[i] == '0') {
+    i++;
+  }
+  return i == len - 1 && arg[i] == '1';
+}
+
+// Resolves one replacement argument: absent or empty takes the default, the unmasked
+// spelling disables masking for that class, and anything else is truncated to its
+// first character.
+static inline bool mask_internal_make_repl(int64_t context, const char* arg,
+                                           int32_t arg_len, int32_t default_cp,
+                                           MaskInternalRepl* out) {
+  int32_t codepoint = default_cp;
+  if (arg != nullptr && arg_len > 0) {
+    if (is_mask_internal_unmasked(arg, arg_len)) {
+      codepoint = -1;
+    } else {
+      utf8proc_int32_t decoded = 0;
+      auto char_len = utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(arg),
+                                       arg_len, &decoded);
+      if (char_len < 0) {
+        gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+        return false;
+      }
+      codepoint = decoded;
+    }
+  }
+
+  if (codepoint < 0) {
+    out->len = 0;
+    return true;
+  }
+  auto encoded =
+      utf8proc_encode_char(codepoint, reinterpret_cast<utf8proc_uint8_t*>(out->bytes));
+  if (encoded <= 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid mask replacement character");
+    return false;
+  }
+  out->len = static_cast<int32_t>(encoded);
+  return true;
+}
+
+static inline int mask_internal_slot_of(utf8proc_int32_t codepoint) {
+  switch (utf8proc_category(codepoint)) {
+    case UTF8PROC_CATEGORY_LU:
+      return kMaskSlotUpper;
+    case UTF8PROC_CATEGORY_LL:
+      return kMaskSlotLower;
+    case UTF8PROC_CATEGORY_ND:
+      return kMaskSlotDigit;
+    default:
+      return kMaskSlotOther;
+  }
+}
+
+// Mode names are matched exactly and case-sensitively. All five have distinct
+// lengths, so the dispatch is a switch plus one comparison.
+static inline bool mask_internal_parse_mode(const char* mode, int32_t mode_len,
+                                            int* out_mode) {
+  switch (mode_len) {
+    case 4:
+      if (memcmp(mode, "FULL", 4) == 0) {
+        *out_mode = kMaskModeFull;
+        return true;
+      }
+      break;
+    case 6:
+      if (memcmp(mode, "LAST_N", 6) == 0) {
+        *out_mode = kMaskModeLastN;
+        return true;
+      }
+      break;
+    case 7:
+      if (memcmp(mode, "FIRST_N", 7) == 0) {
+        *out_mode = kMaskModeFirstN;
+        return true;
+      }
+      break;
+    case 11:
+      if (memcmp(mode, "SHOW_LAST_N", 11) == 0) {
+        *out_mode = kMaskModeShowLastN;
+        return true;
+      }
+      break;
+    case 12:
+      if (memcmp(mode, "SHOW_FIRST_N", 12) == 0) {
+        *out_mode = kMaskModeShowFirstN;
+        return true;
+      }
+      break;
+    default:
+      break;
+  }
+  return false;
+}
+
+// Counts codepoints and validates the encoding in one pass. Note the remaining length
+// is passed to utf8proc_iterate: passing the full data_len, as the older mask stubs
+// do, lets it read past the end of the buffer for a truncated trailing sequence.
+static inline bool mask_internal_count_chars(int64_t context, const char* data,
+                                             int32_t data_len, int32_t* out_count) {
+  int32_t count = 0;
+  int32_t pos = 0;
+  utf8proc_int32_t codepoint = 0;
+  while (pos < data_len) {
+    auto char_len =
+        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + pos),
+                         data_len - pos, &codepoint);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      return false;
+    }
+    pos += static_cast<int32_t>(char_len);
+    count++;
+  }
+  *out_count = count;
+  return true;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_mask_internal(int64_t context, const char* data, int32_t data_len,
+                                 const char* mode, int32_t mode_len, int32_t char_count,
+                                 const char* upper, int32_t upper_len, const char* lower,
+                                 int32_t lower_len, const char* digit, int32_t digit_len,
+                                 const char* other, int32_t other_len, int32_t* out_len) {
+  int mask_mode = kMaskModeFull;
+  if (!mask_internal_parse_mode(mode, mode_len, &mask_mode)) {
+    std::string err = "Unknown mask mode: " +
+                      std::string(mode == nullptr ? "" : mode, std::max(mode_len, 0));
+    gdv_fn_context_set_error_msg(context, err.c_str());
+    *out_len = 0;
+    return nullptr;
+  }
+
+  if (data_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  MaskInternalRepl repls[kMaskSlotCount];
+  if (!mask_internal_make_repl(context, upper, upper_len, 'X', &repls[kMaskSlotUpper]) ||
+      !mask_internal_make_repl(context, lower, lower_len, 'x', &repls[kMaskSlotLower]) ||
+      !mask_internal_make_repl(context, digit, digit_len, 'n', &repls[kMaskSlotDigit]) ||
+      !mask_internal_make_repl(context, other, other_len, -1, &repls[kMaskSlotOther])) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t max_repl_len = 1;
+  bool any_masked = false;
+  for (int slot = 0; slot < kMaskSlotCount; slot++) {
+    max_repl_len = std::max(max_repl_len, repls[slot].len);
+    any_masked = any_masked || repls[slot].len > 0;
+  }
+
+  // Every class is unmasked, so the result is the input verbatim.
+  if (!any_masked) {
+    *out_len = data_len;
+    return data;
+  }
+
+  int32_t num_chars = 0;
+  if (!mask_internal_count_chars(context, data, data_len, &num_chars)) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+  // A negative char_count clamps to zero; FULL ignores it entirely.
+  const int32_t count = std::max(char_count, 0);
+  int32_t mask_begin = 0;
+  int32_t mask_end = 0;
+  switch (mask_mode) {
+    case kMaskModeFull:
+      mask_end = num_chars;
+      break;
+    case kMaskModeFirstN:
+      mask_end = std::min(num_chars, count);
+      break;
+    case kMaskModeLastN:
+      mask_begin = (num_chars <= count) ? 0 : num_chars - count;
+      mask_end = num_chars;
+      break;
+    case kMaskModeShowFirstN:
+      mask_begin = std::min(num_chars, count);
+      mask_end = num_chars;
+      break;
+    case kMaskModeShowLastN:
+      mask_end = (num_chars <= count) ? 0 : num_chars - count;
+      break;
+    default:
+      break;
+  }
+
+  if (mask_begin >= mask_end) {
+    *out_len = data_len;
+    return data;
+  }
+
+  // A masked character contributes at most max_repl_len bytes and an unmasked one its
+  // own width, and every character is at least one byte, so
+  //   out <= sum(max(char_len_i, max_repl_len)) <= data_len + (max_repl_len - 1) * chars
+  // which is exactly data_len for the common single-byte replacements.
+  const int64_t alloc = static_cast<int64_t>(data_len) +
+                        static_cast<int64_t>(max_repl_len - 1) *
+                            static_cast<int64_t>(num_chars);
+  if (alloc > std::numeric_limits<int32_t>::max()) {
+    gdv_fn_context_set_error_msg(context, "Mask output would exceed the maximum size");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  char* out = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(alloc)));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t bytes_read = 0;
+  int32_t out_idx = 0;
+  int32_t char_idx = 0;
+  utf8proc_int32_t codepoint = 0;
+  while (bytes_read < data_len) {
+    // Already validated by mask_internal_count_chars, so char_len is positive.
+    auto char_len =
+        utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
+                         data_len - bytes_read, &codepoint);
+    const MaskInternalRepl* repl = nullptr;
+    if (char_idx >= mask_begin && char_idx < mask_end) {
+      repl = &repls[mask_internal_slot_of(codepoint)];
+    }
+    if (repl != nullptr && repl->len > 0) {
+      memcpy(out + out_idx, repl->bytes, repl->len);
+      out_idx += repl->len;
+    } else {
+      memcpy(out + out_idx, data + bytes_read, char_len);
+      out_idx += static_cast<int32_t>(char_len);
+    }
+    bytes_read += static_cast<int32_t>(char_len);
+    char_idx++;
+  }
+
+  *out_len = out_idx;
+  return out;
 }
 
 int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
@@ -1496,6 +1858,49 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_mask_show_last_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
       reinterpret_cast<void*>(gdv_mask_show_last_n_utf8_int32));
+
+  // gdv_fn_mask_internal
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // mode
+      types->i32_type(),     // mode_len
+      types->i32_type(),     // char_count
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i8_ptr_type(),  // digit
+      types->i32_type(),     // digit_len
+      types->i8_ptr_type(),  // other
+      types->i32_type(),     // other_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_mask_internal",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_mask_internal));
+
+  // mask_utf8_utf8_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i8_ptr_type(),  // num
+      types->i32_type(),     // num_len
+      types->i8_ptr_type(),  // other
+      types->i32_type(),     // other_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8_utf8_utf8_utf8_utf8));
 
   // mask_utf8_utf8_utf8_utf8
   args = {

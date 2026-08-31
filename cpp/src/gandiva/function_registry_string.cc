@@ -565,6 +565,24 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_mask_show_last_n_utf8_int32",
                      NativeFunction::kNeedsContext),
 
+      // Single entry point for all five Hive masking modes with caller-supplied
+      // replacements, for engines that normalise MASK / MASK_FIRST_N / MASK_LAST_N /
+      // MASK_SHOW_FIRST_N / MASK_SHOW_LAST_N into one call.
+      NativeFunction("mask_internal", {},
+                     DataTypeVector{utf8() /*text*/, utf8() /*mode*/,
+                                    int32() /*char_count*/, utf8() /*upper*/,
+                                    utf8() /*lower*/, utf8() /*digit*/, utf8() /*other*/},
+                     utf8(), kResultNullIfNull, "gdv_fn_mask_internal",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // The five-argument form takes the Hive otherChar: the replacement for every
+      // character that is neither an uppercase letter, a lowercase letter nor a decimal
+      // digit. The shorter forms leave those characters unchanged, which is Hive's
+      // default.
+      NativeFunction("mask", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull, "mask_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("mask", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "mask_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),

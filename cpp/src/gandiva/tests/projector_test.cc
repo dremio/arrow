@@ -3441,8 +3441,10 @@ TEST_F(TestProjector, TestMaskAll) {
   auto array3 = MakeArrowArrayUtf8({"n", "#", "[0-9]"}, {true, true, true});
 
   // expected output
+  // Row 2 contains 的 (U+4E16 family, category Lo). Lo has no case, so it is not
+  // masked as "lowercase" -- it passes through, per the Hive MASK specification.
   auto exp_mask = MakeArrowArrayUtf8(
-      {"XxXxx-nnn", "CAPlowCAPlowlow-###", "Ç-l-Ç-l-l--[0-9][0-9][0-9]"},
+      {"XxXxx-nnn", "CAP的CAPlowlow-###", "Ç-l-Ç-l-l--[0-9][0-9][0-9]"},
       {true, true, true});
 
   // prepare input record batch
@@ -3483,8 +3485,9 @@ TEST_F(TestProjector, TestMaskUpperLower) {
   auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true});
 
   // expected output
+  // 的 (category Lo) passes through unmasked; see TestMaskAll.
   auto exp_mask = MakeArrowArrayUtf8(
-      {"XxXxx-nnn", "CAPlowCAPlowlow-nnn", "Ç-l-Ç-l-l--nnn"}, {true, true, true});
+      {"XxXxx-nnn", "CAP的CAPlowlow-nnn", "Ç-l-Ç-l-l--nnn"}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
@@ -3521,7 +3524,8 @@ TEST_F(TestProjector, TestMaskUpper) {
   auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
 
   // expected output
-  auto exp_mask = MakeArrowArrayUtf8({"XxXxx-nnn", "CAPxCAPxx-nnn", "Ç-xÇ-xx-nnn"},
+  // 的 (category Lo) passes through unmasked; see TestMaskAll.
+  auto exp_mask = MakeArrowArrayUtf8({"XxXxx-nnn", "CAP的CAPxx-nnn", "Ç-xÇ-xx-nnn"},
                                      {true, true, true});
 
   // prepare input record batch
@@ -3557,8 +3561,10 @@ TEST_F(TestProjector, TestMaskDefault) {
       MakeArrowArrayUtf8({"ABCcd-123", "A的Ççd-123", "abcd-Ⅷ"}, {true, true, true});
 
   // expected output
+  // Only Lu / Ll / Nd are masked. 的 (Lo) and Ⅷ (U+2167, Nl) pass through: neither
+  // has a case or decimal-digit meaning to map onto x or n.
   auto exp_mask =
-      MakeArrowArrayUtf8({"XXXxx-nnn", "XxXxx-nnn", "xxxx-n"}, {true, true, true});
+      MakeArrowArrayUtf8({"XXXxx-nnn", "X的Xxx-nnn", "xxxx-Ⅷ"}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -3570,6 +3576,145 @@ TEST_F(TestProjector, TestMaskDefault) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
+}
+
+// mask_internal end to end, in the shape an engine emits it: a text column plus
+// literal mode, char_count and replacements. This is what exercises the generated
+// call, so it is the real check on the stub's argument mapping.
+TEST_F(TestProjector, TestMaskInternal) {
+  auto f0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({f0});
+  auto text = TreeExprBuilder::MakeField(f0);
+
+  auto make_mask = [&](const std::string& mode, int32_t char_count,
+                       const std::string& upper, const std::string& lower,
+                       const std::string& digit, const std::string& other,
+                       const std::string& out_name) {
+    auto node = TreeExprBuilder::MakeFunction(
+        "mask_internal",
+        {text, TreeExprBuilder::MakeStringLiteral(mode),
+         TreeExprBuilder::MakeLiteral(char_count),
+         TreeExprBuilder::MakeStringLiteral(upper),
+         TreeExprBuilder::MakeStringLiteral(lower),
+         TreeExprBuilder::MakeStringLiteral(digit),
+         TreeExprBuilder::MakeStringLiteral(other)},
+        arrow::utf8());
+    return TreeExprBuilder::MakeExpression(node, field(out_name, arrow::utf8()));
+  };
+
+  // Defaults, Ranger's MASK_SHOW_LAST_4 shape, and an explicit otherChar.
+  auto expr_full = make_mask("FULL", -1, "X", "x", "n", "-1", "full");
+  auto expr_show_last = make_mask("SHOW_LAST_N", 4, "x", "x", "x", "-1", "show_last");
+  auto expr_other = make_mask("FULL", -1, "X", "x", "n", "*", "other");
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_full, expr_show_last, expr_other},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  int num_records = 4;
+  auto array0 = MakeArrowArrayUtf8({"Abc-123456", "王小明", "Abc-123456", ""},
+                                   {true, true, false, true});
+
+  auto exp_full =
+      MakeArrowArrayUtf8({"Xxx-nnnnnn", "王小明", "", ""}, {true, true, false, true});
+  auto exp_show_last =
+      MakeArrowArrayUtf8({"xxx-xx3456", "王小明", "", ""}, {true, true, false, true});
+  auto exp_other =
+      MakeArrowArrayUtf8({"Xxx*nnnnnn", "***", "", ""}, {true, true, false, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_full, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_show_last, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_other, outputs.at(2));
+}
+
+// The five-argument mask, which supplies the Hive otherChar. This is the only form
+// that masks characters with no case and no decimal-digit meaning, so it is what a
+// masking policy over CJK, Hebrew, Arabic or Thai data needs.
+TEST_F(TestProjector, TestMaskOtherChar) {
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto f2 = field("f2", arrow::utf8());
+  auto f3 = field("f3", arrow::utf8());
+  auto f4 = field("f4", arrow::utf8());
+  auto schema = arrow::schema({f0, f1, f2, f3, f4});
+
+  auto res_mask = field("output", arrow::utf8());
+  auto expr_mask =
+      TreeExprBuilder::MakeExpression("mask", {f0, f1, f2, f3, f4}, res_mask);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"A的Ç-1", "王小明", "user@dom.com"}, {true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"X", "X", "X"}, {true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"x", "x", "x"}, {true, true, true});
+  auto array3 = MakeArrowArrayUtf8({"n", "n", "n"}, {true, true, true});
+  auto array4 = MakeArrowArrayUtf8({"*", "*", "*"}, {true, true, true});
+
+  // 的 (Lo) and '-' both take the otherChar; 王小明 is masked instead of passing through.
+  auto exp_mask =
+      MakeArrowArrayUtf8({"X*X*n", "***", "xxxx*xxx*xxx"}, {true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array0, array1, array2, array3, array4});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
+}
+
+// All mask variants are registered kResultNullIfNull, so a null in any argument
+// yields a null result and the stub is never invoked for that row. None of the
+// other mask tests exercises a null, so this pins that contract.
+TEST_F(TestProjector, TestMaskNullInput) {
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::int32());
+  auto schema = arrow::schema({f0, f1});
+
+  auto res_mask = field("res_mask", arrow::utf8());
+  auto res_first_n = field("res_first_n", arrow::utf8());
+
+  auto expr_mask = TreeExprBuilder::MakeExpression("mask", {f0}, res_mask);
+  auto expr_first_n =
+      TreeExprBuilder::MakeExpression("mask_first_n", {f0, f1}, res_first_n);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {expr_mask, expr_first_n}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Row 1: both valid.  Row 2: null text.  Row 3: valid text but null n.
+  // Row 4: empty string, which is a valid value and distinct from null.
+  int num_records = 4;
+  auto array0 =
+      MakeArrowArrayUtf8({"Abc-123", "Abc-123", "Xyz", ""}, {true, false, true, true});
+  auto array1 = MakeArrowArrayInt32({3, 3, 3, 3}, {true, true, false, true});
+
+  auto exp_mask =
+      MakeArrowArrayUtf8({"Xxx-nnn", "", "Xxx", ""}, {true, false, true, true});
+  // mask_first_n is null wherever either argument is null.
+  auto exp_first_n =
+      MakeArrowArrayUtf8({"Xxx-123", "", "", ""}, {true, false, false, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_first_n, outputs.at(1));
 }
 
 TEST_F(TestProjector, TestSqrtInt32) {

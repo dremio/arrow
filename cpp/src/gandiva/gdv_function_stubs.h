@@ -417,6 +417,21 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
                                    int32_t* out_len);
 
 GANDIVA_EXPORT
+const char* gdv_fn_mask_internal(int64_t context, const char* data, int32_t data_len,
+                                 const char* mode, int32_t mode_len, int32_t char_count,
+                                 const char* upper, int32_t upper_len, const char* lower,
+                                 int32_t lower_len, const char* digit, int32_t digit_len,
+                                 const char* other, int32_t other_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* mask_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* in, int32_t length,
+                                          const char* upper, int32_t upper_length,
+                                          const char* lower, int32_t lower_length,
+                                          const char* num, int32_t num_length,
+                                          const char* other, int32_t other_length,
+                                          int32_t* out_len);
+
+GANDIVA_EXPORT
 const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* in, int32_t length,
                                      const char* upper, int32_t upper_length,
                                      const char* lower, int32_t lower_length,
