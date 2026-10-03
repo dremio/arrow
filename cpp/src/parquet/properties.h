@@ -302,7 +302,8 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           content_defined_chunking_enabled_(false),
-          content_defined_chunking_options_({}) {}
+          content_defined_chunking_options_({}),
+          dictionary_benefit_check_enabled_(false) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -322,7 +323,9 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()) {
+              properties.content_defined_chunking_options()),
+          dictionary_benefit_check_enabled_(
+              properties.dictionary_benefit_check_enabled()) {
       CopyColumnSpecificProperties(properties);
     }
 
@@ -401,6 +404,24 @@ class PARQUET_EXPORT WriterProperties {
     /// Specify the dictionary page size limit per row group. Default 1MB.
     Builder* dictionary_pagesize_limit(int64_t dictionary_psize_limit) {
       dictionary_pagesize_limit_ = dictionary_psize_limit;
+      return this;
+    }
+
+    /// \brief Fall back to PLAIN when the first data page of a column chunk shows
+    /// that dictionary encoding does not reduce its size.
+    ///
+    /// The check keeps the dictionary only if the first page's encoded indices plus
+    /// the dictionary are smaller than the page's values would be in PLAIN encoding,
+    /// the rule parquet-java applies. Without it, the dictionary is abandoned only
+    /// when it reaches dictionary_pagesize_limit. Disabled by default.
+    Builder* enable_dictionary_benefit_check() {
+      dictionary_benefit_check_enabled_ = true;
+      return this;
+    }
+
+    /// Disable the first-page dictionary benefit check (the default).
+    Builder* disable_dictionary_benefit_check() {
+      dictionary_benefit_check_enabled_ = false;
       return this;
     }
 
@@ -783,7 +804,8 @@ class PARQUET_EXPORT WriterProperties {
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
           store_decimal_as_integer_, std::move(sorting_columns_),
-          content_defined_chunking_enabled_, content_defined_chunking_options_));
+          content_defined_chunking_enabled_, content_defined_chunking_options_,
+          dictionary_benefit_check_enabled_));
     }
 
    private:
@@ -818,11 +840,18 @@ class PARQUET_EXPORT WriterProperties {
 
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
+    bool dictionary_benefit_check_enabled_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
 
   inline int64_t dictionary_pagesize_limit() const { return dictionary_pagesize_limit_; }
+
+  /// \brief Whether the first data page of each column chunk decides if dictionary
+  /// encoding is kept. See Builder::enable_dictionary_benefit_check().
+  inline bool dictionary_benefit_check_enabled() const {
+    return dictionary_benefit_check_enabled_;
+  }
 
   inline int64_t write_batch_size() const { return write_batch_size_; }
 
@@ -954,7 +983,7 @@ class PARQUET_EXPORT WriterProperties {
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
-      CdcOptions content_defined_chunking_options)
+      CdcOptions content_defined_chunking_options, bool dictionary_benefit_check_enabled)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -972,7 +1001,8 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties),
         content_defined_chunking_enabled_(content_defined_chunking_enabled),
-        content_defined_chunking_options_(content_defined_chunking_options) {}
+        content_defined_chunking_options_(content_defined_chunking_options),
+        dictionary_benefit_check_enabled_(dictionary_benefit_check_enabled) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -996,6 +1026,7 @@ class PARQUET_EXPORT WriterProperties {
 
   bool content_defined_chunking_enabled_;
   CdcOptions content_defined_chunking_options_;
+  bool dictionary_benefit_check_enabled_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();

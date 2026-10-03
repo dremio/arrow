@@ -48,6 +48,19 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(ParquetVersion::PARQUET_2_6, props->version());
   ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
   ASSERT_FALSE(props->page_checksum_enabled());
+  ASSERT_FALSE(props->dictionary_benefit_check_enabled());
+}
+
+TEST(TestWriterProperties, DictionaryBenefitCheck) {
+  WriterProperties::Builder builder;
+  std::shared_ptr<WriterProperties> enabled =
+      builder.enable_dictionary_benefit_check()->build();
+  ASSERT_TRUE(enabled->dictionary_benefit_check_enabled());
+  ASSERT_TRUE(
+      WriterProperties::Builder(*enabled).build()->dictionary_benefit_check_enabled());
+  ASSERT_FALSE(builder.disable_dictionary_benefit_check()
+                   ->build()
+                   ->dictionary_benefit_check_enabled());
 }
 
 TEST(TestWriterProperties, DefaultCompression) {
