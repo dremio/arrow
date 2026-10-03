@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -1923,11 +1924,205 @@ TEST_F(DateTimeTestProjector, TestTimestampdiffSubSecondSensitivity) {
                          kTestNanos + 1000000001LL, pool_));
 }
 
-// NOTE: TIME type handling
-// time32 uses TimeUnit::SECOND or MILLISECOND.
-// time64 uses TimeUnit::MICROSECOND or NANOSECOND.
-// Gandiva's time functions (extractHour/Minute/Second on time32) operate on millis.
-// time64[us]/time64[ns] will need the same TimestampIR treatment: convert to millis
-// before calling precompiled functions. The pattern is identical to the extract wrappers.
+// time64[us] / time64[ns] functions. Signatures are registered with time64[us];
+// time64[ns] calls are remapped to the _ns variants by TimeIR.
+
+int64_t UnitsInDay(arrow::TimeUnit::type unit, int64_t hh, int64_t mm, int64_t ss,
+                   int64_t frac) {
+  int64_t units_per_second = unit == arrow::TimeUnit::NANO ? 1000000000LL : 1000000LL;
+  return ((hh * 60 + mm) * 60 + ss) * units_per_second + frac;
+}
+
+// Helper: evaluate a unary time64 function returning int64
+static int64_t EvalTime64Extract(const std::string& func_name, arrow::TimeUnit::type unit,
+                                 int64_t value, arrow::MemoryPool* pool) {
+  auto time_type = arrow::time64(unit);
+  auto f0 = field("f0", time_type);
+  auto schema = arrow::schema({f0});
+  auto result_field = field("result", int64());
+  auto expr = TreeExprBuilder::MakeExpression(func_name, {f0}, result_field);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto in_array =
+      MakeArrowTypeArray<arrow::Time64Type, int64_t>(time_type, {value}, {true});
+  auto in_batch = arrow::RecordBatch::Make(schema, 1, {in_array});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto result_array = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(0));
+  return result_array->Value(0);
+}
+
+// Helper: evaluate a binary time64 function returning boolean
+static bool EvalTime64Compare(const std::string& func_name, arrow::TimeUnit::type unit,
+                              int64_t left, int64_t right, arrow::MemoryPool* pool) {
+  auto time_type = arrow::time64(unit);
+  auto f0 = field("f0", time_type);
+  auto f1 = field("f1", time_type);
+  auto schema = arrow::schema({f0, f1});
+  auto result_field = field("result", boolean());
+  auto expr = TreeExprBuilder::MakeExpression(func_name, {f0, f1}, result_field);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto left_array =
+      MakeArrowTypeArray<arrow::Time64Type, int64_t>(time_type, {left}, {true});
+  auto right_array =
+      MakeArrowTypeArray<arrow::Time64Type, int64_t>(time_type, {right}, {true});
+  auto in_batch = arrow::RecordBatch::Make(schema, 1, {left_array, right_array});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto result_array = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(0));
+  return result_array->Value(0);
+}
+
+TEST_F(DateTimeTestProjector, TestTime64ExtractAcrossPrecisions) {
+  for (auto unit : {arrow::TimeUnit::MICRO, arrow::TimeUnit::NANO}) {
+    int64_t sub_second = unit == arrow::TimeUnit::NANO ? 999999999LL : 999999LL;
+
+    // 00:00:00
+    int64_t midnight = UnitsInDay(unit, 0, 0, 0, 0);
+    EXPECT_EQ(0, EvalTime64Extract("extractHour", unit, midnight, pool_));
+    EXPECT_EQ(0, EvalTime64Extract("extractMinute", unit, midnight, pool_));
+    EXPECT_EQ(0, EvalTime64Extract("extractSecond", unit, midnight, pool_));
+
+    // 05:35:25.<max fraction>
+    int64_t morning = UnitsInDay(unit, 5, 35, 25, sub_second);
+    EXPECT_EQ(5, EvalTime64Extract("extractHour", unit, morning, pool_));
+    EXPECT_EQ(35, EvalTime64Extract("extractMinute", unit, morning, pool_));
+    EXPECT_EQ(25, EvalTime64Extract("extractSecond", unit, morning, pool_));
+
+    // 23:00:00 is above INT32_MAX in both units (catches 32/64-bit mixups).
+    int64_t late = UnitsInDay(unit, 23, 0, 0, 0);
+    ASSERT_GT(late, static_cast<int64_t>(INT32_MAX));
+    EXPECT_EQ(23, EvalTime64Extract("extractHour", unit, late, pool_));
+    EXPECT_EQ(0, EvalTime64Extract("extractMinute", unit, late, pool_));
+    EXPECT_EQ(0, EvalTime64Extract("extractSecond", unit, late, pool_));
+
+    // 23:59:59.<max fraction>
+    int64_t last = UnitsInDay(unit, 23, 59, 59, sub_second);
+    EXPECT_EQ(23, EvalTime64Extract("extractHour", unit, last, pool_));
+    EXPECT_EQ(59, EvalTime64Extract("extractMinute", unit, last, pool_));
+    EXPECT_EQ(59, EvalTime64Extract("extractSecond", unit, last, pool_));
+
+    // Aliases resolve to the same functions.
+    EXPECT_EQ(23, EvalTime64Extract("hour", unit, last, pool_));
+    EXPECT_EQ(59, EvalTime64Extract("minute", unit, last, pool_));
+    EXPECT_EQ(59, EvalTime64Extract("second", unit, last, pool_));
+  }
+}
+
+TEST_F(DateTimeTestProjector, TestTime64ExtractMatchesTime32) {
+  // The time64 extract functions agree with the time32 (millis) ones on values that
+  // are exactly representable in milliseconds.
+  auto field0 = field("f0", time32(arrow::TimeUnit::MILLI));
+  auto schema = arrow::schema({field0});
+  auto field_sec = field("ss", int64());
+  auto expr = TreeExprBuilder::MakeExpression("extractSecond", {field0}, field_sec);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  std::vector<int32_t> millis = {MillisInDay(0, 0, 0, 0), MillisInDay(5, 35, 25, 123),
+                                 MillisInDay(23, 59, 59, 999)};
+  auto array = MakeArrowTypeArray<arrow::Time32Type, int32_t>(
+      time32(arrow::TimeUnit::MILLI), millis, {true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, 3, {array});
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+  auto seconds = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(0));
+
+  for (size_t i = 0; i < millis.size(); i++) {
+    EXPECT_EQ(seconds->Value(i),
+              EvalTime64Extract("extractSecond", arrow::TimeUnit::MICRO,
+                                millis[i] * 1000LL, pool_));
+    EXPECT_EQ(seconds->Value(i), EvalTime64Extract("extractSecond", arrow::TimeUnit::NANO,
+                                                   millis[i] * 1000000LL, pool_));
+  }
+}
+
+TEST_F(DateTimeTestProjector, TestTime64CompareAcrossPrecisions) {
+  for (auto unit : {arrow::TimeUnit::MICRO, arrow::TimeUnit::NANO}) {
+    // Values one unit apart within the same millisecond: a millisecond-based
+    // comparison would consider them equal.
+    int64_t a = UnitsInDay(unit, 23, 59, 59, 1);
+    int64_t b = a + 1;
+
+    EXPECT_FALSE(EvalTime64Compare("equal", unit, a, b, pool_));
+    EXPECT_TRUE(EvalTime64Compare("equal", unit, a, a, pool_));
+    EXPECT_TRUE(EvalTime64Compare("not_equal", unit, a, b, pool_));
+    EXPECT_TRUE(EvalTime64Compare("less_than", unit, a, b, pool_));
+    EXPECT_FALSE(EvalTime64Compare("less_than", unit, b, a, pool_));
+    EXPECT_TRUE(EvalTime64Compare("less_than_or_equal_to", unit, a, a, pool_));
+    EXPECT_TRUE(EvalTime64Compare("greater_than", unit, b, a, pool_));
+    EXPECT_FALSE(EvalTime64Compare("greater_than", unit, a, b, pool_));
+    EXPECT_TRUE(EvalTime64Compare("greater_than_or_equal_to", unit, b, b, pool_));
+  }
+}
+
+TEST_F(DateTimeTestProjector, TestTime64NullHandling) {
+  for (auto unit : {arrow::TimeUnit::MICRO, arrow::TimeUnit::NANO}) {
+    auto time_type = arrow::time64(unit);
+    auto f0 = field("f0", time_type);
+    auto f1 = field("f1", time_type);
+    auto schema = arrow::schema({f0, f1});
+    auto out = field("out", boolean());
+
+    auto isnull_expr = TreeExprBuilder::MakeExpression("isnull", {f0}, out);
+    auto isnotnull_expr = TreeExprBuilder::MakeExpression("isnotnull", {f0}, out);
+    auto distinct_expr =
+        TreeExprBuilder::MakeExpression("is_distinct_from", {f0, f1}, out);
+    auto not_distinct_expr =
+        TreeExprBuilder::MakeExpression("is_not_distinct_from", {f0, f1}, out);
+
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(
+        schema, {isnull_expr, isnotnull_expr, distinct_expr, not_distinct_expr},
+        TestConfiguration(), &projector));
+
+    int64_t v = UnitsInDay(unit, 12, 0, 0, 1);
+    // rows: (v, v), (null, v), (null, null), (v, v + 1)
+    auto left = MakeArrowTypeArray<arrow::Time64Type, int64_t>(
+        time_type, {v, 0, 0, v}, {true, false, false, true});
+    auto right = MakeArrowTypeArray<arrow::Time64Type, int64_t>(
+        time_type, {v, v, 0, v + 1}, {true, true, false, true});
+    auto in_batch = arrow::RecordBatch::Make(schema, 4, {left, right});
+
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+
+    std::vector<bool> all_valid = {true, true, true, true};
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, true, true, false}, all_valid),
+                              outputs.at(0));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, false, true}, all_valid),
+                              outputs.at(1));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, true, false, true}, all_valid),
+                              outputs.at(2));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, true, false}, all_valid),
+                              outputs.at(3));
+  }
+}
+
+TEST_F(DateTimeTestProjector, TestTime64MixedUnitsRejected) {
+  auto f0 = field("f0", arrow::time64(arrow::TimeUnit::MICRO));
+  auto f1 = field("f1", arrow::time64(arrow::TimeUnit::NANO));
+  auto schema = arrow::schema({f0, f1});
+  auto expr =
+      TreeExprBuilder::MakeExpression("less_than", {f0, f1}, field("out", boolean()));
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_FALSE(status.ok());
+  EXPECT_THAT(status.message(), testing::HasSubstr("mixed time64 units"));
+}
 
 }  // namespace gandiva
