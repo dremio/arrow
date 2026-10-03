@@ -249,6 +249,28 @@ TEST(TestTime, TestExtractTime) {
   EXPECT_EQ(extractSecond_time32(time_as_millis_in_day), 33);
 }
 
+TEST(TestTime, TestExtractTime64) {
+  // 10:20:33.123456 in micros
+  gdv_time64 time_as_micros_in_day = 37233123456LL;
+  EXPECT_EQ(extractHour_time64(time_as_micros_in_day), 10);
+  EXPECT_EQ(extractMinute_time64(time_as_micros_in_day), 20);
+  EXPECT_EQ(extractSecond_time64(time_as_micros_in_day), 33);
+
+  // 10:20:33.123456789 in nanos
+  gdv_time64 time_as_nanos_in_day = 37233123456789LL;
+  EXPECT_EQ(extractHour_time64_ns(time_as_nanos_in_day), 10);
+  EXPECT_EQ(extractMinute_time64_ns(time_as_nanos_in_day), 20);
+  EXPECT_EQ(extractSecond_time64_ns(time_as_nanos_in_day), 33);
+
+  // 23:59:59.999999 / 23:59:59.999999999
+  EXPECT_EQ(extractHour_time64(86399999999LL), 23);
+  EXPECT_EQ(extractMinute_time64(86399999999LL), 59);
+  EXPECT_EQ(extractSecond_time64(86399999999LL), 59);
+  EXPECT_EQ(extractHour_time64_ns(86399999999999LL), 23);
+  EXPECT_EQ(extractMinute_time64_ns(86399999999999LL), 59);
+  EXPECT_EQ(extractSecond_time64_ns(86399999999999LL), 59);
+}
+
 TEST(TestTime, TestDateDiff) {
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
   gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
