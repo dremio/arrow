@@ -56,6 +56,11 @@ bool DataTypeEquals(const DataTypePtr& left, const DataTypePtr& right) {
         auto tright = checked_cast<arrow::TimestampType*>(right.get());
         return tleft->timezone() == tright->timezone();
       }
+      case arrow::Type::TIME64: {
+        // For time64 types, the TimeUnit isn't part of the signature
+        // (conversion is handled at codegen time by TimeIR).
+        return true;
+      }
       default:
         return left->Equals(right);
     }

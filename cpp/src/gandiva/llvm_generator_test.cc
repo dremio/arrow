@@ -28,6 +28,7 @@
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/tests/test_util.h"
+#include "gandiva/time_ir.h"
 #include "gandiva/timestamp_ir.h"
 
 namespace gandiva {
@@ -232,6 +233,89 @@ TEST_F(TestLLVMGenerator, ResolveTimestampPcName) {
         auto name, LLVMGenerator::ResolveTimestampPcName("no_such_function", params));
     EXPECT_EQ(name, "no_such_function");
   }
+}
+
+TEST_F(TestLLVMGenerator, ResolveTimePcName) {
+  // Non-time64 params — name unchanged
+  {
+    DataTypeVector params{arrow::time32(arrow::TimeUnit::MILLI)};
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimePcName("extractHour_time32", params));
+    EXPECT_EQ(name, "extractHour_time32");
+  }
+
+  // time64[us] — no remap (us is the registered time64 unit)
+  {
+    DataTypeVector params{arrow::time64(arrow::TimeUnit::MICRO)};
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimePcName("extractHour_time64", params));
+    EXPECT_EQ(name, "extractHour_time64");
+  }
+
+  // time64[ns] with a unit-specific function — gets _ns suffix
+  {
+    DataTypeVector params{arrow::time64(arrow::TimeUnit::NANO)};
+    ASSERT_OK_AND_ASSIGN(auto name,
+                         LLVMGenerator::ResolveTimePcName("extractHour_time64", params));
+    EXPECT_EQ(name, "extractHour_time64_ns");
+  }
+
+  // time64[ns] with a unit-agnostic function — name unchanged
+  {
+    DataTypeVector params{arrow::time64(arrow::TimeUnit::NANO),
+                          arrow::time64(arrow::TimeUnit::NANO)};
+    ASSERT_OK_AND_ASSIGN(
+        auto name, LLVMGenerator::ResolveTimePcName("less_than_time64_time64", params));
+    EXPECT_EQ(name, "less_than_time64_time64");
+  }
+
+  // Mixed time64 units — returns Invalid status
+  {
+    DataTypeVector params{arrow::time64(arrow::TimeUnit::MICRO),
+                          arrow::time64(arrow::TimeUnit::NANO)};
+    auto result = LLVMGenerator::ResolveTimePcName("less_than_time64_time64", params);
+    EXPECT_FALSE(result.ok());
+    EXPECT_THAT(result.status().message(), testing::HasSubstr("mixed time64 units"));
+  }
+
+  // time64[ns] without an _ns variant must not fall back to the microsecond function
+  {
+    DataTypeVector params{arrow::time64(arrow::TimeUnit::NANO)};
+    auto result = LLVMGenerator::ResolveTimePcName("no_such_function", params);
+    EXPECT_FALSE(result.ok());
+    EXPECT_THAT(result.status().message(), testing::HasSubstr("no variant for time64"));
+  }
+}
+
+// Every registered time64 function must resolve, for both time64 units, to a function
+// that exists in the precompiled module.
+TEST_F(TestLLVMGenerator, VerifyTime64Functions) {
+  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
+
+  llvm::Module* module = generator->module();
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
+  int num_time64_functions = 0;
+  for (auto& native_function : *registry_) {
+    for (auto& signature : native_function.signatures()) {
+      bool has_time64 = false;
+      for (auto& param : signature.param_types()) {
+        has_time64 |= param->id() == arrow::Type::TIME64;
+      }
+      if (!has_time64) continue;
+      ++num_time64_functions;
+      for (auto unit : {arrow::TimeUnit::MICRO, arrow::TimeUnit::NANO}) {
+        DataTypeVector params;
+        for (auto& param : signature.param_types()) {
+          params.push_back(param->id() == arrow::Type::TIME64 ? arrow::time64(unit)
+                                                              : param);
+        }
+        ASSERT_OK_AND_ASSIGN(auto name, LLVMGenerator::ResolveTimePcName(
+                                            native_function.pc_name(), params));
+        EXPECT_NE(module->getFunction(name), nullptr) << name;
+      }
+    }
+  }
+  EXPECT_GT(num_time64_functions, 0);
 }
 
 }  // namespace gandiva

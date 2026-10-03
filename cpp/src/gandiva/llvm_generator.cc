@@ -30,6 +30,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
+#include "gandiva/time_ir.h"
 #include "gandiva/timestamp_ir.h"
 
 namespace gandiva {
@@ -1296,6 +1297,40 @@ Result<std::string> LLVMGenerator::ResolveTimestampPcName(const std::string& pc_
   return pc_name;
 }
 
+Result<std::string> LLVMGenerator::ResolveTimePcName(const std::string& pc_name,
+                                                     const DataTypeVector& params) {
+  arrow::TimeUnit::type time_unit = arrow::TimeUnit::MICRO;
+  bool found_time = false;
+  for (const auto& param : params) {
+    if (param->id() == arrow::Type::TIME64) {
+      auto unit = arrow::internal::checked_cast<const arrow::Time64Type&>(*param).unit();
+      if (!found_time) {
+        time_unit = unit;
+        found_time = true;
+      } else if (unit != time_unit) {
+        return Status::Invalid(
+            "Gandiva cannot compile expression: mixed time64 units in function '",
+            pc_name, "'. All time64 arguments must have the same TimeUnit.");
+      }
+    }
+  }
+  // time64 signatures are registered with MICRO, so the unsuffixed function already
+  // handles MICRO arguments.
+  if (!found_time || time_unit == arrow::TimeUnit::MICRO ||
+      TimeIR::IsUnitAgnosticFunction(pc_name)) {
+    return pc_name;
+  }
+  std::string remapped = pc_name + TimeIR::UnitSuffix(time_unit);
+  if (TimeIR::IsTimeIRFunction(remapped)) {
+    ARROW_LOG(DEBUG) << "TimeIR remap: " << pc_name << " -> " << remapped;
+    return remapped;
+  }
+  // Never fall through to the MICRO function: it would misinterpret the data.
+  return Status::Invalid("Gandiva cannot compile expression: function '", pc_name,
+                         "' has no variant for time64 unit ",
+                         arrow::internal::ToString(time_unit), ".");
+}
+
 LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
                                                     DataTypePtr arrow_return_type,
                                                     std::vector<llvm::Value*>* params,
@@ -1315,6 +1350,12 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
       return nullptr;
     }
     pc_name = resolve_result.MoveValueUnsafe();
+    auto time_resolve_result = ResolveTimePcName(pc_name, descriptor->params());
+    if (!time_resolve_result.ok()) {
+      status_ = time_resolve_result.status();
+      return nullptr;
+    }
+    pc_name = time_resolve_result.MoveValueUnsafe();
   }
 
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
