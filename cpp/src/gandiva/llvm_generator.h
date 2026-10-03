@@ -67,6 +67,13 @@ class GANDIVA_EXPORT LLVMGenerator {
   static Result<std::string> ResolveTimestampPcName(const std::string& pc_name,
                                                      const DataTypeVector& params);
 
+  /// \brief Resolve the precompiled function name, remapping to a TimeIR variant
+  /// when the function's params include a time64[ns] argument.
+  /// Returns an error if params contain mixed time64 TimeUnits, or if the function
+  /// has no variant for the time64 unit and is not unit-agnostic.
+  static Result<std::string> ResolveTimePcName(const std::string& pc_name,
+                                               const DataTypeVector& params);
+
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
@@ -96,6 +103,7 @@ class GANDIVA_EXPORT LLVMGenerator {
                          std::shared_ptr<FunctionRegistry> function_registry);
 
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
+  FRIEND_TEST(TestLLVMGenerator, VerifyTime64Functions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
   friend class TestLLVMGenerator;

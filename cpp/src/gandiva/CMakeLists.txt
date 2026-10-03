@@ -62,6 +62,7 @@ set(SRC_FILES
     decimal_ir.cc
     decimal_type_util.cc
     timestamp_ir.cc
+    time_ir.cc
     decimal_xlarge.cc
     engine.cc
     date_utils.cc
