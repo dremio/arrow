@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       odbc_release_step:
-        description: 'ODBC MSI release step'
+        description: 'ODBC MSI and macOS PKG release step'
         required: false
         default: false
         type: boolean
@@ -180,8 +180,12 @@ jobs:
             --clobber `
             Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
-  odbc-macos-build:
-    name: ODBC Build macOS ${{ matrix.architecture }}
+  # The dylib must be signed (outside of CI) before it goes into the PKG, so
+  # the unsigned dylibs and the ARM64 base PKG are uploaded first and the
+  # universal PKG is assembled in odbc-macos-upload-pkg after the signed
+  # dylibs are available on the release.
+  odbc-macos-upload-dylib:
+    name: ODBC macOS Upload Unsigned ${{ matrix.architecture }} DYLIB
     runs-on: macos-${{ matrix.macos-version }}
     if: github.event_name == 'push'
     timeout-minutes: 120
@@ -230,26 +234,33 @@ jobs:
         run: |
           cd build/cpp
           cpack
-      - name: Upload ARM64 ODBC PKG to the job
+      - name: Rename Unsigned ODBC DYLIB
+        run: |
+          mv build/cpp/${{ env.ARROW_BUILD_TYPE }}/libarrow_flight_sql_odbc.dylib \
+            libarrow_flight_sql_odbc_${{ matrix.architecture }}_unsigned.dylib
+      - name: Rename ARM64 base ODBC PKG
+        if: matrix.architecture == 'ARM64'
+        run: |
+          pkg_path="$(ls build/cpp/ArrowFlightSQLODBC-*.pkg)"
+          mv "${pkg_path}" "$(basename "${pkg_path}" .pkg)_ARM64_base.pkg"
+      - name: Upload ODBC DYLIB to the job
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-dylib-${{ matrix.architecture }}
+          path: libarrow_flight_sql_odbc_${{ matrix.architecture }}_unsigned.dylib
+          if-no-files-found: error
+      - name: Upload ARM64 base ODBC PKG to the job
         if: matrix.architecture == 'ARM64'
         uses: actions/upload-artifact@v7
         with:
-          name: flight-sql-odbc-pkg-installer-ARM64
-          path: build/cpp/ArrowFlightSQLODBC-*.pkg
-          if-no-files-found: error
-      - name: Upload Intel ODBC dylib to the job
-        if: matrix.architecture == 'AMD64'
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-sql-odbc-dylib-AMD64
-          path: build/cpp/${{ env.ARROW_BUILD_TYPE }}/libarrow_flight_sql_odbc.dylib
+          name: flight-sql-odbc-pkg-base-ARM64
+          path: ArrowFlightSQLODBC-*_ARM64_base.pkg
           if-no-files-found: error
 
   odbc-macos-release:
-    needs: odbc-macos-build
-    name: Upload Unsigned Universal macOS PKG to Release
-    runs-on: macos-14
-    timeout-minutes: 30
+    needs: odbc-macos-upload-dylib
+    name: Upload Unsigned ODBC DYLIB and Base PKG to Release
+    runs-on: ubuntu-latest
     permissions:
       # Upload to GitHub Release
       contents: write
@@ -260,41 +271,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Download ARM64 PKG
+      - name: Download the artifacts
         uses: actions/download-artifact@v8
         with:
-          name: flight-sql-odbc-pkg-installer-ARM64
-          path: arm64-pkg
-      - name: Download AMD64 dylib
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-dylib-AMD64
-          path: amd64-dylib
-      - name: Build universal macOS installer
-        run: |
-          set -euo pipefail
-
-          pkg_path="$(ls arm64-pkg/ArrowFlightSQLODBC-*.pkg)"
-          pkg_name="$(basename "${pkg_path}" .pkg)"
-
-          # Use the ARM64 .pkg and swap in a universal ODBC dylib
-          # that works on ARM64 and AMD64.
-          pkgutil --expand-full "${pkg_path}" expanded
-
-          dylib_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
-          lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
-            -output "${dylib_path}"
-
-          dylib_archs="$(lipo -archs "${dylib_path}")"
-          echo "Universal dylib architectures: ${dylib_archs}"
-          for arch in arm64 x86_64; do
-            if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-              echo "Universal dylib is missing '${arch}' (got: ${dylib_archs})"
-              exit 1
-            fi
-          done
-
-          pkgutil --flatten-full expanded "${pkg_name}_unsigned.pkg"
+          pattern: flight-sql-odbc-dylib-*
+          merge-multiple: true
       - name: Wait for creating GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -307,5 +288,64 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            libarrow_flight_sql_odbc_AMD64_unsigned.dylib \
+            libarrow_flight_sql_odbc_ARM64_unsigned.dylib \
+            ArrowFlightSQLODBC-*_ARM64_base.pkg
+
+  # No rebuild is needed here: the ARM64 base PKG and the signed dylibs are
+  # downloaded from the release and only repackaged.
+  odbc-macos-upload-pkg:
+    name: ODBC macOS Upload Unsigned Universal PKG
+    runs-on: macos-14
+    if: inputs.odbc_release_step
+    timeout-minutes: 30
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Download ARM64 base PKG and signed ODBC DYLIBs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download ${GITHUB_REF_NAME} \
+            --repo ${{ github.repository }} \
+            --pattern 'ArrowFlightSQLODBC-*_ARM64_base.pkg' \
+            --pattern libarrow_flight_sql_odbc_AMD64.dylib \
+            --pattern libarrow_flight_sql_odbc_ARM64.dylib \
+            --clobber
+      - name: Build universal macOS installer
+        run: |
+          set -euo pipefail
+
+          pkg_path="$(ls ArrowFlightSQLODBC-*_ARM64_base.pkg)"
+          pkg_name="$(basename "${pkg_path}" _ARM64_base.pkg)"
+
+          # Use the ARM64 .pkg and swap in a universal ODBC dylib
+          # made from the signed ARM64 and AMD64 dylibs.
+          pkgutil --expand-full "${pkg_path}" expanded
+
+          dylib_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
+          lipo -create \
+            libarrow_flight_sql_odbc_ARM64.dylib \
+            libarrow_flight_sql_odbc_AMD64.dylib \
+            -output "${dylib_path}"
+
+          dylib_archs="$(lipo -archs "${dylib_path}")"
+          echo "Universal dylib architectures: ${dylib_archs}"
+          for arch in arm64 x86_64; do
+            if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
+              echo "Universal dylib is missing '${arch}' (got: ${dylib_archs})"
+              exit 1
+            fi
+          done
+
+          pkgutil --flatten-full expanded "${pkg_name}_unsigned.pkg"
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --repo ${{ github.repository }} \
             --clobber \
             ArrowFlightSQLODBC-*_unsigned.pkg
