@@ -162,6 +162,11 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   EXPECT_EQ(round_float32_int32(-451.65f, 100), -451.65f);
   EXPECT_EQ(round_float32_int32(16777216.0f, 2), 16777216.0f);
 
+  const float limit_float = static_cast<float>(std::ldexp(1.0, 52) / 100.0);
+  const float just_above_float = std::nextafter(limit_float, max_float);
+  EXPECT_EQ(round_float32_int32(limit_float, 2), limit_float);
+  EXPECT_EQ(round_float32_int32(just_above_float, 2), just_above_float);
+
   VerifyFuzzyEquals(round_float64(1234.245), 1234);
   VerifyFuzzyEquals(round_float64(-11.7892), -12);
   VerifyFuzzyEquals(round_float64(1.4999999), 1);
@@ -193,10 +198,10 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   }
   EXPECT_EQ(round_float64_int32(1.5, -100), 0);
 
-  const double limit = std::ldexp(1.0, 52) / 100.0;
-  const double just_above = std::nextafter(limit, max_double);
-  EXPECT_EQ(round_float64_int32(limit, 2), limit);
-  EXPECT_EQ(round_float64_int32(just_above, 2), just_above);
+  const double limit_double = std::ldexp(1.0, 52) / 100.0;
+  const double just_above_double = std::nextafter(limit_double, max_double);
+  EXPECT_EQ(round_float64_int32(limit_double, 2), limit_double);
+  EXPECT_EQ(round_float64_int32(just_above_double, 2), just_above_double);
 }
 
 TEST(TestExtendedMathOps, TestBRoundDecimal) {

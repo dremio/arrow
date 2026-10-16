@@ -304,15 +304,16 @@ gdv_float64 bround_float64(gdv_float64 num) {
   return num - diff_num;
 }
 
-// doubles at or above 2^52 and have no fractional part, so no point to truncate
-static const gdv_float64 kMaxFractionalDouble = static_cast<gdv_float64>(1LL << 52);
+// limit for abs(number * 10^scale_multiplier), computed in double - works for float32 and float64 versions.
+// at or above 2^52 double (scaled) has no fractional part, so there is nothing to round
+static const gdv_float64 kMaxRoundableScaledValue = static_cast<gdv_float64>(1LL << 52);
 // rounds the number to the given scale
 // every ordered comparison with NaN is false: <, <=, >, >= and ==
 #define ROUND_DECIMAL_TO_SCALE(TYPE)                                              \
   FORCE_INLINE                                                                    \
   gdv_##TYPE round_##TYPE##_int32(gdv_##TYPE number, gdv_int32 out_scale) {       \
     gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);               \
-    if (!(fabs(number) < kMaxFractionalDouble / scale_multiplier)) {              \
+    if (!(fabs(number) < kMaxRoundableScaledValue / scale_multiplier)) {          \
       return number;                                                              \
     }                                                                             \
     gdv_float64 scaled = number * scale_multiplier;                               \
