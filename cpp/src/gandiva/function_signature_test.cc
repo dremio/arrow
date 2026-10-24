@@ -110,4 +110,20 @@ TEST_F(TestFunctionSignature, TestHash) {
   EXPECT_EQ(f3.Hash(), f4.Hash());
 }
 
+TEST_F(TestFunctionSignature, TestTime64UnitNotPartOfSignature) {
+  // time64 units are resolved at codegen time by TimeIR, so time64[us] and time64[ns]
+  // match the same registered signature.
+  FunctionSignature micro("extractHour", {arrow::time64(arrow::TimeUnit::MICRO)},
+                          arrow::int64());
+  FunctionSignature nano("extractHour", {arrow::time64(arrow::TimeUnit::NANO)},
+                         arrow::int64());
+  EXPECT_EQ(micro, nano);
+  EXPECT_EQ(micro.Hash(), nano.Hash());
+
+  // time32 and time64 remain distinct types.
+  EXPECT_FALSE(micro == FunctionSignature("extractHour",
+                                          {arrow::time32(arrow::TimeUnit::MILLI)},
+                                          arrow::int64()));
+}
+
 }  // namespace gandiva
