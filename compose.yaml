@@ -116,6 +116,7 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
+  - almalinux-cpp-odbc
   - almalinux-verify-rc
   - alpine-linux-cpp
   - alpine-linux-r
@@ -2053,6 +2054,62 @@ services:
         apt update -y && apt install -y curl git gnupg tzdata wget &&
         git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+
+  almalinux-cpp-odbc:
+    # Arrow Flight SQL ODBC build with BUNDLED dependencies, installed and
+    # registered the same way as the RPM packages
+    # (dev/tasks/linux-packages/apache-arrow/yum/arrow.spec.in).
+    # Usage:
+    #   docker compose build almalinux-cpp-odbc
+    #   docker compose run --rm almalinux-cpp-odbc
+    # Parameters:
+    #   ARCH: amd64, arm64/v8
+    #   ALMALINUX: 9, 10
+    image: ${REPO}:${ARCH_SHORT}-almalinux-${ALMALINUX}-cpp-odbc
+    build:
+      context: .
+      dockerfile: ci/docker/almalinux-cpp-odbc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH_SHORT}-almalinux-${ALMALINUX}-cpp-odbc
+      args:
+        arch: ${ARCH}
+        base: "almalinux:${ALMALINUX}"
+    shm_size: *shm-size
+    ulimits: *ulimits
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
+      ARROW_BUILD_TYPE: RELEASE
+      ARROW_CSV: "OFF"
+      ARROW_DATASET: "OFF"
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_DEPENDENCY_USE_SHARED: "OFF"
+      ARROW_FLIGHT_SQL_ODBC: "ON"
+      ARROW_FLIGHT_SQL_ODBC_CONN: "driver={Apache Arrow Flight SQL ODBC Driver};HOST=dremio;port=32010;pwd=admin2025;uid=admin;useEncryption=false;UseWideChar=true;"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_MIMALLOC: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+    depends_on:
+      dremio:
+         condition: service_healthy
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        # -AL- todo generate and install the ODBC rpms. Then only use `odbcinst -q -d -n 'Apache ...' ` to verify registration.
+        # Register the driver as the RPM %post scriptlet does and verify it
+        # odbcinst -i -d -f /usr/local/share/arrow/flight/sql/odbc/arrow-flight-sql-odbc-template.ini &&
+        # odbcinst -q -d -n 'Apache Arrow Flight SQL ODBC Driver' &&
+        ! ldd /usr/local/lib/libarrow_flight_sql_odbc.so | grep 'not found' &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   almalinux-verify-rc:
     # Usage:
