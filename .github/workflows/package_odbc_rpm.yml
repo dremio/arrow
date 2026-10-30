@@ -1,0 +1,200 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Package Apache Arrow Flight SQL ODBC RPM
+
+# Builds the Apache Arrow RPM packages from
+# dev/tasks/linux-packages/apache-arrow/yum/arrow.spec.in for one
+# distribution, then installs the Flight SQL ODBC RPM in a clean container
+# and verifies that the driver is registered with unixODBC.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build and test the RPM for'
+        required: true
+        type: choice
+        options:
+          - AlmaLinux 8
+          - AlmaLinux 9
+          - AlmaLinux 10
+          - CentOSStream 9
+          - AmazonLinux 2023
+      architecture:
+        description: 'CPU architecture'
+        required: true
+        default: amd64
+        type: choice
+        options:
+          - amd64
+          - arm64
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}-${{ inputs.platform }}-${{ inputs.architecture }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  package:
+    name: ${{ inputs.platform }} ${{ inputs.architecture }}
+    runs-on: ${{ inputs.architecture == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 160
+    env:
+      BUILD_DIR: "${{ github.workspace }}/packages.build"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Resolve target
+        env:
+          PLATFORM: ${{ inputs.platform }}
+          ARCHITECTURE: ${{ inputs.architecture }}
+        run: |
+          set -eu
+
+          yum_dir=dev/tasks/linux-packages/apache-arrow/yum
+
+          case "${PLATFORM}" in
+            "AlmaLinux 8")
+              target=almalinux-8
+              ;;
+            "AlmaLinux 9")
+              target=almalinux-9
+              ;;
+            "AlmaLinux 10")
+              target=almalinux-10
+              ;;
+            "CentOSStream 9")
+              target=centos-9-stream
+              ;;
+            "AmazonLinux 2023")
+              target=amazon-linux-2023
+              ;;
+            *)
+              echo "Unsupported platform: ${PLATFORM}"
+              exit 1
+              ;;
+          esac
+
+          # Example: almalinux-9 -> almalinux, amazon-linux-2023 -> amazon-linux
+          distribution="${target%-*}"
+          if [ "${target}" = "centos-9-stream" ]; then
+            distribution=centos
+          fi
+          # Example: almalinux-9 -> 9, centos-9-stream -> 9-stream
+          version="${target#${distribution}-}"
+
+          if [ "${ARCHITECTURE}" = "arm64" ]; then
+            target="${target}-aarch64"
+          fi
+          if [ ! -f "${yum_dir}/${target}/Dockerfile" ]; then
+            echo "No RPM build target '${target}'. Available targets:"
+            ls "${yum_dir}" | grep -E '^(almalinux|amazon-linux|centos)-'
+            exit 1
+          fi
+
+          # The image the RPMs are built and tested on,
+          # Example: ARG FROM=almalinux:9 -> almalinux:9
+          image="$(sed -n 's/^ARG FROM=//p' "${yum_dir}/${target}/Dockerfile")"
+
+          {
+            echo "DISTRIBUTION=${distribution}"
+            echo "DISTRIBUTION_VERSION=${version}"
+            echo "YUM_TARGETS=${target}"
+            echo "TARGET=${target}"
+            echo "TEST_IMAGE=${image}"
+          } >> "${GITHUB_ENV}"
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-odbc-rpm-${{ env.TARGET }}
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
+      - name: Update version
+        run: |
+          rake -C dev/tasks/linux-packages/apache-arrow version:update
+      - name: Build RPMs
+        run: |
+          rake -C dev/tasks/linux-packages/apache-arrow yum:build
+      - name: Save ccache
+        if: >-
+          !cancelled()
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@d3a005f07dd94a34d11361b0287b0c1fdc6d55f5
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-odbc-rpm-${{ env.TARGET }}
+          include-hidden-files: true
+      - name: Collect RPMs
+        run: |
+          set -eux
+          mkdir rpms
+          find "dev/tasks/linux-packages/apache-arrow/yum/repositories/${DISTRIBUTION}/${DISTRIBUTION_VERSION}" \
+            -name '*.rpm' \
+            -not -name '*.src.rpm' \
+            -exec cp -a {} rpms/ \;
+          ls -l rpms
+          ls rpms/*flight-sql-odbc-libs-*.rpm
+      - name: Upload RPMs to the job
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-rpm-${{ env.TARGET }}
+          path: rpms/*.rpm
+          if-no-files-found: error
+      - name: Install ODBC RPM and verify driver registration
+        run: |
+          docker run \
+            --rm \
+            --env DISTRIBUTION \
+            --volume "${PWD}/rpms:/rpms:ro" \
+            "${TEST_IMAGE}" \
+            bash -ceu '
+              repo_options=""
+              if [ "${DISTRIBUTION}" != "amazon-linux" ]; then
+                dnf install -y epel-release
+                repo_options="--enablerepo=crb --enablerepo=epel"
+              fi
+              dnf install -y ${repo_options} \
+                $(ls /rpms/*-libs-*.rpm | grep -v -E "debuginfo|debugsource")
+              rpm -qa "*flight-sql-odbc-libs*"
+
+              driver_name="Apache Arrow Flight SQL ODBC Driver"
+              odbcinst -q -d -n "${driver_name}"
+
+              # The installed driver must exist and have all dependencies
+              driver=$(rpm -ql $(rpm -qa "*flight-sql-odbc-libs*") |
+                grep -E "/libarrow_flight_sql_odbc\.so\.[0-9.]+$")
+              test -f "${driver}"
+              if ldd "${driver}" | grep "not found"; then
+                exit 1
+              fi
+            '
