@@ -22,6 +22,11 @@ name: Package Apache Arrow Flight SQL ODBC RPM
 # distribution, then installs the Flight SQL ODBC RPM in a clean container
 # and verifies that the driver is registered with unixODBC.
 on:
+  # TEMP: remove before upstreaming. Push runs have no inputs, so they use the
+  # defaults below (AlmaLinux 9, amd64).
+  push:
+    branches:
+      - rpm-odbc-ci
   workflow_dispatch:
     inputs:
       platform:
@@ -44,7 +49,7 @@ on:
           - arm64
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}-${{ inputs.platform }}-${{ inputs.architecture }}
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}-${{ inputs.platform || 'AlmaLinux 9' }}-${{ inputs.architecture || 'amd64' }}
   cancel-in-progress: true
 
 permissions:
@@ -53,8 +58,8 @@ permissions:
 
 jobs:
   package:
-    name: ${{ inputs.platform }} ${{ inputs.architecture }}
-    runs-on: ${{ inputs.architecture == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    name: ${{ inputs.platform || 'AlmaLinux 9' }} ${{ inputs.architecture || 'amd64' }}
+    runs-on: ${{ inputs.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 160
     env:
       BUILD_DIR: "${{ github.workspace }}/packages.build"
@@ -67,8 +72,8 @@ jobs:
           submodules: recursive
       - name: Resolve target
         env:
-          PLATFORM: ${{ inputs.platform }}
-          ARCHITECTURE: ${{ inputs.architecture }}
+          PLATFORM: ${{ inputs.platform || 'AlmaLinux 9' }}
+          ARCHITECTURE: ${{ inputs.architecture || 'amd64' }}
         run: |
           set -eu
 
