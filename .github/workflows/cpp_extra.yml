@@ -648,7 +648,10 @@ jobs:
 
           # Use the ARM64 .pkg and swap in a universal ODBC dylib
           # that works on ARM64 and AMD64.
-          pkgutil --expand-full "${pkg_path}" expanded
+          # Use sudo for every step that touches the expanded payload so the
+          # root-owned files in the PKG keep their ownership instead of being
+          # re-stamped with the runner user's uid/gid.
+          sudo pkgutil --expand-full "${pkg_path}" expanded
 
           # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink 
           # to the versioned dylib that the
@@ -658,7 +661,7 @@ jobs:
           lib_dir="$(dirname "${symlink_path}")"
           dylib_path="$(realpath "${symlink_path}")"
           echo "Merging into ${dylib_path} (via ${symlink_path})"
-          lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
+          sudo lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
             -output "${dylib_path}"
 
           # Verify every dylib (including the symlinks) is universal before re-packaging.
@@ -675,7 +678,9 @@ jobs:
             done
           done
 
-          pkgutil --flatten-full expanded "${pkg_name}.pkg"
+          sudo pkgutil --flatten-full expanded "${pkg_name}.pkg"
+          # Let the upload step read the package that sudo created.
+          sudo chown "$(id -u):$(id -g)" "${pkg_name}.pkg"
       - name: Upload universal ODBC PKG
         uses: actions/upload-artifact@v7
         with:
