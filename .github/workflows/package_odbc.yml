@@ -226,14 +226,9 @@ jobs:
             --clobber `
             Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
-  # The dylib must be signed (outside of CI) before it goes into the PKG, so the
-  # unsigned universal dylib and the ARM64 base PKG are uploaded first and
-  # the universal PKG is assembled in odbc-macos-upload-pkg after the signed
-  # universal dylib is available on the release.
-
-  # Upload unsigned non-universal DYLIBs and ARM64 base PKG
+  # Upload unsigned non-universal DYLIBs
   odbc-macos-upload-dylib:
-    name: ODBC macOS Upload Unsigned ${{ matrix.architecture }} DYLIB & ARM64 PKG
+    name: ODBC macOS Upload Unsigned ${{ matrix.architecture }} DYLIB
     runs-on: macos-${{ matrix.macos-version }}
     if: github.event_name == 'push'
     timeout-minutes: 120
@@ -260,23 +255,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Install Dependencies
-        run: |
-          brew bundle --file=cpp/Brewfile
-          # Use bundled RE2, Protobuf and Boost for static linking.
-          brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
-          brew uninstall re2
-          brew uninstall protobuf
-          brew uninstall boost
-      - name: Build
-        run: |
-          export BUILD_WARNING_LEVEL=PRODUCTION
-          LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
-          ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
-          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
-          export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Build ODBC macOS
+        uses: ./.github/actions/odbc-mac
+        with:
+          architecture: ${{ matrix.architecture }}
       - name: Copy Unsigned ODBC DYLIB
         run: |
           # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink to
@@ -285,11 +267,6 @@ jobs:
           mkdir ${{ matrix.architecture }}-dylib
           cp "$(realpath build/cpp/${{ env.ARROW_BUILD_TYPE }}/libarrow_flight_sql_odbc.dylib)" \
             ${{ matrix.architecture }}-dylib/
-      - name: Rename ARM64 base ODBC PKG
-        if: matrix.architecture == 'ARM64'
-        run: |
-          pkg_path="$(ls build/cpp/ArrowFlightSQLODBC-*.pkg)"
-          mv "${pkg_path}" "$(basename "${pkg_path}" .pkg)_ARM64_base.pkg"
       - name: Upload ODBC DYLIB to the job
         uses: actions/upload-artifact@v7
         with:
@@ -402,27 +379,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Install Dependencies
-        run: |
-          brew bundle --file=cpp/Brewfile
-          # Use bundled RE2, Protobuf and Boost for static linking.
-          brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
-          brew uninstall re2
-          brew uninstall protobuf
-          brew uninstall boost
-      - name: Build
-        run: |
-          export BUILD_WARNING_LEVEL=PRODUCTION
-          LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
-          ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
-          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
-          export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-      - name: Generate ARM64 macOS Installer
-        run: |
-          cd build/cpp
-          cpack
+      - name: Build ODBC macOS
+        uses: ./.github/actions/odbc-mac
+        with:
+          architecture: ARM64
+          generate-installer: "true"
       - name: Download signed universal ODBC DYLIB
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
