@@ -441,7 +441,7 @@ jobs:
           sudo pkgutil --expand flattened.pkg shallow
           for component in shallow/*.pkg; do
             component_name="$(basename "${component}")"
-            kbytes="$(sed -n 's/.*installKBytes="\([0-9]*\)".*/\1/p' "${component}/PackageInfo")"
+            kbytes="$(sudo sed -n 's/.*installKBytes="\([0-9]*\)".*/\1/p' "${component}/PackageInfo")"
             sudo sed -i '' \
               "/>#${component_name}<\/pkg-ref>/ s/installKBytes=\"[0-9]*\"/installKBytes=\"${kbytes}\"/" \
               shallow/Distribution
