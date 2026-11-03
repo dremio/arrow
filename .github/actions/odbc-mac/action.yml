@@ -19,31 +19,15 @@ name: ODBC macOS Reusable
 description: Install dependencies and build the Flight SQL ODBC driver on macOS
 inputs:
   architecture:
-    description: 'Expected runner architecture: AMD64 or ARM64'
+    description: 'Architecture to build for (AMD64 or ARM64)'
     required: true
   generate-installer:
-    description: 'Run cpack to generate the .pkg installer after the build'
+    description: 'Whether to run cpack to generate the .pkg installer after the build'
     required: false
     default: 'false'
 runs:
   using: "composite"
   steps:
-    - name: Check runner architecture
-      shell: bash
-      run: |
-        case "${{ inputs.architecture }}" in
-          AMD64) expected=x86_64 ;;
-          ARM64) expected=arm64 ;;
-          *)
-            echo "Unknown architecture: ${{ inputs.architecture }}"
-            exit 1
-            ;;
-        esac
-        actual="$(uname -m)"
-        if [ "${actual}" != "${expected}" ]; then
-          echo "Runner is ${actual} but ${{ inputs.architecture }} (${expected}) was requested"
-          exit 1
-        fi
     - name: Install Dependencies
       shell: bash
       run: |
