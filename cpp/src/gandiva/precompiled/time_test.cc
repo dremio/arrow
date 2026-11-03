@@ -271,6 +271,29 @@ TEST(TestTime, TestExtractTime64) {
   EXPECT_EQ(extractSecond_time64_ns(86399999999999LL), 59);
 }
 
+// Negative values are outside the time-of-day range; time64 handles them like time32
+// (truncating division, no normalization).
+TEST(TestTime, TestExtractTimeNegative) {
+  // -01:01:01
+  EXPECT_EQ(extractHour_time32(-3661000), -1);
+  EXPECT_EQ(extractMinute_time32(-3661000), -1);
+  EXPECT_EQ(extractSecond_time32(-3661000), -1);
+  EXPECT_EQ(extractHour_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractMinute_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractSecond_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractHour_time64_ns(-3661000000000LL), -1);
+  EXPECT_EQ(extractMinute_time64_ns(-3661000000000LL), -1);
+  EXPECT_EQ(extractSecond_time64_ns(-3661000000000LL), -1);
+
+  // One unit before midnight
+  EXPECT_EQ(extractHour_time32(-1), 0);
+  EXPECT_EQ(extractSecond_time32(-1), 0);
+  EXPECT_EQ(extractHour_time64(-1), 0);
+  EXPECT_EQ(extractSecond_time64(-1), 0);
+  EXPECT_EQ(extractHour_time64_ns(-1), 0);
+  EXPECT_EQ(extractSecond_time64_ns(-1), 0);
+}
+
 TEST(TestTime, TestDateDiff) {
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
   gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
