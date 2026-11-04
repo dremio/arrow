@@ -70,11 +70,15 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, time64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotnull, {}, time64),
 
       NUMERIC_TYPES(UNARY_SAFE_NULL_NEVER_BOOL, isnumeric, {}),
 
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from, {}),
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, {}),
+      BINARY_SAFE_NULL_NEVER_BOOL(is_distinct_from, {}, time64),
+      BINARY_SAFE_NULL_NEVER_BOOL(is_not_distinct_from, {}, time64),
 
       UNARY_UNSAFE_NULL_IF_NULL(factorial, {}, int32, int64),
       UNARY_UNSAFE_NULL_IF_NULL(factorial, {}, int64, int64),

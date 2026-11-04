@@ -131,6 +131,15 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, less_than_or_equal_to, <=)
 NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than, >)
 NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
+// time64 values of a single unit (micro or nano) compare directly, so these are
+// unit-agnostic. Mixed units are rejected at codegen time (see TimeIR).
+BINARY_RELATIONAL(equal, time64, ==)
+BINARY_RELATIONAL(not_equal, time64, !=)
+BINARY_RELATIONAL(less_than, time64, <)
+BINARY_RELATIONAL(less_than_or_equal_to, time64, <=)
+BINARY_RELATIONAL(greater_than, time64, >)
+BINARY_RELATIONAL(greater_than_or_equal_to, time64, >=)
+
 #undef BINARY_RELATIONAL
 
 // Returns the greatest or least value from a list of values
@@ -236,6 +245,8 @@ CAST_INT_FLOAT(castINT, float64, int32)
 
 NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnull, !)
 NUMERIC_BOOL_DATE_TYPES(VALIDITY_OP, isnotnull, +)
+VALIDITY_OP(isnull, time64, !)
+VALIDITY_OP(isnotnull, time64, +)
 NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
@@ -346,6 +357,8 @@ gdv_boolean not_boolean(gdv_boolean in) { return !in; }
 
 NUMERIC_BOOL_DATE_FUNCTION(IS_DISTINCT_FROM)
 NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
+IS_DISTINCT_FROM(time64)
+IS_NOT_DISTINCT_FROM(time64)
 
 #undef IS_DISTINCT_FROM
 #undef IS_NOT_DISTINCT_FROM

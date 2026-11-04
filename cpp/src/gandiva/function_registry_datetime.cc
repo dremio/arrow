@@ -45,6 +45,13 @@ namespace gandiva {
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {"minute"}), \
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {"second"})
 
+// time64 functions are registered for time64[us]; time64[ns] calls match the same
+// signature and are remapped to the _ns variants by TimeIR at codegen time.
+#define TIME64_EXTRACTION_FNS(name)                                \
+  EXTRACT_SAFE_NULL_IF_NULL(name##Hour, {"hour"}, time64),         \
+      EXTRACT_SAFE_NULL_IF_NULL(name##Minute, {"minute"}, time64), \
+      EXTRACT_SAFE_NULL_IF_NULL(name##Second, {"second"}, time64)
+
 #define NEXT_DAY_FNS(name) DATE_TYPES(NEXT_DAY_SAFE_NULL_IF_NULL, name, {})
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
@@ -59,6 +66,7 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractEpoch, {}),
 
       TIME_EXTRACTION_FNS(extract),
+      TIME64_EXTRACTION_FNS(extract),
 
       NEXT_DAY_FNS(next_day),
 

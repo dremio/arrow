@@ -27,6 +27,7 @@ set(PRECOMPILED_SRCS
     time.cc
     timestamp_arithmetic.cc
     timestamp_unit_ops.cc
+    time_unit_ops.cc
     ../../arrow/util/basic_decimal.cc)
 set(GANDIVA_PRECOMPILED_BC_FILES)
 foreach(SOURCE ${PRECOMPILED_SRCS})
@@ -63,6 +64,7 @@ add_gandiva_test(precompiled-test
                  time_test.cc
                  time.cc
                  timestamp_arithmetic.cc
+                 time_unit_ops.cc
                  ../cast_time.cc
                  ../../arrow/vendored/datetime.cpp
                  hash_test.cc

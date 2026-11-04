@@ -221,6 +221,13 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+      // time64 compare functions (unit-agnostic, see TimeIR)
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(equal, ({"eq", "same"}), time64),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(not_equal, {}, time64),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(less_than, {}, time64),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(less_than_or_equal_to, {}, time64),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(greater_than, {}, time64),
+      BINARY_RELATIONAL_SAFE_NULL_IF_NULL(greater_than_or_equal_to, {}, time64),
       BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, greatest, {}),
       BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, least, {}),
 
