@@ -48,6 +48,8 @@ on:
           - amd64
           - arm64
 
+# TODO: -AL- check and simplify changes. Remove all checks that are not necessary. 
+
 concurrency:
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}-${{ inputs.platform || 'AlmaLinux 9' }}-${{ inputs.architecture || 'amd64' }}
   cancel-in-progress: true
@@ -196,10 +198,18 @@ jobs:
               odbcinst -q -d -n "${driver_name}"
 
               # The installed driver must exist and have all dependencies
+              echo "Files in the ODBC libs package:"
+              rpm -ql $(rpm -qa "*flight-sql-odbc-libs*")
               driver=$(rpm -ql $(rpm -qa "*flight-sql-odbc-libs*") |
                 grep -E "/libarrow_flight_sql_odbc\.so\.[0-9]+\.[0-9]+\.[0-9]+$")
-              test -f "${driver}"
+              echo "Driver library: [${driver}]"
+              test -f "${driver}" || {
+                echo "ERROR: driver library does not exist: [${driver}]"
+                exit 1
+              }
               if ldd "${driver}" | grep "not found"; then
+                echo "ERROR: driver has unresolved shared library dependencies"
                 exit 1
               fi
+              echo "Driver library found and all dependencies resolved"
             '
