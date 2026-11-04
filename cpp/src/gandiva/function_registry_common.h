@@ -287,6 +287,12 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   INNER(NAME, ALIASES, date64), INNER(NAME, ALIASES, timestamp)
 
 // Iterate the inner macro over all time types
+//
+// time64 is not included here: its signatures (time64[us]) are registered separately
+// next to the time32 ones, and time64[ns] calls are remapped at codegen time to the
+// precompiled _ns variants (see time_ir.h). Similarly, timestamp signatures are
+// registered as timestamp[ms] and timestamp[us/ns] calls are remapped to the
+// precompiled _us/_ns variants (see timestamp_ir.h).
 #define TIME_TYPES(INNER, NAME, ALIASES) INNER(NAME, ALIASES, time32)
 
 // Iterate the inner macro over all data types

@@ -249,6 +249,51 @@ TEST(TestTime, TestExtractTime) {
   EXPECT_EQ(extractSecond_time32(time_as_millis_in_day), 33);
 }
 
+TEST(TestTime, TestExtractTime64) {
+  // 10:20:33.123456 in micros
+  gdv_time64 time_as_micros_in_day = 37233123456LL;
+  EXPECT_EQ(extractHour_time64(time_as_micros_in_day), 10);
+  EXPECT_EQ(extractMinute_time64(time_as_micros_in_day), 20);
+  EXPECT_EQ(extractSecond_time64(time_as_micros_in_day), 33);
+
+  // 10:20:33.123456789 in nanos
+  gdv_time64 time_as_nanos_in_day = 37233123456789LL;
+  EXPECT_EQ(extractHour_time64_ns(time_as_nanos_in_day), 10);
+  EXPECT_EQ(extractMinute_time64_ns(time_as_nanos_in_day), 20);
+  EXPECT_EQ(extractSecond_time64_ns(time_as_nanos_in_day), 33);
+
+  // 23:59:59.999999 / 23:59:59.999999999
+  EXPECT_EQ(extractHour_time64(86399999999LL), 23);
+  EXPECT_EQ(extractMinute_time64(86399999999LL), 59);
+  EXPECT_EQ(extractSecond_time64(86399999999LL), 59);
+  EXPECT_EQ(extractHour_time64_ns(86399999999999LL), 23);
+  EXPECT_EQ(extractMinute_time64_ns(86399999999999LL), 59);
+  EXPECT_EQ(extractSecond_time64_ns(86399999999999LL), 59);
+}
+
+// Negative values are outside the time-of-day range; time64 handles them like time32
+// (truncating division, no normalization).
+TEST(TestTime, TestExtractTimeNegative) {
+  // -01:01:01
+  EXPECT_EQ(extractHour_time32(-3661000), -1);
+  EXPECT_EQ(extractMinute_time32(-3661000), -1);
+  EXPECT_EQ(extractSecond_time32(-3661000), -1);
+  EXPECT_EQ(extractHour_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractMinute_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractSecond_time64(-3661000000LL), -1);
+  EXPECT_EQ(extractHour_time64_ns(-3661000000000LL), -1);
+  EXPECT_EQ(extractMinute_time64_ns(-3661000000000LL), -1);
+  EXPECT_EQ(extractSecond_time64_ns(-3661000000000LL), -1);
+
+  // One unit before midnight
+  EXPECT_EQ(extractHour_time32(-1), 0);
+  EXPECT_EQ(extractSecond_time32(-1), 0);
+  EXPECT_EQ(extractHour_time64(-1), 0);
+  EXPECT_EQ(extractSecond_time64(-1), 0);
+  EXPECT_EQ(extractHour_time64_ns(-1), 0);
+  EXPECT_EQ(extractSecond_time64_ns(-1), 0);
+}
+
 TEST(TestTime, TestDateDiff) {
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
   gdv_timestamp ts2 = StringToTimestamp("2019-05-31 00:00:00");
