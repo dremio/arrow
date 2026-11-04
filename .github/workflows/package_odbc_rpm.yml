@@ -197,7 +197,7 @@ jobs:
 
               # The installed driver must exist and have all dependencies
               driver=$(rpm -ql $(rpm -qa "*flight-sql-odbc-libs*") |
-                grep -E "/libarrow_flight_sql_odbc\.so\.[0-9.]+$")
+                grep -E "/libarrow_flight_sql_odbc\.so\.[0-9]+\.[0-9]+\.[0-9]+$")
               test -f "${driver}"
               if ldd "${driver}" | grep "not found"; then
                 exit 1
