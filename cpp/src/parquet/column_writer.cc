@@ -896,6 +896,9 @@ class ColumnWriterImpl {
   // Flag to infer if dictionary encoding has fallen back to PLAIN
   bool fallback_;
 
+  // Size of the encoded values (without levels) of the most recent data page
+  int64_t last_page_values_size_ = 0;
+
   ::arrow::BufferBuilder definition_levels_sink_;
   ::arrow::BufferBuilder repetition_levels_sink_;
 
@@ -964,6 +967,7 @@ void ColumnWriterImpl::AddDataPage() {
   int64_t repetition_levels_rle_size = 0;
 
   std::shared_ptr<Buffer> values = GetValuesBuffer();
+  last_page_values_size_ = values->size();
   bool is_v1_data_page = properties_->data_page_version() == ParquetDataPageVersion::V1;
 
   if (descr_->max_definition_level() > 0) {
@@ -1641,6 +1645,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   // which case we call back to the dense write path)
   std::shared_ptr<::arrow::Array> preserved_dictionary_;
 
+  // State of the first-page dictionary benefit check, see
+  // WriterProperties::dictionary_benefit_check_enabled().
+  bool dictionary_benefit_checked_ = false;
+  int64_t first_page_plain_size_ = 0;
+
   int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
     // Update histograms now, to maximize cache efficiency.
@@ -1798,11 +1807,17 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   }
 
   // Update the unencoded data bytes for ByteArray only per the specification.
-  void UpdateUnencodedDataBytes() const {
+  void UpdateUnencodedDataBytes() {
     if constexpr (std::is_same_v<T, ByteArray>) {
-      if (page_size_statistics_ != nullptr) {
-        page_size_statistics_->IncrementUnencodedByteArrayDataBytes(
-            current_encoder_->ReportUnencodedDataBytes());
+      const bool checking_dictionary_benefit = IsCheckingDictionaryBenefit();
+      if (page_size_statistics_ != nullptr || checking_dictionary_benefit) {
+        const int64_t unencoded_bytes = current_encoder_->ReportUnencodedDataBytes();
+        if (page_size_statistics_ != nullptr) {
+          page_size_statistics_->IncrementUnencodedByteArrayDataBytes(unencoded_bytes);
+        }
+        if (checking_dictionary_benefit) {
+          first_page_plain_size_ += unencoded_bytes;
+        }
       }
     }
   }
@@ -1816,7 +1831,43 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (check_page_limit &&
         (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize() ||
          num_buffered_rows_ >= properties_->max_rows_per_page())) {
+      const bool first_dictionary_page = IsCheckingDictionaryBenefit();
       AddDataPage();
+      if (first_dictionary_page) {
+        CheckDictionaryBenefit();
+      }
+    }
+  }
+
+  // Whether the values written so far belong to the first data page of a
+  // dictionary-encoded column chunk that the benefit check has not judged yet.
+  bool IsCheckingDictionaryBenefit() const {
+    return properties_->dictionary_benefit_check_enabled() && has_dictionary_ &&
+           !fallback_ && !dictionary_benefit_checked_;
+  }
+
+  // Keeps the dictionary only if the first page's encoded indices plus the
+  // dictionary are smaller than the page in PLAIN encoding, as parquet-java does.
+  void CheckDictionaryBenefit() {
+    dictionary_benefit_checked_ = true;
+    if (last_page_values_size_ + current_dict_encoder_->dict_encoded_size() >=
+        first_page_plain_size_) {
+      FallbackToPlainEncoding();
+    }
+  }
+
+  // Adds the PLAIN-encoded size of non-null values written to the first page.
+  // Byte-array lengths are added separately by UpdateUnencodedDataBytes().
+  void AddFirstPagePlainSize(int64_t num_non_null) {
+    if (!IsCheckingDictionaryBenefit()) {
+      return;
+    }
+    if constexpr (std::is_same_v<T, ByteArray>) {
+      first_page_plain_size_ += num_non_null * static_cast<int64_t>(sizeof(uint32_t));
+    } else if constexpr (std::is_same_v<T, FLBA>) {
+      first_page_plain_size_ += num_non_null * descr_->type_length();
+    } else {
+      first_page_plain_size_ += num_non_null * static_cast<int64_t>(sizeof(T));
     }
   }
 
@@ -1860,6 +1911,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       page_statistics_->Update(values, num_values, num_nulls);
     }
 
+    AddFirstPagePlainSize(num_values);
     UpdateUnencodedDataBytes();
 
     if constexpr (std::is_same<T, ByteArray>::value) {
@@ -1896,6 +1948,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                                      num_spaced_values, num_values, num_nulls);
     }
 
+    AddFirstPagePlainSize(num_values);
     UpdateUnencodedDataBytes();
 
     if constexpr (std::is_same<T, ByteArray>::value) {
@@ -1944,6 +1997,9 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     // dense) will fall back to plain encoding
     return WriteDense();
   }
+
+  // Values arrive as dictionary indices, so the first page's PLAIN size is unknown.
+  dictionary_benefit_checked_ = true;
 
   auto dict_encoder = dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
   const auto& data = checked_cast<const ::arrow::DictionaryArray&>(array);
@@ -2471,6 +2527,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNumValues(non_null);
     }
 
+    AddFirstPagePlainSize(non_null);
     UpdateUnencodedDataBytes();
 
     if (chunk_geospatial_statistics_ != nullptr) {

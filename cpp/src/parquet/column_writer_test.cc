@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <map>
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -124,6 +126,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     }
     if (enable_checksum) {
       wp_builder.enable_page_checksum();
+    }
+    if (enable_dictionary_benefit_check_) {
+      wp_builder.enable_dictionary_benefit_check();
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
@@ -273,6 +278,46 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
       }
     }
+  }
+
+  // Writes VERY_LARGE_SIZE values in pages of 1,000 rows with the dictionary benefit
+  // check enabled and returns the number of data pages per encoding.
+  std::map<Encoding::type, int32_t> WriteWithDictionaryBenefitCheck(
+      ParquetVersion::type version, ParquetDataPageVersion data_page_version,
+      int64_t distinct_values) {
+    this->GenerateData(VERY_LARGE_SIZE);
+    if (distinct_values < VERY_LARGE_SIZE) {
+      for (int64_t i = distinct_values; i < VERY_LARGE_SIZE; i++) {
+        this->values_[i] = this->values_[i % distinct_values];
+      }
+    }
+    ColumnProperties column_properties;
+    column_properties.set_dictionary_enabled(true);
+    column_properties.set_encoding(version == ParquetVersion::PARQUET_1_0
+                                       ? Encoding::PLAIN_DICTIONARY
+                                       : Encoding::RLE_DICTIONARY);
+    enable_dictionary_benefit_check_ = true;
+    auto writer = this->BuildWriter(VERY_LARGE_SIZE, column_properties, version,
+                                    data_page_version, /*enable_checksum=*/false,
+                                    kDefaultDataPageSize, /*max_rows_per_page=*/1000);
+    enable_dictionary_benefit_check_ = false;
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    writer->Close();
+
+    this->SetupValuesOut(VERY_LARGE_SIZE);
+    this->ReadColumnFully();
+    EXPECT_EQ(VERY_LARGE_SIZE, this->values_read_);
+    this->values_.resize(VERY_LARGE_SIZE);
+    EXPECT_EQ(this->values_, this->values_out_);
+
+    std::map<Encoding::type, int32_t> data_pages;
+    for (const auto& stats : this->metadata_encoding_stats()) {
+      if (stats.page_type == PageType::DATA_PAGE ||
+          stats.page_type == PageType::DATA_PAGE_V2) {
+        data_pages[stats.encoding] += stats.count;
+      }
+    }
+    return data_pages;
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
@@ -438,6 +483,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
   std::vector<std::vector<uint8_t>> data_buffer_;
+  bool enable_dictionary_benefit_check_ = false;
 };
 
 template <typename TestType>
@@ -797,6 +843,46 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
   this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0,
                                        ParquetDataPageVersion::V1);
+}
+
+// The first page of unique values gains nothing from a dictionary, so the writer falls
+// back to PLAIN after that page instead of at the dictionary size limit.
+TYPED_TEST(TestPrimitiveWriter, DictionaryBenefitCheckFallsBackAfterFirstPage) {
+  if (this->type_num() == Type::BOOLEAN) {
+    GTEST_SKIP() << "BOOLEAN is never dictionary-encoded";
+  }
+  for (auto [version, data_page_version, dictionary_encoding] :
+       {std::tuple{ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
+                   Encoding::PLAIN_DICTIONARY},
+        std::tuple{ParquetVersion::PARQUET_2_6, ParquetDataPageVersion::V1,
+                   Encoding::RLE_DICTIONARY},
+        std::tuple{ParquetVersion::PARQUET_2_6, ParquetDataPageVersion::V2,
+                   Encoding::RLE_DICTIONARY}}) {
+    auto data_pages = this->WriteWithDictionaryBenefitCheck(
+        version, data_page_version, /*distinct_values=*/VERY_LARGE_SIZE);
+    std::map<Encoding::type, int32_t> expected{
+        {dictionary_encoding, 1}, {Encoding::PLAIN, VERY_LARGE_SIZE / 1000 - 1}};
+    ASSERT_EQ(expected, data_pages);
+  }
+}
+
+// A low-cardinality first page shrinks under dictionary encoding, so the dictionary is
+// kept for the whole column chunk.
+TYPED_TEST(TestPrimitiveWriter, DictionaryBenefitCheckKeepsBeneficialDictionary) {
+  if (this->type_num() == Type::BOOLEAN) {
+    GTEST_SKIP() << "BOOLEAN is never dictionary-encoded";
+  }
+  for (auto [version, data_page_version, dictionary_encoding] :
+       {std::tuple{ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
+                   Encoding::PLAIN_DICTIONARY},
+        std::tuple{ParquetVersion::PARQUET_2_6, ParquetDataPageVersion::V2,
+                   Encoding::RLE_DICTIONARY}}) {
+    auto data_pages = this->WriteWithDictionaryBenefitCheck(version, data_page_version,
+                                                            /*distinct_values=*/10);
+    std::map<Encoding::type, int32_t> expected{
+        {dictionary_encoding, VERY_LARGE_SIZE / 1000}};
+    ASSERT_EQ(expected, data_pages);
+  }
 }
 
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
