@@ -107,6 +107,15 @@ jobs:
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          # Keyed on run_id so every run saves a fresh cache; restore-keys
+          # picks up the most recent one for this target.
+          key: package-odbc-rpm-${{ env.TARGET }}-${{ github.run_id }}
+          restore-keys: |
+            package-odbc-rpm-${{ env.TARGET }}-
       - name: Install dependencies
         run: |
           sudo apt update
