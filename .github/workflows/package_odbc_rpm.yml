@@ -19,31 +19,21 @@ name: Package Apache Arrow Flight SQL ODBC RPM
 
 # Builds the Apache Arrow RPM packages from
 # dev/tasks/linux-packages/apache-arrow/yum/arrow.spec.in for AlmaLinux 9 and
-# 10, then installs them in a clean container and verifies that the Flight SQL
-# ODBC driver is registered with unixODBC. Only the Flight SQL ODBC RPM is
-# uploaded as an artifact. rpmbuild always builds every package of the spec,
-# so the other RPMs are only used by the verification step.
+# 10 on amd64 and arm64, then installs them in a clean container and verifies
+# that the Flight SQL ODBC driver is registered with unixODBC. Only the Flight
+# SQL ODBC RPM is uploaded as an artifact. rpmbuild always builds every package
+# of the spec, so the other RPMs are only used by the verification step.
 on:
-  # TEMP: remove before upstreaming. Push runs have no inputs, so they use the
-  # default below (amd64).
+  # TEMP: remove before upstreaming.
   push:
     branches:
       - rpm-odbc-ci
   workflow_dispatch:
-    inputs:
-      architecture:
-        description: 'CPU architecture'
-        required: true
-        default: amd64
-        type: choice
-        options:
-          - amd64
-          - arm64
 
 # TODO: -AL- check and simplify changes. Remove all checks that are not necessary.
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}-${{ inputs.architecture || 'amd64' }}
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 permissions:
@@ -52,8 +42,8 @@ permissions:
 
 jobs:
   package:
-    name: AlmaLinux ${{ matrix.almalinux }} ${{ inputs.architecture || 'amd64' }}
-    runs-on: ${{ inputs.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    name: AlmaLinux ${{ matrix.almalinux }} ${{ matrix.architecture }}
+    runs-on: ${{ matrix.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 160
     strategy:
       fail-fast: false
@@ -61,6 +51,9 @@ jobs:
         almalinux:
           - "9"
           - "10"
+        architecture:
+          - amd64
+          - arm64
     env:
       BUILD_DIR: "${{ github.workspace }}/packages.build"
     steps:
@@ -73,7 +66,7 @@ jobs:
       - name: Resolve target
         env:
           ALMALINUX_VERSION: ${{ matrix.almalinux }}
-          ARCHITECTURE: ${{ inputs.architecture || 'amd64' }}
+          ARCHITECTURE: ${{ matrix.architecture }}
         run: |
           set -eu
 
@@ -81,18 +74,28 @@ jobs:
 
           # Example: 9 -> almalinux-9
           target="almalinux-${ALMALINUX_VERSION}"
-          if [ "${ARCHITECTURE}" = "arm64" ]; then
-            target="${target}-aarch64"
-          fi
           if [ ! -f "${yum_dir}/${target}/Dockerfile" ]; then
             echo "No RPM build target '${target}'. Available targets:"
             ls "${yum_dir}" | grep -E '^almalinux-'
             exit 1
           fi
 
-          # The image the RPMs are built and tested on,
+          # The image the RPMs are tested on. It is a multi-arch tag, so an
+          # arm64 runner pulls the arm64 image.
           # Example: ARG FROM=almalinux:9 -> almalinux:9
           image="$(sed -n 's/^ARG FROM=//p' "${yum_dir}/${target}/Dockerfile")"
+
+          if [ "${ARCHITECTURE}" = "arm64" ]; then
+            # The arm64 target has no Dockerfile of its own. It only has a
+            # `from` file with the arm64 base image and is built from the
+            # Dockerfile above.
+            target="${target}-aarch64"
+            if [ ! -f "${yum_dir}/${target}/from" ]; then
+              echo "No RPM build target '${target}'. Available targets:"
+              ls "${yum_dir}" | grep -E '^almalinux-'
+              exit 1
+            fi
+          fi
 
           {
             echo "DISTRIBUTION=almalinux"
