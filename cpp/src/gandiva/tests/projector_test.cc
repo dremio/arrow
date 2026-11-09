@@ -48,6 +48,54 @@ class TestProjector : public ::testing::Test {
   }
 
  protected:
+  // Compiles round(float64, int32) and evaluates it on the inputs.
+  // On failure the calling test fails (fatally) instead of getting a null result.
+  void EvaluateRoundFloat64(const std::vector<double>& values,
+                            const std::vector<int32_t>& scales, bool optimize,
+                            std::shared_ptr<arrow::Array>* result) {
+    auto field_value = field("value", arrow::float64());
+    auto field_scale = field("scale", int32());
+    auto schema = arrow::schema({field_value, field_scale});
+    auto field_result = field("result", arrow::float64());
+
+    auto round_fn =
+        TreeExprBuilder::MakeFunction("round",
+                                      {TreeExprBuilder::MakeField(field_value),
+                                       TreeExprBuilder::MakeField(field_scale)},
+                                      arrow::float64());
+    auto expr = TreeExprBuilder::MakeExpression(round_fn, field_result);
+    auto configuration = ConfigurationBuilder().build(optimize);
+
+    std::shared_ptr<Projector> projector;
+    auto status = Projector::Make(schema, {expr}, configuration, &projector);
+    ASSERT_TRUE(status.ok()) << status.message();
+
+    std::vector<bool> valid(values.size(), true);
+    auto in_batch = arrow::RecordBatch::Make(
+        schema, static_cast<int>(values.size()),
+        {MakeArrowArrayFloat64(values, valid), MakeArrowArrayInt32(scales, valid)});
+
+    arrow::ArrayVector outputs;
+    status = projector->Evaluate(*in_batch, pool_, &outputs);
+    ASSERT_TRUE(status.ok()) << status.message();
+    ASSERT_EQ(outputs.size(), 1u);
+    *result = outputs.at(0);
+  }
+
+  // Runs the case with IR optimization off and on, and checks the result each time.
+  void CheckRoundFloat64(const std::vector<double>& values,
+                         const std::vector<int32_t>& scales,
+                         const std::vector<double>& expected_values) {
+    auto expected = MakeArrowArrayFloat64(
+        expected_values, std::vector<bool>(expected_values.size(), true));
+    for (bool optimize : {false, true}) {
+      SCOPED_TRACE(optimize ? "optimize=true" : "optimize=false");
+      std::shared_ptr<arrow::Array> result;
+      ASSERT_NO_FATAL_FAILURE(EvaluateRoundFloat64(values, scales, optimize, &result));
+      EXPECT_ARROW_ARRAY_EQUALS(expected, result);
+    }
+  }
+
   arrow::MemoryPool* pool_;
 };
 
@@ -2022,6 +2070,40 @@ TEST_F(TestProjector, TestCeiling) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs2.at(0));
+}
+
+TEST_F(TestProjector, TestRoundFloat64ScaleInLookupTable) {
+  // Scales served by the lookup table
+  CheckRoundFloat64({1.26, 2.34}, {1, 1}, {1.3, 2.3});
+}
+
+TEST_F(TestProjector, TestRoundFloat64ScaleAtTableBoundary) {
+  // The first scale outside the lookup table (20); values come back unchanged
+  CheckRoundFloat64({1.26, -1.26}, {20, 20}, {1.26, -1.26});
+}
+
+TEST_F(TestProjector, TestRoundFloat64LargeScale) {
+  // Scales well above the table need no rounding
+  CheckRoundFloat64({1.26, 2.34, -1.26}, {25, 30, 25}, {1.26, 2.34, -1.26});
+}
+
+TEST_F(TestProjector, TestRoundFloat64NegativeScale) {
+  // Negative scales are also outside the table; these inputs round to 0
+  CheckRoundFloat64({1.26, 2.34}, {-2, -1}, {0.0, 0.0});
+}
+
+TEST_F(TestProjector, TestRoundFloat64MixedScalesInOneBatch) {
+  // Table path (1), exp10 path (25, -1) and the table's last entry (19) in one batch
+  CheckRoundFloat64({1.26, 1.26, 2.5, 1.26}, {1, 25, -1, 19}, {1.3, 1.26, 0.0, 1.26});
+}
+
+TEST_F(TestProjector, TestRoundFloat64LargeValuesSkipRounding) {
+  // |x| >= 2^52 / 10^scale is returned unchanged (the DX-90291 overflow guard)
+  CheckRoundFloat64({1e300, -1e300, 4.5e15}, {1, 1, 1}, {1e300, -1e300, 4.5e15});
+}
+
+TEST_F(TestProjector, TestRoundFloat64ZeroValue) {
+  CheckRoundFloat64({0.0, 0.0, 0.0}, {0, 25, -3}, {0.0, 0.0, 0.0});
 }
 
 TEST_F(TestProjector, TestFloor) {
