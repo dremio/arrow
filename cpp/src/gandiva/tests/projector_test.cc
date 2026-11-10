@@ -48,8 +48,12 @@ class TestProjector : public ::testing::Test {
   }
 
  protected:
-  // Compiles round(float64, int32) and evaluates it on the inputs.
-  // On failure the calling test fails (fatally) instead of getting a null result.
+   // Compiles round(float64, int32) through the Gandiva JIT and evaluates it on the inputs.
+   // Unlike the native tests in extended_math_ops_test.cc, this compiles the whole
+   // round_float64_int32, including the powl(10, scale) fallback in get_scale_multiplier,
+   // which LLVM lowers to exp10. That is what the Darwin triple fix in engine.cc covers.
+   // The decimal128 round tests in decimal_test.cc use integer arithmetic instead and
+   // never reach exp10.
   void EvaluateRoundFloat64(const std::vector<double>& values,
                             const std::vector<int32_t>& scales, bool optimize,
                             std::shared_ptr<arrow::Array>* result) {
@@ -82,7 +86,9 @@ class TestProjector : public ::testing::Test {
     *result = outputs.at(0);
   }
 
-  // Runs the case with IR optimization off and on, and checks the result each time.
+    // Runs the case with IR optimization off and on, and checks the result each time.
+    // Without the Darwin triple fix, compiling round(float64, int32) aborts the process
+    // on macOS ("no libcall available for fexp10"), whatever the scale values are.
   void CheckRoundFloat64(const std::vector<double>& values,
                          const std::vector<int32_t>& scales,
                          const std::vector<double>& expected_values) {
