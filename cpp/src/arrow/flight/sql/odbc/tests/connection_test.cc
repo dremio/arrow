@@ -23,8 +23,6 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
-#include <set>
-
 #include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
@@ -639,13 +637,13 @@ TEST(DsnConfiguration, LoadDsnReadsKeysWithoutDialogField) {
   EXPECT_EQ("custom value", loaded.Get("MyCustomKey"));
 
   // The Windows DSN dialog lists exactly these keys in its "Advanced properties" table.
-  const auto custom_keys = loaded.GetCustomKeys();
-  const std::set<std::string> custom_key_set(custom_keys.begin(), custom_keys.end());
-  const std::set<std::string> expected_custom_keys = {
+  // GetCustomKeys() returns them in the property map's case-insensitive alphabetical
+  // order.
+  const std::vector<std::string> expected_custom_keys = {
+      std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "MyCustomKey",
       std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
-      std::string(FlightSqlConnection::USE_WIDE_CHAR),
-      std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "MyCustomKey"};
-  EXPECT_EQ(expected_custom_keys, custom_key_set);
+      std::string(FlightSqlConnection::USE_WIDE_CHAR)};
+  EXPECT_EQ(expected_custom_keys, loaded.GetCustomKeys());
 
   ASSERT_TRUE(UnregisterDsn(wdsn));
 }
