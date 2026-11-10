@@ -23,6 +23,8 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
+#include <set>
+
 #include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
@@ -603,6 +605,49 @@ TYPED_TEST(ConnectionTest, TestExplicitDescriptorsOutliveStatement) {
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, statement));
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, apd_descriptor));
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, ard_descriptor));
+}
+
+// StringColumnLength, UseWideChar and ChunkBufferCapacity are known keys without a field
+// in the Windows DSN dialog. Configuration::LoadDsn used to drop them, so they were lost
+// whenever a DSN was loaded and then saved again.
+TEST(DsnConfiguration, LoadDsnReadsKeysWithoutDialogField) {
+  using config::Configuration;
+
+  Connection::ConnPropertyMap properties = {
+      {std::string(FlightSqlConnection::DRIVER), "Apache Arrow Flight SQL ODBC Driver"},
+      {std::string(FlightSqlConnection::HOST), "localhost"},
+      {std::string(FlightSqlConnection::PORT), "32010"},
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH), "2048"},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), "true"},
+      {std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "7"},
+      {"MyCustomKey", "custom value"},
+  };
+  ASSERT_TRUE(WriteDSN(properties));
+
+  const std::string dsn(kTestDsn);
+  ASSERT_OK_AND_ASSIGN(std::wstring wdsn, arrow::util::UTF8ToWideString(dsn));
+
+  Configuration loaded;
+  loaded.LoadDsn(dsn);
+
+  // Check before unregistering the DSN so a failed assertion does not leak it.
+  EXPECT_EQ("localhost", loaded.Get(FlightSqlConnection::HOST));
+  EXPECT_EQ("32010", loaded.Get(FlightSqlConnection::PORT));
+  EXPECT_EQ("2048", loaded.Get(FlightSqlConnection::STRING_COLUMN_LENGTH));
+  EXPECT_EQ("true", loaded.Get(FlightSqlConnection::USE_WIDE_CHAR));
+  EXPECT_EQ("7", loaded.Get(FlightSqlConnection::CHUNK_BUFFER_CAPACITY));
+  EXPECT_EQ("custom value", loaded.Get("MyCustomKey"));
+
+  // The Windows DSN dialog lists exactly these keys in its "Advanced properties" table.
+  const auto custom_keys = loaded.GetCustomKeys();
+  const std::set<std::string> custom_key_set(custom_keys.begin(), custom_keys.end());
+  const std::set<std::string> expected_custom_keys = {
+      std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
+      std::string(FlightSqlConnection::USE_WIDE_CHAR),
+      std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "MyCustomKey"};
+  EXPECT_EQ(expected_custom_keys, custom_key_set);
+
+  ASSERT_TRUE(UnregisterDsn(wdsn));
 }
 
 }  // namespace arrow::flight::sql::odbc

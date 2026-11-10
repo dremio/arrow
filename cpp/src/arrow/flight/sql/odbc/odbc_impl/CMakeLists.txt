@@ -200,6 +200,7 @@ add_arrow_test(odbc_spi_impl_test
                accessors/string_array_accessor_test.cc
                accessors/time_array_accessor_test.cc
                accessors/timestamp_array_accessor_test.cc
+               config/configuration_test.cc
                flight_sql_connection_test.cc
                flight_sql_stream_chunk_buffer_test.cc
                parse_table_types_test.cc
