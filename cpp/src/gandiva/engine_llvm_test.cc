@@ -155,9 +155,15 @@ TEST_F(TestEngine, NormalizeDarwinTripleUnversionedOrOldUsesFloor) {
 }
 
 TEST_F(TestEngine, NormalizeDarwinTripleOtherTriplesUnchanged) {
+  // Already-macosx triples are left as-is
   EXPECT_EQ(Normalize("arm64-apple-macosx26.0.0"), "arm64-apple-macosx26.0.0");
+  // Non-Darwin Apple OSes
+  EXPECT_EQ(Normalize("arm64-apple-ios17.0.0"), "arm64-apple-ios17.0.0");
+  // Linux
   EXPECT_EQ(Normalize("x86_64-unknown-linux-gnu"), "x86_64-unknown-linux-gnu");
   EXPECT_EQ(Normalize("aarch64-unknown-linux-musl"), "aarch64-unknown-linux-musl");
+  // Windows
+  EXPECT_EQ(Normalize("x86_64-pc-windows-msvc"), "x86_64-pc-windows-msvc");
 }
 
 TEST_F(TestEngine, NormalizeDarwinTripleFloorBoundary) {
@@ -171,11 +177,6 @@ TEST_F(TestEngine, NormalizeDarwinTripleArchAliases) {
   EXPECT_EQ(Normalize("aarch64-apple-darwin"), "aarch64-apple-macosx11.0");
   EXPECT_EQ(Normalize("arm64e-apple-darwin"), "arm64e-apple-macosx11.0");
   EXPECT_EQ(Normalize("i386-apple-darwin"), "i386-apple-macosx10.15");
-}
-
-TEST_F(TestEngine, NormalizeDarwinTripleOtherAppleAndWindowsUnchanged) {
-  EXPECT_EQ(Normalize("arm64-apple-ios17.0.0"), "arm64-apple-ios17.0.0");
-  EXPECT_EQ(Normalize("x86_64-pc-windows-msvc"), "x86_64-pc-windows-msvc");
 }
 
 TEST_F(TestEngine, NormalizeDarwinTripleIdempotent) {
