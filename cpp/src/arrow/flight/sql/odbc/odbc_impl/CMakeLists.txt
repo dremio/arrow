@@ -188,6 +188,12 @@ else()
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
                                      ${ARROW_TEST_STATIC_LINK_LIBS})
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
+  if(APPLE)
+    # On macOS, arrow_odbc_spi_impl does not link the iODBC library in order to support static linking
+    # and avoid collisions.
+    # Unit tests need to link iODBC to test ODBC API symbols.
+    list(APPEND ODBC_SPI_IMPL_TEST_STATIC_LIBS ${ODBCINST})
+  endif()
 endif()
 
 add_arrow_test(odbc_spi_impl_test
