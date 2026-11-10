@@ -64,24 +64,25 @@ set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 
-# Linux and Windows follow ARROW_BUILD_STATIC.
-# macOS always link statically. 
+# On macOS, always link Arrow libraries statically.
+# On Windows and Linux, link Arrow libraries dynamically if the shared libraries are
+# built, and statically otherwise.
 if(NOT APPLE)
-  if(ARROW_BUILD_STATIC)
+  if(ARROW_BUILD_SHARED)
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_shared)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+  else()
     # Static Arrow deps — self-contained ODBC library
     set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
                                                arrow_odbc_spi_impl)
     set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_static)
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
-         ArrowFlight::arrow_flight_sql_static)
-  else()
-    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
-                                               arrow_odbc_spi_impl)
-    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
-         ArrowFlight::arrow_flight_sql_shared)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_static)
   endif()

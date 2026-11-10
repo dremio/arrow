@@ -48,18 +48,18 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBR
 
 # STATIC_LINK_LIBS replaces add_arrow_test's default Arrow test libraries, while
 # EXTRA_LINK_LIBS supplements them.
-# Applies to Windows and Linux.
-if(NOT APPLE AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared")
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared")
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE EXTRA_LINK_LIBS)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_odbc_spi_impl
                                            ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
-elseif(NOT APPLE)
+elseif(WIN32)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
       arrow_odbc_spi_impl ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_static
       ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  # GH-49651: Link the ODBC driver dynamically on macOS.
+  # GH-49651: Link the ODBC driver dynamically on macOS and Linux. The tests call the
+  # driver functions directly, so they need the driver library.
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_shared

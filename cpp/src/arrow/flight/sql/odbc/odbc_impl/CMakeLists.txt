@@ -131,20 +131,22 @@ if(WIN32)
 endif()
 
 # On macOS, always link Arrow libraries statically.
+# On Windows and Linux, link Arrow libraries dynamically if the shared libraries are
+# built, and statically otherwise.
 if(NOT APPLE)
   find_package(ODBC REQUIRED)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
-  if(ARROW_BUILD_STATIC)
+  if(ARROW_BUILD_SHARED)
     target_link_libraries(arrow_odbc_spi_impl
-                          PUBLIC arrow_flight_sql_static
-                                 arrow_compute_static
+                          PUBLIC arrow_flight_sql_shared
+                                 arrow_compute_shared
                                  Boost::locale
                                  arrow::simdjson
                                  ${ODBCINST})
   else()
     target_link_libraries(arrow_odbc_spi_impl
-                          PUBLIC arrow_flight_sql_shared
-                                 arrow_compute_shared
+                          PUBLIC arrow_flight_sql_static
+                                 arrow_compute_static
                                  Boost::locale
                                  arrow::simdjson
                                  ${ODBCINST})
