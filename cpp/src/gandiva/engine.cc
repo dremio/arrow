@@ -530,10 +530,11 @@ static void OptimizeModuleWithNewPassManager(llvm::Module& module,
     llvm::FunctionPassManager function_pm;
     function_pm.addPass(llvm::InstCombinePass());
     function_pm.addPass(llvm::PromotePass());
-    function_pm.addPass(llvm::GVNPass());
+    // NewGVN subsumes the legacy GVN; running both back to back just repeats the
+    // analysis. SLPVectorizer plus the O3 default pipeline's own loop vectorization
+    // cover vectorization, so the extra LoopVectorizePass here is redundant too.
     function_pm.addPass(llvm::NewGVNPass());
     function_pm.addPass(llvm::SimplifyCFGPass());
-    function_pm.addPass(llvm::LoopVectorizePass());
     function_pm.addPass(llvm::SLPVectorizerPass());
     module_pm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(function_pm)));
 
@@ -554,10 +555,10 @@ static void OptimizeModuleWithLegacyPassManager(llvm::Module& module,
   pass_manager->add(llvm::createFunctionInliningPass());
   pass_manager->add(llvm::createInstructionCombiningPass());
   pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
-  pass_manager->add(llvm::createGVNPass());
+  // NewGVN subsumes the legacy GVN, and SLPVectorizer plus the O3 pipeline cover
+  // vectorization, so the duplicate GVN and LoopVectorize passes are dropped.
   pass_manager->add(llvm::createNewGVNPass());
   pass_manager->add(llvm::createCFGSimplificationPass());
-  pass_manager->add(llvm::createLoopVectorizePass());
   pass_manager->add(llvm::createSLPVectorizerPass());
   pass_manager->add(llvm::createGlobalOptimizerPass());
 
