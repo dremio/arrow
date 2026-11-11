@@ -68,6 +68,10 @@ class GANDIVA_EXPORT TreeExprBuilder {
   static NodePtr MakeIf(NodePtr condition, NodePtr then_node, NodePtr else_node,
                         DataTypePtr result_type);
 
+  /// \brief Build a CASE expression with first-match semantics.
+  static NodePtr MakeCase(const NodeVector& conditions, const NodeVector& results,
+                          NodePtr else_node, DataTypePtr result_type);
+
   /// \brief create a node with a boolean AND expression.
   static NodePtr MakeAnd(const NodeVector& children);
 

@@ -902,6 +902,57 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
   ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), result_valid);
 }
 
+void LLVMGenerator::Visitor::Visit(const CaseDex& dex) {
+  auto* builder = ir_builder();
+  auto* types = generator_->types();
+  auto* context = generator_->context();
+  auto* merge = llvm::BasicBlock::Create(*context, "case.merge", function_);
+  std::vector<LValuePtr> values;
+  std::vector<llvm::BasicBlock*> predecessors;
+
+  auto emit_result = [&](const ValueValidityPair& pair) {
+    auto value = BuildValueAndValidity(pair);
+    if (value == nullptr) return false;
+    ClearLocalBitMapIfNotValid(dex.local_bitmap_idx(), value->validity());
+    values.push_back(value);
+    predecessors.push_back(builder->GetInsertBlock());
+    builder->CreateBr(merge);
+    return true;
+  };
+
+  for (size_t i = 0; i < dex.conditions().size(); ++i) {
+    auto condition = BuildValueAndValidity(*dex.conditions()[i]);
+    if (condition == nullptr) return;
+    auto* matched = builder->CreateAnd(condition->data(), condition->validity());
+    auto* then_bb = llvm::BasicBlock::Create(*context, "case.then", function_);
+    auto* next_bb = llvm::BasicBlock::Create(*context, "case.next", function_);
+    builder->CreateCondBr(matched, then_bb, next_bb);
+    builder->SetInsertPoint(then_bb);
+    if (!emit_result(*dex.results()[i])) return;
+    builder->SetInsertPoint(next_bb);
+  }
+  if (!emit_result(dex.else_vv())) return;
+
+  builder->SetInsertPoint(merge);
+  auto* value_phi = builder->CreatePHI(types->IRType(dex.result_type()->id()),
+                                       values.size(), "case.value");
+  llvm::PHINode* length_phi = nullptr;
+  if (arrow::is_binary_like(dex.result_type()->id())) {
+    length_phi = builder->CreatePHI(types->i32_type(), values.size(), "case.length");
+  }
+  for (size_t i = 0; i < values.size(); ++i) {
+    value_phi->addIncoming(values[i]->data(), predecessors[i]);
+    if (length_phi != nullptr) {
+      length_phi->addIncoming(values[i]->length(), predecessors[i]);
+    }
+  }
+  if (dex.result_type()->id() == arrow::Type::DECIMAL) {
+    result_ = generator_->BuildDecimalLValue(value_phi, dex.result_type());
+  } else {
+    result_ = std::make_shared<LValue>(value_phi, length_phi);
+  }
+}
+
 void LLVMGenerator::Visitor::Visit(const IfDex& dex) {
   ADD_VISITOR_TRACE("visit IfExpression");
   llvm::IRBuilder<>* builder = ir_builder();

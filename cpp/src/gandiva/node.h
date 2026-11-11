@@ -194,6 +194,38 @@ class GANDIVA_EXPORT IfNode : public Node {
   NodePtr else_node_;
 };
 
+/// \brief An ordered, flat list of CASE conditions and results.
+class GANDIVA_EXPORT CaseNode : public Node {
+ public:
+  CaseNode(const NodeVector& conditions, const NodeVector& results, NodePtr else_node,
+           DataTypePtr result_type)
+      : Node(result_type),
+        conditions_(conditions),
+        results_(results),
+        else_node_(else_node) {}
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  const NodeVector& conditions() const { return conditions_; }
+  const NodeVector& results() const { return results_; }
+  const NodePtr& else_node() const { return else_node_; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "case";
+    for (size_t i = 0; i < conditions_.size(); ++i) {
+      ss << " when " << conditions_[i]->ToString() << " then " << results_[i]->ToString();
+    }
+    ss << " else " << else_node_->ToString() << " end";
+    return ss.str();
+  }
+
+ private:
+  NodeVector conditions_;
+  NodeVector results_;
+  NodePtr else_node_;
+};
+
 /// \brief Node in the expression tree, representing an and/or boolean expression.
 class GANDIVA_EXPORT BooleanNode : public Node {
  public:
