@@ -162,6 +162,50 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // padding is optional
+  const std::vector<std::pair<std::string, std::string>> valid_inputs = {
+      {"aGVsbG8", "hello"},     {"aGVsbA==", "hell"},
+      {"aGVsbA", "hell"},       {"ab==", "i"},
+      {"abc=", "i\xb7"},        {"RHLDqW1pbw==", "Dr\xc3\xa9mio"},
+      {"+/+/", "\xfb\xff\xbf"},
+  };
+  for (const auto& [input, expected] : valid_inputs) {
+    auto value = gdv_fn_base64_decode_utf8(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), &out_len);
+    EXPECT_EQ(std::string(value, out_len), expected) << input;
+    EXPECT_FALSE(ctx.has_error()) << input << ": " << ctx.get_error();
+    ctx.Reset();
+  }
+
+  const std::vector<std::string> invalid_inputs = {
+      "hello world!",  // used to decode only "hell" and silently drop the rest
+      "aGVs bG8=",     // space
+      "aGVs\nbG8=",    // line break
+      "aGVsbG8=aGVs",  // data after padding
+      "aGVsbA=",       // padding does not complete the group
+      "aGVsbG8===",    // too much padding
+      "a",             // 6 bits cannot form a byte
+      "aGVsb",         // single leftover character
+      "====",          // only padding
+      "aGVs-G8_",      // url-safe alphabet
+      "\xe3\x85\x8f \xe3\x85\x91",  // non-ascii input
+  };
+  for (const auto& input : invalid_inputs) {
+    auto value = gdv_fn_base64_decode_utf8(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), &out_len);
+    EXPECT_EQ(std::string(value, out_len), "") << input;
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr("UNBASE64: input is not valid base64"))
+        << input;
+    ctx.Reset();
+  }
+}
+
 TEST(TestGdvFnStubs, TestCastINT) {
   gandiva::ExecutionContext ctx;
 

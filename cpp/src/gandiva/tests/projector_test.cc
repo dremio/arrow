@@ -1531,6 +1531,36 @@ TEST_F(TestProjector, TestUnbase64) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_unbase, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestUnbase64InvalidInput) {
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+  auto field_base = field("base64", arrow::binary());
+  auto base_expr = TreeExprBuilder::MakeExpression("unbase64", {field0}, field_base);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {base_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // the null row is not valid base64, but must not be decoded
+  auto null_batch = arrow::RecordBatch::Make(
+      schema, 3,
+      {MakeArrowArrayUtf8({"aGVsbG8", "hello world!", ""}, {true, false, true})});
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*null_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBinary({"hello", "", ""}, {true, false, true}),
+                            outputs.at(0));
+
+  auto invalid_batch = arrow::RecordBatch::Make(
+      schema, 2, {MakeArrowArrayUtf8({"aGVsbG8=", "hello world!"}, {true, true})});
+  outputs.clear();
+  status = projector->Evaluate(*invalid_batch, pool_, &outputs);
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("UNBASE64: input is not valid base64"),
+            std::string::npos)
+      << status.message();
+}
+
 TEST_F(TestProjector, TestLeftString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

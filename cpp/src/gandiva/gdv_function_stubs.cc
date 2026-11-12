@@ -271,6 +271,23 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
   return ret;
 }
 
+namespace {
+
+// Returns the 6-bit value of a base64 alphabet character (RFC 4648), or -1.
+int32_t Base64Value(uint8_t c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+}  // namespace
+
+// Strict base64 decoding: characters outside the alphabet and malformed tails are errors
+// instead of silently truncating the result. Padding is optional; when present it must
+// complete the final group of four characters.
 GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
@@ -282,22 +299,61 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     *out_len = 0;
     return "";
   }
-  if (in_len == 0) {
+
+  int32_t data_len = in_len;
+  int32_t padding = 0;
+  while (data_len > 0 && padding < 2 && in[data_len - 1] == '=') {
+    --data_len;
+    ++padding;
+  }
+  // padding must complete a group of 4, and a single trailing character carries only 6
+  // bits
+  if ((padding > 0 && (data_len + padding) % 4 != 0) || data_len % 4 == 1) {
+    gdv_fn_context_set_error_msg(context, "UNBASE64: input is not valid base64");
     *out_len = 0;
     return "";
   }
-  // use arrow method to decode base64 string
-  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
-  *out_len = static_cast<int32_t>(decoded_str.length());
+
+  int32_t decoded_len = data_len / 4 * 3 + (data_len % 4 == 0 ? 0 : data_len % 4 - 1);
+  if (decoded_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   // allocate memory for response
-  char* ret = reinterpret_cast<char*>(
-      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, decoded_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory");
     *out_len = 0;
     return "";
   }
-  memcpy(ret, decoded_str.data(), *out_len);
+
+  int32_t out_pos = 0;
+  uint32_t accumulator = 0;
+  int32_t group_size = 0;
+  for (int32_t i = 0; i < data_len; ++i) {
+    int32_t value = Base64Value(static_cast<uint8_t>(in[i]));
+    if (value < 0) {
+      gdv_fn_context_set_error_msg(context, "UNBASE64: input is not valid base64");
+      *out_len = 0;
+      return "";
+    }
+    accumulator = (accumulator << 6) | static_cast<uint32_t>(value);
+    if (++group_size == 4) {
+      ret[out_pos++] = static_cast<char>(accumulator >> 16);
+      ret[out_pos++] = static_cast<char>(accumulator >> 8);
+      ret[out_pos++] = static_cast<char>(accumulator);
+      accumulator = 0;
+      group_size = 0;
+    }
+  }
+  if (group_size == 2) {
+    ret[out_pos++] = static_cast<char>(accumulator >> 4);
+  } else if (group_size == 3) {
+    ret[out_pos++] = static_cast<char>(accumulator >> 10);
+    ret[out_pos++] = static_cast<char>(accumulator >> 2);
+  }
+  *out_len = out_pos;
   return ret;
 }
 
