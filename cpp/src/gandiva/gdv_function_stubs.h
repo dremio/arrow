@@ -80,6 +80,9 @@ void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 GANDIVA_EXPORT
 uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t data_len);
 
+GANDIVA_EXPORT
+bool gdv_fn_is_valid_utf8(const char* data, int32_t data_len);
+
 void gdv_fn_context_arena_reset(int64_t context_ptr);
 
 bool in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity);

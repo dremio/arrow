@@ -29,6 +29,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/double_conversion_internal.h"
+#include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils_ecb.h"
@@ -269,6 +270,16 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
   }
   memcpy(ret, encoded_str.data(), *out_len);
   return ret;
+}
+
+// Strict UTF-8 validation using Arrow's implementation, which relies on lookup tables and
+// so cannot be inlined into the precompiled bitcode.
+GANDIVA_EXPORT
+bool gdv_fn_is_valid_utf8(const char* data, int32_t data_len) {
+  // ValidateUTF8 accepts everything until its tables are initialized
+  static const bool initialized = (arrow::util::InitializeUTF8(), true);
+  ARROW_UNUSED(initialized);
+  return arrow::util::ValidateUTF8(reinterpret_cast<const uint8_t*>(data), data_len);
 }
 
 GANDIVA_EXPORT
@@ -1514,6 +1525,16 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_base64_encode_binary",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_base64_encode_binary));
+
+  // gdv_fn_is_valid_utf8
+  args = {
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_is_valid_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_is_valid_utf8));
 
   // gdv_fn_base64_decode_utf8
   args = {
