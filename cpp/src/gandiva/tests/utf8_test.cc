@@ -744,7 +744,7 @@ TEST_F(TestUtf8, TestCastVarCharFromBinary) {
   auto array_a = std::make_shared<arrow::BinaryArray>(
       num_records, arrow::Buffer::Wrap(offsets),
       arrow::Buffer::FromString("h\xc3\xa9llo"
-                                "\x85\xe9\xa5"
+                                "\x85\xe9\x65"
                                 "abc"),
       arrow::Buffer::Wrap(validity), /*null_count=*/1);
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -757,7 +757,7 @@ TEST_F(TestUtf8, TestCastVarCharFromBinary) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 
   // UNBASE64('hello world!') produces these bytes
-  auto array_invalid = MakeArrowArrayBinary({"ok", "\x85\xe9\xa5"}, {true, true});
+  auto array_invalid = MakeArrowArrayBinary({"ok", "\x85\xe9\x65"}, {true, true});
   auto invalid_batch = arrow::RecordBatch::Make(schema, 2, {array_invalid});
 
   outputs.clear();

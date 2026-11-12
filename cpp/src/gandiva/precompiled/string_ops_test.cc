@@ -536,7 +536,7 @@ TEST(TestStringOps, TestCastVarcharFromBinaryValidatesUtf8) {
   }
 
   const std::vector<std::string> invalid_inputs = {
-      "\x85\xe9\xa5",          // UNBASE64('hello world!'): invalid lead byte
+      "\x85\xe9\x65",          // UNBASE64('hello world!'): invalid lead byte
       "\xc3\x28",              // invalid continuation byte
       "a\xe2\x82",             // truncated 3-byte sequence
       "\xc0\xaf",              // overlong '/'
