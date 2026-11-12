@@ -691,9 +691,85 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
   }
 
 CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
-CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
 #undef CAST_VARCHAR_FROM_VARLEN_TYPE
+
+// Returns true if data is well-formed UTF-8 (Unicode Table 3-7): rejects invalid lead
+// bytes, bad or missing continuation bytes, overlong forms, surrogates and code points
+// above U+10FFFF.
+FORCE_INLINE
+bool is_valid_utf8(const char* data, gdv_int32 data_len) {
+  const auto* bytes = reinterpret_cast<const uint8_t*>(data);
+  gdv_int32 i = 0;
+  while (i < data_len) {
+    // skip runs of ascii 8 bytes at a time
+    while (i + 8 <= data_len) {
+      uint64_t chunk;
+      memcpy(&chunk, bytes + i, sizeof(chunk));
+      if ((chunk & 0x8080808080808080ULL) != 0) break;
+      i += 8;
+    }
+    if (i >= data_len) break;
+
+    uint8_t lead = bytes[i];
+    if (lead < 0x80) {
+      ++i;
+      continue;
+    }
+
+    gdv_int32 char_len;
+    uint8_t second_min = 0x80;
+    uint8_t second_max = 0xBF;
+    if (lead >= 0xC2 && lead <= 0xDF) {
+      char_len = 2;
+    } else if (lead >= 0xE0 && lead <= 0xEF) {
+      char_len = 3;
+      if (lead == 0xE0) {
+        second_min = 0xA0;  // overlong
+      } else if (lead == 0xED) {
+        second_max = 0x9F;  // surrogates
+      }
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+      char_len = 4;
+      if (lead == 0xF0) {
+        second_min = 0x90;  // overlong
+      } else if (lead == 0xF4) {
+        second_max = 0x8F;  // above U+10FFFF
+      }
+    } else {
+      return false;
+    }
+
+    if (i + char_len > data_len) {
+      return false;
+    }
+    if (bytes[i + 1] < second_min || bytes[i + 1] > second_max) {
+      return false;
+    }
+    for (gdv_int32 j = 2; j < char_len; ++j) {
+      if ((bytes[i + j] & 0xC0) != 0x80) {
+        return false;
+      }
+    }
+    i += char_len;
+  }
+  return true;
+}
+
+// Unlike utf8, binary input is not guaranteed to be valid UTF-8, so it is validated
+// before being reinterpreted as varchar.
+FORCE_INLINE
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length) {
+  if (!is_valid_utf8(data, data_len)) {
+    gdv_fn_context_set_error_msg(
+        context, "Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8");
+    *out_length = 0;
+    return "";
+  }
+  return castVARCHAR_utf8_int64(context, data, data_len, out_len, out_length);
+}
 
 // Add functions for castVARBINARY
 #define CAST_VARBINARY_FROM_STRING_AND_BINARY(TYPE)                                    \

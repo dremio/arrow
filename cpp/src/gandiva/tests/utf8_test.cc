@@ -722,6 +722,53 @@ TEST_F(TestUtf8, TestCastVarChar) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
 
+TEST_F(TestUtf8, TestCastVarCharFromBinary) {
+  auto field_a = field("a", arrow::binary());
+  auto schema = arrow::schema({field_a});
+  auto res = field("res", utf8());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_len = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(3));
+  auto cast_varchar =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_len}, utf8());
+  auto expr = TreeExprBuilder::MakeExpression(cast_varchar, res);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // the null row holds invalid UTF-8 bytes, which must not be validated
+  int num_records = 3;
+  std::vector<int32_t> offsets = {0, 6, 9, 12};
+  std::vector<uint8_t> validity = {0x05};
+  auto array_a = std::make_shared<arrow::BinaryArray>(
+      num_records, arrow::Buffer::Wrap(offsets),
+      arrow::Buffer::FromString("h\xc3\xa9llo"
+                                "\x85\xe9\xa5"
+                                "abc"),
+      arrow::Buffer::Wrap(validity), /*null_count=*/1);
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto exp = MakeArrowArrayUtf8({"h\xc3\xa9l", "", "abc"}, {true, false, true});
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+
+  // UNBASE64('hello world!') produces these bytes
+  auto array_invalid = MakeArrowArrayBinary({"ok", "\x85\xe9\xa5"}, {true, true});
+  auto invalid_batch = arrow::RecordBatch::Make(schema, 2, {array_invalid});
+
+  outputs.clear();
+  status = projector->Evaluate(*invalid_batch, pool_, &outputs);
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(
+      status.message().find("Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8"),
+      std::string::npos)
+      << status.message();
+}
+
 TEST_F(TestUtf8, TestAscii) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
