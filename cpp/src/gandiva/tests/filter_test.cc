@@ -40,6 +40,37 @@ class TestFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+TEST_F(TestFilter, CacheOnlyConstruction) {
+  auto input = field("cache_only_filter_input", int32());
+  auto schema = arrow::schema({input});
+  auto node = TreeExprBuilder::MakeFunction(
+      "less_than", {TreeExprBuilder::MakeField(input), TreeExprBuilder::MakeLiteral(2)},
+      arrow::boolean());
+  auto condition = TreeExprBuilder::MakeCondition(node);
+  auto optimized = ConfigurationBuilder().build(true);
+  auto unoptimized = ConfigurationBuilder().build(false);
+  std::shared_ptr<Filter> cached;
+  ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
+  ASSERT_EQ(cached, nullptr);
+  std::shared_ptr<Filter> first;
+  ASSERT_OK(Filter::Make(schema, condition, unoptimized, &first));
+  ASSERT_FALSE(first->GetBuiltFromCache());
+  ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
+  ASSERT_EQ(cached, nullptr);
+  ASSERT_OK(Filter::Make(schema, condition, optimized, &first));
+  ASSERT_FALSE(first->GetBuiltFromCache());
+  ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
+  ASSERT_NE(cached, nullptr);
+  EXPECT_TRUE(cached->GetBuiltFromCache());
+  auto batch = arrow::RecordBatch::Make(
+      schema, 3, {MakeArrowArrayInt32({1, 2, 3}, {true, true, true})});
+  std::shared_ptr<SelectionVector> selection;
+  ASSERT_OK(SelectionVector::MakeInt16(3, pool_, &selection));
+  ASSERT_OK(cached->Evaluate(*batch, selection));
+  ASSERT_EQ(selection->GetNumSlots(), 1);
+  EXPECT_EQ(selection->GetIndex(0), 0);
+}
+
 TEST_F(TestFilter, TestFilterCache) {
   // schema for input fields
   auto field0 = field("f0_filter_cache", int32());
