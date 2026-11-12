@@ -1551,6 +1551,18 @@ TEST_F(TestProjector, TestUnbase64InvalidInput) {
   EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBinary({"hello", "", ""}, {true, false, true}),
                             outputs.at(0));
 
+  // output of the base64 tool: trailing line break and 76-character line wrapping
+  auto whitespace_batch = arrow::RecordBatch::Make(
+      schema, 3,
+      {MakeArrowArrayUtf8({"aGVsbG8=\n", "aGVs\r\nbG8=", " aGVsbG8"},
+                          {true, true, true})});
+  outputs.clear();
+  status = projector->Evaluate(*whitespace_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayBinary({"hello", "hello", "hello"}, {true, true, true}),
+      outputs.at(0));
+
   auto invalid_batch = arrow::RecordBatch::Make(
       schema, 2, {MakeArrowArrayUtf8({"aGVsbG8=", "hello world!"}, {true, true})});
   outputs.clear();

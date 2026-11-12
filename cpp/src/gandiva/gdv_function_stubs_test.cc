@@ -169,10 +169,23 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
 
   // padding is optional
   const std::vector<std::pair<std::string, std::string>> valid_inputs = {
-      {"aGVsbG8", "hello"},     {"aGVsbA==", "hell"},
-      {"aGVsbA", "hell"},       {"ab==", "i"},
-      {"abc=", "i\xb7"},        {"RHLDqW1pbw==", "Dr\xc3\xa9mio"},
+      {"aGVsbG8", "hello"},
+      {"aGVsbA==", "hell"},
+      {"aGVsbA", "hell"},
+      {"ab==", "i"},
+      {"abc=", "i\xb7"},
+      {"RHLDqW1pbw==", "Dr\xc3\xa9mio"},
       {"+/+/", "\xfb\xff\xbf"},
+      // spaces, tabs and line breaks are skipped
+      {"aGVsbG8=\n", "hello"},  // as printed by the base64 tool
+      {"aGVsbG8=\r\n", "hello"},
+      {" aGVsbG8=", "hello"},
+      {"aGVs bG8=", "hello"},
+      {"aGVs\nbG8=", "hello"},  // line-wrapped (RFC 2045)
+      {"aGVs\r\nbG8=\r\n", "hello"},
+      {"aGVs\tbG8", "hello"},
+      {"aGVsbA= =", "hell"},  // whitespace between padding characters
+      {"  \n", ""},
   };
   for (const auto& [input, expected] : valid_inputs) {
     auto value = gdv_fn_base64_decode_utf8(
@@ -183,16 +196,18 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
   }
 
   const std::vector<std::string> invalid_inputs = {
-      "hello world!",  // used to decode only "hell" and silently drop the rest
-      "aGVs bG8=",     // space
-      "aGVs\nbG8=",    // line break
-      "aGVsbG8=aGVs",  // data after padding
-      "aGVsbA=",       // padding does not complete the group
-      "aGVsbG8===",    // too much padding
-      "a",             // 6 bits cannot form a byte
-      "aGVsb",         // single leftover character
-      "====",          // only padding
-      "aGVs-G8_",      // url-safe alphabet
+      "hello world!",    // used to decode only "hell" and silently drop the rest
+      "aGVsbG8=aGVs",    // data after padding
+      "aGVsbG8=\naGVs",  // data after padding, separated by a line break
+      "aGVsbG8= x",      // any other character after padding
+      "a\n",             // whitespace does not make a single character valid
+      "hello\nworld!",   // not base64 even with the line break skipped
+      "aGVsbA=",         // padding does not complete the group
+      "aGVsbG8===",      // too much padding
+      "a",               // 6 bits cannot form a byte
+      "aGVsb",           // single leftover character
+      "====",            // only padding
+      "aGVs-G8_",        // url-safe alphabet
       "\xe3\x85\x8f \xe3\x85\x91",  // non-ascii input
   };
   for (const auto& input : invalid_inputs) {
