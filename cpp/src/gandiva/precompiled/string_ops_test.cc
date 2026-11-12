@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <string>
+#include <vector>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -510,6 +512,57 @@ TEST(TestStringOps, TestCastVarcharToBool) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestCastVarcharFromBinaryValidatesUtf8) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const std::vector<std::string> valid_inputs = {
+      "",
+      "hello",
+      "h\xc3\xa9llo \xe2\x82\xac",            // é, €
+      "\xf0\x9f\x98\x80",                     // U+1F600
+      "\xef\xbf\xbf",                         // U+FFFF
+      "\xed\x9f\xbf",                         // U+D7FF, last code point before surrogates
+      "\xf4\x8f\xbf\xbf",                     // U+10FFFF
+      "0123456789abcdef\xc3\xa9 0123456789",  // multi-byte after an 8-byte ascii run
+  };
+  for (const auto& input : valid_inputs) {
+    const char* out_str = castVARCHAR_binary_int64(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), 0, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), input);
+    EXPECT_FALSE(ctx.has_error()) << ctx.get_error();
+    ctx.Reset();
+  }
+
+  const std::vector<std::string> invalid_inputs = {
+      "\x85\xe9\xa5",          // UNBASE64('hello world!'): invalid lead byte
+      "\xc3\x28",              // invalid continuation byte
+      "a\xe2\x82",             // truncated 3-byte sequence
+      "\xc0\xaf",              // overlong '/'
+      "\xe0\x80\xaf",          // overlong 3-byte form
+      "\xf0\x80\x80\xaf",      // overlong 4-byte form
+      "\xed\xa0\x80",          // surrogate U+D800
+      "\xf4\x90\x80\x80",      // above U+10FFFF
+      "\xf8\x88\x80\x80\x80",  // 5-byte form
+      "\xff",                  // never valid
+      "\x80",                  // lone continuation byte
+      "\xc1\xbf",              // overlong, 0xc1 is never a valid lead byte
+      "\xf0\x9f\x98\x28",      // invalid 4th byte
+      "\xe2\x28\xa1",          // invalid 2nd byte of a 3-byte sequence
+      "0123456789abcdef\x85",  // invalid byte after an 8-byte ascii run
+  };
+  for (const auto& input : invalid_inputs) {
+    const char* out_str = castVARCHAR_binary_int64(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), 0, &out_len);
+    EXPECT_EQ(std::string(out_str, out_len), "");
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr(
+                    "Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8"));
+    ctx.Reset();
+  }
+}
+
 TEST(TestStringOps, TestCastVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -571,11 +624,15 @@ TEST(TestStringOps, TestCastVarchar) {
               ::testing::HasSubstr("Output buffer length can't be negative"));
   ctx.Reset();
 
+  // the whole input is validated, not only the truncated prefix
   std::string z("aa\xc3");
   out_str = castVARCHAR_binary_int64(ctx_ptr, z.data(), static_cast<int>(z.length()), 2,
                                      &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "aa");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8"));
+  ctx.Reset();
 
   out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 16, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1234567812341234");
@@ -633,9 +690,9 @@ TEST(TestStringOps, TestCastVarchar) {
   out_str = castVARCHAR_binary_int64(ctx_ptr, f.data(), static_cast<int32_t>(f.length()),
                                      16, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr(
-                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8"));
   ctx.Reset();
 
   // UTF8 TESTS
