@@ -1540,36 +1540,19 @@ macro(build_brotli)
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
   set(BROTLI_LIB_DIR "${BROTLI_PREFIX}/lib")
+  # Brotli >= 1.1.0 names its static libraries without a "-static"
+  # suffix when BUILD_SHARED_LIBS=OFF.
   set(BROTLI_STATIC_LIBRARY_ENC
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(BROTLI_STATIC_LIBRARY_DEC
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(BROTLI_STATIC_LIBRARY_COMMON
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
-
-  set(BROTLI_EP_OPTIONS)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # "cmake install" is disabled for Brotli on Emscripten, so the
-    # default INSTALL_COMMAND fails. We need to disable the default
-    # INSTALL_COMMAND.
-    list(APPEND
-         BROTLI_EP_OPTIONS
-         INSTALL_COMMAND
-         ${CMAKE_COMMAND}
-         -E
-         true)
-
-    set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
-    set(BROTLI_BUILD_LIBS
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  endif()
+  set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
+                        -DBROTLI_BUILD_TOOLS=OFF -DBROTLI_DISABLE_TESTS=ON)
 
   externalproject_add(brotli_ep
                       ${EP_COMMON_OPTIONS}
@@ -1578,22 +1561,8 @@ macro(build_brotli)
                       BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
                                        "${BROTLI_STATIC_LIBRARY_DEC}"
                                        "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                       ${BROTLI_BUILD_BYPRODUCTS}
                       CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                      STEP_TARGETS headers_copy ${BROTLI_EP_OPTIONS})
-
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # Copy the libraries to our install directory manually.
-    set(BROTLI_BUILD_INCLUDE_DIR
-        ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
-    add_custom_command(TARGET brotli_ep
-                       POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                               ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
-                               ${BROTLI_LIB_DIR}
-                       COMMAND ${CMAKE_COMMAND} -E copy_directory
-                               ${BROTLI_BUILD_INCLUDE_DIR} ${BROTLI_INCLUDE_DIR}/brotli)
-  endif()
+                      STEP_TARGETS headers_copy)
 
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
@@ -1816,29 +1785,8 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    find_program(PATCH patch)
-    if(PATCH)
-      list(APPEND
-           THRIFT_PATCH_COMMAND
-           ${PATCH}
-           -p1
-           -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(THRIFT_PATCH_COMMAND)
-      # https://github.com/apache/thrift/pull/3187
-      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
-    endif()
-  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -2878,10 +2826,19 @@ function(build_simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
 
-  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
-  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
-  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
-    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+  # macOS SDKs before 13.3 ship a libc++ without <ranges> and with incomplete
+  # <concepts>, but simdjson enables its C++20 concepts API from the compiler's
+  # __cpp_concepts alone, so its headers fail to compile against those SDKs
+  # (GH-55267). Disable simdjson concepts for them. Arrow doesn't use that part
+  # of the simdjson API. simdjson considers these SDKs unsupported and won't fix
+  # this upstream, see https://github.com/simdjson/simdjson/issues/2787.
+  #
+  # The SDK directory name may omit the minor version ("MacOSX11.sdk" on CRAN,
+  # "MacOSX11.3.sdk" in our as-cran CI job), so match both forms. This treats
+  # "MacOSX13.sdk" as too old, which is harmless.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES
+                           "MacOSX(1[0-2](\\.[0-9]+)?|13(\\.[0-2])?)\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK older than 13.3")
     target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
   endif()
 
