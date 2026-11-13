@@ -207,6 +207,12 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
       "a",               // 6 bits cannot form a byte
       "aGVsb",           // single leftover character
       "====",            // only padding
+      "=",               // lone padding character
+      "==",              // padding only, no data
+      "a=",              // one data character cannot be completed by padding
+      "aGVs\vbG8=",      // vertical tab is not skipped
+      "aGVs\fbG8=",      // form feed is not skipped
+      "\v",              // not whitespace, so not an empty input
       "aGVs-G8_",        // url-safe alphabet
       "\xe3\x85\x8f \xe3\x85\x91",  // non-ascii input
   };
