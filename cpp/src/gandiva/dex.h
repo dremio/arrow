@@ -211,6 +211,34 @@ class GANDIVA_EXPORT LiteralDex : public Dex {
   LiteralHolder holder_;
 };
 
+/// Decomposed CASE with an ordered list of conditions and results.
+class GANDIVA_EXPORT CaseDex : public Dex {
+ public:
+  CaseDex(const ValueValidityPairVector& conditions,
+          const ValueValidityPairVector& results, ValueValidityPairPtr else_vv,
+          DataTypePtr result_type, int local_bitmap_idx)
+      : conditions_(conditions),
+        results_(results),
+        else_vv_(else_vv),
+        result_type_(result_type),
+        local_bitmap_idx_(local_bitmap_idx) {}
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+
+  const ValueValidityPairVector& conditions() const { return conditions_; }
+  const ValueValidityPairVector& results() const { return results_; }
+  const ValueValidityPair& else_vv() const { return *else_vv_; }
+  const DataTypePtr& result_type() const { return result_type_; }
+  int local_bitmap_idx() const { return local_bitmap_idx_; }
+
+ private:
+  ValueValidityPairVector conditions_;
+  ValueValidityPairVector results_;
+  ValueValidityPairPtr else_vv_;
+  DataTypePtr result_type_;
+  int local_bitmap_idx_;
+};
+
 /// decomposed if-else expression.
 class GANDIVA_EXPORT IfDex : public Dex {
  public:

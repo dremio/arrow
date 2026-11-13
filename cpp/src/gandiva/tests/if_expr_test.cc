@@ -375,4 +375,157 @@ TEST_F(TestIfExpr, TestBigNested) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestIfExpr, FlatCaseOrderNullsAndNestedBranches) {
+  auto input = field("a", int32());
+  auto schema = arrow::schema({input});
+  auto a = TreeExprBuilder::MakeField(input);
+  auto positive = TreeExprBuilder::MakeFunction(
+      "greater_than", {a, TreeExprBuilder::MakeLiteral(int32_t{0})}, boolean());
+  auto nested = TreeExprBuilder::MakeIf(
+      positive, a, TreeExprBuilder::MakeLiteral(int32_t{-1}), int32());
+  auto null_value = TreeExprBuilder::MakeNull(int32());
+  auto node = TreeExprBuilder::MakeCase(
+      {TreeExprBuilder::MakeNull(boolean()), positive,
+       TreeExprBuilder::MakeLiteral(true)},
+      {TreeExprBuilder::MakeLiteral(int32_t{99}), nested, null_value},
+      TreeExprBuilder::MakeLiteral(int32_t{88}), int32());
+  auto baseline = TreeExprBuilder::MakeIf(
+      TreeExprBuilder::MakeNull(boolean()), TreeExprBuilder::MakeLiteral(int32_t{99}),
+      TreeExprBuilder::MakeIf(positive, nested, null_value, int32()), int32());
+  for (bool optimize : {false, true}) {
+    auto config = ConfigurationBuilder().build(optimize);
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(
+        schema,
+        {TreeExprBuilder::MakeExpression(node, field("flat", int32())),
+         TreeExprBuilder::MakeExpression(baseline, field("nested", int32()))},
+        config, &projector));
+    auto batch = arrow::RecordBatch::Make(
+        schema, 4, {MakeArrowArrayInt32({10, -1, 0, 5}, {true, true, true, false})});
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(outputs[0], outputs[1]);
+    EXPECT_ARROW_ARRAY_EQUALS(
+        MakeArrowArrayInt32({10, 0, 0, 0}, {true, false, false, false}), outputs[0]);
+  }
+}
+
+TEST_F(TestIfExpr, FlatCaseShortCircuitsConditionsAndResults) {
+  auto input = field("a", int32());
+  auto schema = arrow::schema({input});
+  auto a = TreeExprBuilder::MakeField(input);
+  auto divide = TreeExprBuilder::MakeFunction(
+      "divide", {a, TreeExprBuilder::MakeLiteral(int32_t{0})}, int32());
+  auto throwing_condition =
+      TreeExprBuilder::MakeFunction("equal", {divide, a}, boolean());
+  auto node =
+      TreeExprBuilder::MakeCase({TreeExprBuilder::MakeLiteral(false),
+                                 TreeExprBuilder::MakeLiteral(true), throwing_condition},
+                                {divide, a, divide}, divide, int32());
+  for (bool optimize : {false, true}) {
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(
+        schema, {TreeExprBuilder::MakeExpression(node, field("out", int32()))},
+        ConfigurationBuilder().build(optimize), &projector));
+    auto array = MakeArrowArrayInt32({10, -1, 0, 5}, {true, true, true, false});
+    auto batch = arrow::RecordBatch::Make(schema, 4, {array});
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(array, outputs[0]);
+  }
+}
+
+TEST_F(TestIfExpr, FlatCaseLarge) {
+  auto input = field("a", int32());
+  auto schema = arrow::schema({input});
+  auto a = TreeExprBuilder::MakeField(input);
+  NodeVector conditions;
+  NodeVector results;
+  constexpr int32_t branches = 5000;
+  for (int32_t i = 0; i < branches; ++i) {
+    conditions.push_back(TreeExprBuilder::MakeFunction(
+        "equal", {a, TreeExprBuilder::MakeLiteral(i)}, boolean()));
+    results.push_back(TreeExprBuilder::MakeLiteral(i + 10));
+  }
+  auto node = TreeExprBuilder::MakeCase(conditions, results,
+                                        TreeExprBuilder::MakeNull(int32()), int32());
+  for (bool optimize : {false, true}) {
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(
+        schema, {TreeExprBuilder::MakeExpression(node, field("out", int32()))},
+        ConfigurationBuilder().build(optimize), &projector));
+    auto batch = arrow::RecordBatch::Make(
+        schema, 5,
+        {MakeArrowArrayInt32({0, 2500, branches - 1, branches, 0},
+                             {true, true, true, true, false})});
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt32({10, 2510, branches + 9, 0, 0},
+                                                  {true, true, true, false, false}),
+                              outputs[0]);
+  }
+}
+
+TEST_F(TestIfExpr, FlatCaseStringAndDecimal) {
+  for (const auto& type : {arrow::utf8(), arrow::decimal128(20, 2)}) {
+    auto condition_field = field("condition", boolean());
+    auto then_field = field("then", type);
+    auto else_field = field("else", type);
+    auto schema = arrow::schema({condition_field, then_field, else_field});
+    auto condition = TreeExprBuilder::MakeField(condition_field);
+    auto then_node = TreeExprBuilder::MakeField(then_field);
+    auto else_node = TreeExprBuilder::MakeField(else_field);
+    auto inner = TreeExprBuilder::MakeCase({condition}, {then_node}, else_node, type);
+    auto node =
+        TreeExprBuilder::MakeCase({condition, TreeExprBuilder::MakeNull(boolean())},
+                                  {inner, then_node}, else_node, type);
+    auto baseline = TreeExprBuilder::MakeIf(condition, then_node, else_node, type);
+    auto conditions =
+        MakeArrowArrayBool({true, false, false, true}, {true, true, false, true});
+    auto then_array =
+        arrow::ArrayFromJSON(type, "[\"123.45\", \"-54.32\", \"12.00\", null]");
+    auto else_array = arrow::ArrayFromJSON(type, "[\"0.00\", \"98.76\", null, \"1.00\"]");
+    auto expected = arrow::ArrayFromJSON(type, "[\"123.45\", \"98.76\", null, null]");
+    for (bool optimize : {false, true}) {
+      std::shared_ptr<Projector> projector;
+      ASSERT_OK(Projector::Make(
+          schema,
+          {TreeExprBuilder::MakeExpression(node, field("flat", type)),
+           TreeExprBuilder::MakeExpression(baseline, field("nested", type))},
+          ConfigurationBuilder().build(optimize), &projector));
+      auto batch =
+          arrow::RecordBatch::Make(schema, 4, {conditions, then_array, else_array});
+      arrow::ArrayVector outputs;
+      ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+      EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+      EXPECT_ARROW_ARRAY_EQUALS(outputs[1], outputs[0]);
+    }
+  }
+}
+
+TEST_F(TestIfExpr, FlatCaseHasOneMerge) {
+  auto input = field("a", int32());
+  auto schema = arrow::schema({input});
+  auto a = TreeExprBuilder::MakeField(input);
+  NodeVector conditions;
+  NodeVector results;
+  for (int32_t i = 0; i < 10; ++i) {
+    conditions.push_back(TreeExprBuilder::MakeFunction(
+        "equal", {a, TreeExprBuilder::MakeLiteral(i)}, boolean()));
+    results.push_back(TreeExprBuilder::MakeLiteral(i + 1));
+  }
+  auto node = TreeExprBuilder::MakeCase(conditions, results, a, int32());
+  auto config = ConfigurationBuilder().build(false);
+  config->set_dump_ir(true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(
+      schema, {TreeExprBuilder::MakeExpression(node, field("out", int32()))}, config,
+      &projector));
+  const auto& ir = projector->DumpIR();
+  auto phi = ir.find("case.value = phi i32");
+  ASSERT_NE(std::string::npos, phi);
+  EXPECT_EQ(std::string::npos, ir.find("case.value = phi i32", phi + 1));
+  EXPECT_EQ(std::string::npos, ir.find("res_value = phi"));
+}
+
 }  // namespace gandiva

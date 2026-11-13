@@ -63,6 +63,7 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Status Visit(const FieldNode& node) override;
   Status Visit(const FunctionNode& node) override;
   Status Visit(const IfNode& node) override;
+  Status Visit(const CaseNode& node) override;
   Status Visit(const LiteralNode& node) override;
   Status Visit(const BooleanNode& node) override;
   Status Visit(const InExpressionNode<int32_t>& node) override;
