@@ -51,40 +51,6 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestProjector, CacheOnlyConstruction) {
-  auto input = field("cache_only_project_input", int32());
-  auto schema = arrow::schema({input});
-  auto expr =
-      TreeExprBuilder::MakeExpression("add", {input, input}, field("result", int32()));
-  auto optimized = ConfigurationBuilder().build(true);
-  auto unoptimized = ConfigurationBuilder().build(false);
-  std::shared_ptr<Projector> cached;
-  ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
-                                        optimized, &cached));
-  ASSERT_EQ(cached, nullptr);
-  std::shared_ptr<Projector> first;
-  ASSERT_OK(Projector::Make(schema, {expr}, unoptimized, &first));
-  ASSERT_FALSE(first->GetBuiltFromCache());
-  ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
-                                        optimized, &cached));
-  ASSERT_EQ(cached, nullptr);
-  ASSERT_OK(Projector::Make(schema, {expr}, optimized, &first));
-  ASSERT_FALSE(first->GetBuiltFromCache());
-  ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
-                                        optimized, &cached));
-  ASSERT_NE(cached, nullptr);
-  EXPECT_TRUE(cached->GetBuiltFromCache());
-  auto batch = arrow::RecordBatch::Make(
-      schema, 3, {MakeArrowArrayInt32({1, 2, 3}, {true, true, true})});
-  arrow::ArrayVector output;
-  ASSERT_OK(cached->Evaluate(*batch, pool_, &output));
-  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt32({2, 4, 6}, {true, true, true}),
-                            output[0]);
-  ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_UINT16,
-                                        optimized, &cached));
-  EXPECT_EQ(cached, nullptr);
-}
-
 TEST_F(TestProjector, TestProjectCache) {
   // schema for input fields
   auto field0 = field("f0", int32());

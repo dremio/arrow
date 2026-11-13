@@ -40,20 +40,6 @@ Filter::~Filter() {}
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
                     std::shared_ptr<Filter>* filter) {
-  return MakeInternal(std::move(schema), std::move(condition), std::move(configuration),
-                      false, filter);
-}
-
-Status Filter::TryMakeFromCache(SchemaPtr schema, ConditionPtr condition,
-                                std::shared_ptr<Configuration> configuration,
-                                std::shared_ptr<Filter>* filter) {
-  return MakeInternal(std::move(schema), std::move(condition), std::move(configuration),
-                      true, filter);
-}
-
-Status Filter::MakeInternal(SchemaPtr schema, ConditionPtr condition,
-                            std::shared_ptr<Configuration> configuration, bool cache_only,
-                            std::shared_ptr<Filter>* filter) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(condition == nullptr, Status::Invalid("Condition cannot be null"));
   ARROW_RETURN_IF(configuration == nullptr,
@@ -70,10 +56,6 @@ Status Filter::MakeInternal(SchemaPtr schema, ConditionPtr condition,
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
   prev_cached_obj = cache->GetObjectCode(cache_key);
-  if (cache_only && prev_cached_obj == nullptr) {
-    filter->reset();
-    return Status::OK();
-  }
 
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
