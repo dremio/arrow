@@ -271,6 +271,28 @@ const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t
   return ret;
 }
 
+namespace {
+
+// Returns the 6-bit value of a base64 alphabet character (RFC 4648), or -1.
+int32_t Base64Value(uint8_t c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+bool IsBase64Whitespace(char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+}  // namespace
+
+// Strict base64 decoding: characters outside the alphabet and malformed tails are errors
+// instead of silently truncating the result. Spaces, tabs and line breaks are skipped
+// (RFC 2045 allows line breaks, and tools like `base64` end their output with one).
+// Padding is optional; when present it must complete the final group of four characters.
 GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
@@ -286,18 +308,66 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     *out_len = 0;
     return "";
   }
-  // use arrow method to decode base64 string
-  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
-  *out_len = static_cast<int32_t>(decoded_str.length());
-  // allocate memory for response
-  char* ret = reinterpret_cast<char*>(
-      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
+
+  // upper bound of the decoded size; the arena must not be asked for 0 bytes
+  int32_t capacity = std::max<int32_t>(static_cast<int32_t>(int64_t{in_len} * 3 / 4), 1);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, capacity));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory");
     *out_len = 0;
     return "";
   }
-  memcpy(ret, decoded_str.data(), *out_len);
+
+  int32_t out_pos = 0;
+  uint32_t accumulator = 0;
+  int32_t group_size = 0;
+  int32_t chars = 0;
+  int32_t padding = 0;
+  bool valid = true;
+  for (int32_t i = 0; i < in_len; ++i) {
+    int32_t value = Base64Value(static_cast<uint8_t>(in[i]));
+    if (value >= 0) {
+      if (padding > 0) {  // data after padding
+        valid = false;
+        break;
+      }
+      accumulator = (accumulator << 6) | static_cast<uint32_t>(value);
+      ++chars;
+      if (++group_size == 4) {
+        ret[out_pos++] = static_cast<char>(accumulator >> 16);
+        ret[out_pos++] = static_cast<char>(accumulator >> 8);
+        ret[out_pos++] = static_cast<char>(accumulator);
+        accumulator = 0;
+        group_size = 0;
+      }
+    } else if (in[i] == '=') {
+      if (++padding > 2) {
+        valid = false;
+        break;
+      }
+    } else if (!IsBase64Whitespace(in[i])) {
+      valid = false;
+      break;
+    }
+  }
+  // padding must complete a group of 4, and a single trailing character carries only 6
+  // bits
+  if (valid && ((padding > 0 && (chars + padding) % 4 != 0) || chars % 4 == 1)) {
+    valid = false;
+  }
+  if (!valid) {
+    gdv_fn_context_set_error_msg(context, "UNBASE64: input is not valid base64");
+    *out_len = 0;
+    return "";
+  }
+
+  if (group_size == 2) {
+    ret[out_pos++] = static_cast<char>(accumulator >> 4);
+  } else if (group_size == 3) {
+    ret[out_pos++] = static_cast<char>(accumulator >> 10);
+    ret[out_pos++] = static_cast<char>(accumulator >> 2);
+  }
+  *out_len = out_pos;
   return ret;
 }
 

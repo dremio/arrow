@@ -162,6 +162,71 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // padding is optional
+  const std::vector<std::pair<std::string, std::string>> valid_inputs = {
+      {"aGVsbG8", "hello"},
+      {"aGVsbA==", "hell"},
+      {"aGVsbA", "hell"},
+      {"ab==", "i"},
+      {"abc=", "i\xb7"},
+      {"RHLDqW1pbw==", "Dr\xc3\xa9mio"},
+      {"+/+/", "\xfb\xff\xbf"},
+      // spaces, tabs and line breaks are skipped
+      {"aGVsbG8=\n", "hello"},  // as printed by the base64 tool
+      {"aGVsbG8=\r\n", "hello"},
+      {" aGVsbG8=", "hello"},
+      {"aGVs bG8=", "hello"},
+      {"aGVs\nbG8=", "hello"},  // line-wrapped (RFC 2045)
+      {"aGVs\r\nbG8=\r\n", "hello"},
+      {"aGVs\tbG8", "hello"},
+      {"aGVsbA= =", "hell"},  // whitespace between padding characters
+      {"  \n", ""},
+  };
+  for (const auto& [input, expected] : valid_inputs) {
+    auto value = gdv_fn_base64_decode_utf8(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), &out_len);
+    EXPECT_EQ(std::string(value, out_len), expected) << input;
+    EXPECT_FALSE(ctx.has_error()) << input << ": " << ctx.get_error();
+    ctx.Reset();
+  }
+
+  const std::vector<std::string> invalid_inputs = {
+      "hello world!",    // used to decode only "hell" and silently drop the rest
+      "aGVsbG8=aGVs",    // data after padding
+      "aGVsbG8=\naGVs",  // data after padding, separated by a line break
+      "aGVsbG8= x",      // any other character after padding
+      "a\n",             // whitespace does not make a single character valid
+      "hello\nworld!",   // not base64 even with the line break skipped
+      "aGVsbA=",         // padding does not complete the group
+      "aGVsbG8===",      // too much padding
+      "a",               // 6 bits cannot form a byte
+      "aGVsb",           // single leftover character
+      "====",            // only padding
+      "=",               // lone padding character
+      "==",              // padding only, no data
+      "a=",              // one data character cannot be completed by padding
+      "aGVs\vbG8=",      // vertical tab is not skipped
+      "aGVs\fbG8=",      // form feed is not skipped
+      "\v",              // not whitespace, so not an empty input
+      "aGVs-G8_",        // url-safe alphabet
+      "\xe3\x85\x8f \xe3\x85\x91",  // non-ascii input
+  };
+  for (const auto& input : invalid_inputs) {
+    auto value = gdv_fn_base64_decode_utf8(
+        ctx_ptr, input.data(), static_cast<int32_t>(input.length()), &out_len);
+    EXPECT_EQ(std::string(value, out_len), "") << input;
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr("UNBASE64: input is not valid base64"))
+        << input;
+    ctx.Reset();
+  }
+}
+
 TEST(TestGdvFnStubs, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
