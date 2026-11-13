@@ -25,7 +25,7 @@
 #include <string>
 #include <string_view>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include "arrow/util/string.h"
 #include "gtest/gtest.h"
 
 namespace arrow::flight::sql::odbc {
@@ -36,7 +36,7 @@ namespace {
 bool ContainsKeyIgnoreCase(const std::vector<std::string_view>& keys,
                            std::string_view key) {
   return std::any_of(keys.begin(), keys.end(), [&](std::string_view candidate) {
-    return boost::iequals(candidate, key);
+    return arrow::internal::AsciiEqualsCaseInsensitive(candidate, key);
   });
 }
 
@@ -48,6 +48,43 @@ std::set<std::string> ToSet(const std::vector<std::string>& keys) {
 const std::vector<std::string_view> kKeysWithoutDialogField = {
     FlightSqlConnection::STRING_COLUMN_LENGTH, FlightSqlConnection::USE_WIDE_CHAR,
     FlightSqlConnection::CHUNK_BUFFER_CAPACITY};
+
+// Every key in ALL_KEYS that is not in DSN_DIALOG_KEYS, i.e. the known keys the dialog
+// lists in its "Advanced properties" table. Derived so that a new known key is covered by
+// the tests below without editing them.
+std::vector<std::string> KnownKeysWithoutDialogField() {
+  std::vector<std::string> keys;
+  for (const auto& key : FlightSqlConnection::ALL_KEYS) {
+    if (!ContainsKeyIgnoreCase(FlightSqlConnection::DSN_DIALOG_KEYS, key)) {
+      keys.emplace_back(key);
+    }
+  }
+  return keys;
+}
+
+// Sets a realistic value for every key that has a dedicated field in the Windows DSN
+// dialog.
+void SetDialogKeys(Configuration& config) {
+  config.Set(FlightSqlConnection::DSN, "test dsn");
+  config.Set(FlightSqlConnection::DRIVER, "test driver");
+  config.Set(FlightSqlConnection::HOST, "localhost");
+  config.Set(FlightSqlConnection::PORT, "32010");
+  config.Set(FlightSqlConnection::TOKEN, "token");
+  config.Set(FlightSqlConnection::UID, "user");
+  config.Set(FlightSqlConnection::USER_ID, "user");
+  config.Set(FlightSqlConnection::PWD, "password");
+  config.Set(FlightSqlConnection::USE_ENCRYPTION, "true");
+  config.Set(FlightSqlConnection::TRUSTED_CERTS, "/path/to/cert");
+  config.Set(FlightSqlConnection::USE_SYSTEM_TRUST_STORE, "false");
+  config.Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION, "false");
+}
+
+// Sets a realistic value for every known key without a dedicated dialog field.
+void SetKeysWithoutDialogField(Configuration& config) {
+  config.Set(FlightSqlConnection::STRING_COLUMN_LENGTH, "1024");
+  config.Set(FlightSqlConnection::USE_WIDE_CHAR, "true");
+  config.Set(FlightSqlConnection::CHUNK_BUFFER_CAPACITY, "10");
+}
 
 }  // namespace
 
@@ -79,20 +116,25 @@ TEST(DsnDialogKeysTest, EveryKnownKeyIsClassified) {
   }
 }
 
+// Fails when a key is added to ALL_KEYS without a value in the helpers above, which would
+// leave it untested by the GetCustomKeys tests below.
+TEST(ConfigurationTest, TestHelpersSetEveryKnownKey) {
+  Configuration config;
+  SetDialogKeys(config);
+  SetKeysWithoutDialogField(config);
+
+  for (const auto& key : FlightSqlConnection::ALL_KEYS) {
+    EXPECT_TRUE(config.IsSet(key)) << "Add a value for " << key << " to the test helpers";
+  }
+}
+
 TEST(ConfigurationTest, GetCustomKeysEmptyWhenOnlyDialogKeysSet) {
   Configuration config;
-  config.Set(FlightSqlConnection::DSN, "test dsn");
-  config.Set(FlightSqlConnection::DRIVER, "test driver");
-  config.Set(FlightSqlConnection::HOST, "localhost");
-  config.Set(FlightSqlConnection::PORT, "32010");
-  config.Set(FlightSqlConnection::TOKEN, "token");
-  config.Set(FlightSqlConnection::UID, "user");
-  config.Set(FlightSqlConnection::PWD, "password");
-  config.Set(FlightSqlConnection::USE_ENCRYPTION, "true");
-  config.Set(FlightSqlConnection::TRUSTED_CERTS, "/path/to/cert");
-  config.Set(FlightSqlConnection::USE_SYSTEM_TRUST_STORE, "false");
-  config.Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION, "false");
+  SetDialogKeys(config);
 
+  for (const auto& key : FlightSqlConnection::DSN_DIALOG_KEYS) {
+    EXPECT_TRUE(config.IsSet(key)) << "SetDialogKeys does not set " << key;
+  }
   EXPECT_TRUE(config.GetCustomKeys().empty());
 }
 
@@ -101,17 +143,15 @@ TEST(ConfigurationTest, GetCustomKeysEmptyWhenOnlyDialogKeysSet) {
 // custom keys for the "Advanced properties" table.
 TEST(ConfigurationTest, GetCustomKeysIncludesKeysWithoutDialogField) {
   Configuration config;
-  config.Set(FlightSqlConnection::HOST, "localhost");
-  config.Set(FlightSqlConnection::PORT, "32010");
-  config.Set(FlightSqlConnection::STRING_COLUMN_LENGTH, "1024");
-  config.Set(FlightSqlConnection::USE_WIDE_CHAR, "true");
-  config.Set(FlightSqlConnection::CHUNK_BUFFER_CAPACITY, "10");
+  SetDialogKeys(config);
+  SetKeysWithoutDialogField(config);
 
-  const std::set<std::string> expected = {
-      std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
-      std::string(FlightSqlConnection::USE_WIDE_CHAR),
-      std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY)};
+  const auto keys_without_dialog_field = KnownKeysWithoutDialogField();
+  const std::set<std::string> expected(keys_without_dialog_field.begin(),
+                                       keys_without_dialog_field.end());
   EXPECT_EQ(expected, ToSet(config.GetCustomKeys()));
+  // Guards the derivation above against silently becoming empty.
+  EXPECT_FALSE(expected.empty());
 }
 
 TEST(ConfigurationTest, GetCustomKeysIncludesUnknownKeys) {
@@ -127,13 +167,19 @@ TEST(ConfigurationTest, GetCustomKeysIncludesUnknownKeys) {
 
 TEST(ConfigurationTest, GetCustomKeysExcludesDialogKeysCaseInsensitively) {
   Configuration config;
-  config.Set("HOST", "localhost");
-  config.Set("Port", "32010");
-  config.Set("USEENCRYPTION", "true");
-  config.Set("stringcolumnlength", "1024");
+  SetDialogKeys(config);
+  SetKeysWithoutDialogField(config);
 
-  const std::set<std::string> expected = {"stringcolumnlength"};
-  EXPECT_EQ(expected, ToSet(config.GetCustomKeys()));
+  Configuration upper_case_config;
+  for (const auto& [key, value] : config.GetProperties()) {
+    upper_case_config.Set(arrow::internal::AsciiToUpper(key), value);
+  }
+
+  std::set<std::string> expected;
+  for (const auto& key : KnownKeysWithoutDialogField()) {
+    expected.insert(arrow::internal::AsciiToUpper(key));
+  }
+  EXPECT_EQ(expected, ToSet(upper_case_config.GetCustomKeys()));
 }
 
 }  // namespace config

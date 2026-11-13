@@ -181,6 +181,10 @@ void Configuration::LoadDsn(const std::string& dsn) {
   Set(FlightSqlConnection::CHUNK_BUFFER_CAPACITY,
       ReadDsnString(dsn, FlightSqlConnection::CHUNK_BUFFER_CAPACITY));
 
+  // "User ID" is the alias of UID that the Microsoft OLE DB to ODBC bridge (MSDASQL)
+  // writes.
+  Set(FlightSqlConnection::USER_ID, ReadDsnString(dsn, FlightSqlConnection::USER_ID));
+
   RemoveAllKnownKeys(customKeys);
   for (auto key : customKeys) {
     std::string_view key_sv(key);
