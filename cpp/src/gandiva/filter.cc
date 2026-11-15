@@ -26,6 +26,7 @@
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
+#include "gandiva/shutdown_guard.h"
 
 namespace gandiva {
 
@@ -44,6 +45,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(condition == nullptr, Status::Invalid("Condition cannot be null"));
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
+
+  BuildScope build_scope;
+  ARROW_RETURN_IF(!build_scope.entered(), Status::Invalid("Gandiva is shutting down"));
 
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();

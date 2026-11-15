@@ -26,6 +26,7 @@
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
+#include "gandiva/shutdown_guard.h"
 
 namespace gandiva {
 
@@ -60,6 +61,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(exprs.empty(), Status::Invalid("Expressions cannot be empty"));
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
+
+  BuildScope build_scope;
+  ARROW_RETURN_IF(!build_scope.entered(), Status::Invalid("Gandiva is shutting down"));
 
   // see if equivalent projector was already built
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
