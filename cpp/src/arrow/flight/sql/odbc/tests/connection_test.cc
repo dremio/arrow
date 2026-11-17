@@ -284,6 +284,58 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
+// StringColumnLength in the connection string must override the length reported for
+// string columns.
+TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectStringColumnLength) {
+  constexpr SQLULEN kStringColumnLength = 100;
+  std::string connect_str =
+      this->GetConnectionString() + ";StringColumnLength=" +
+      std::to_string(kStringColumnLength);
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
+  SQLSMALLINT out_str_len;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+                             static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+
+  SQLHSTMT statement;
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, this->conn, &statement));
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(
+      sql_query, L"SELECT 'abc' AS short_str, CAST('abc' AS VARCHAR(50)) AS varchar_str");
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(statement, sql_query, sql_query_len))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, statement);
+
+  for (SQLUSMALLINT column = 1; column <= 2; ++column) {
+    SQLWCHAR column_name[kOdbcBufferSize];
+    SQLSMALLINT name_length = 0;
+    SQLSMALLINT data_type = 0;
+    SQLULEN column_size = 0;
+    SQLSMALLINT decimal_digits = 0;
+    SQLSMALLINT nullable = 0;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLDescribeCol(statement, column, column_name,
+                             kOdbcBufferSize, &name_length, &data_type, &column_size,
+                             &decimal_digits, &nullable))
+        << GetOdbcErrorMessage(SQL_HANDLE_STMT, statement);
+    EXPECT_EQ(kStringColumnLength, column_size) << "column " << column;
+
+    SQLLEN length = 0;
+    ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(statement, column, SQL_DESC_LENGTH, 0, 0,
+                                           nullptr, &length));
+    EXPECT_EQ(static_cast<SQLLEN>(kStringColumnLength), length) << "column " << column;
+  }
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, statement));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+}
+
 TYPED_TEST(ConnectionHandleTest, TestSQLConnect) {
   // Connect string
   std::string connect_str = this->GetConnectionString();
