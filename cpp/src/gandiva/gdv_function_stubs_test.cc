@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <random>
 
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
@@ -238,6 +239,76 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
                 ::testing::HasSubstr("UNBASE64: input is not valid base64"))
         << input;
     ctx.Reset();
+  }
+}
+
+namespace {
+
+std::string Base64Encode(const std::string& data, bool pad) {
+  static const char kAlphabet[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  size_t i = 0;
+  for (; i + 3 <= data.size(); i += 3) {
+    uint32_t v = static_cast<uint8_t>(data[i]) << 16 |
+                 static_cast<uint8_t>(data[i + 1]) << 8 |
+                 static_cast<uint8_t>(data[i + 2]);
+    out += {kAlphabet[v >> 18], kAlphabet[(v >> 12) & 63], kAlphabet[(v >> 6) & 63],
+            kAlphabet[v & 63]};
+  }
+  size_t rest = data.size() - i;
+  if (rest == 1) {
+    uint32_t v = static_cast<uint8_t>(data[i]) << 16;
+    out += {kAlphabet[v >> 18], kAlphabet[(v >> 12) & 63]};
+    if (pad) out += "==";
+  } else if (rest == 2) {
+    uint32_t v = static_cast<uint8_t>(data[i]) << 16 | static_cast<uint8_t>(data[i + 1])
+                                                           << 8;
+    out += {kAlphabet[v >> 18], kAlphabet[(v >> 12) & 63], kAlphabet[(v >> 6) & 63]};
+    if (pad) out += "=";
+  }
+  return out;
+}
+
+}  // namespace
+
+TEST(TestGdvFnStubs, TestBase64DecodeRoundTrip) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  std::mt19937 rng(42);
+  const std::string whitespace = " \t\n\r";
+
+  auto check = [&](const std::string& data, bool pad, bool with_whitespace) {
+    std::string encoded = Base64Encode(data, pad);
+    if (with_whitespace) {
+      for (int i = 0; i < 4; ++i) {
+        encoded.insert(rng() % (encoded.size() + 1), 1, whitespace[rng() % 4]);
+      }
+    }
+    int32_t out_len = 0;
+    auto value = gdv_fn_base64_decode_utf8(
+        ctx_ptr, encoded.data(), static_cast<int32_t>(encoded.length()), &out_len);
+    EXPECT_FALSE(ctx.has_error()) << encoded << ": " << ctx.get_error();
+    EXPECT_EQ(std::string(value, out_len), data) << encoded;
+    ctx.Reset();
+  };
+
+  // every byte value, at every position of a group
+  std::string all_bytes;
+  for (int b = 0; b < 256; ++b) all_bytes.push_back(static_cast<char>(b));
+  for (size_t len = 0; len <= all_bytes.size(); ++len) {
+    for (bool pad : {true, false}) {
+      check(all_bytes.substr(0, len), pad, false);
+    }
+  }
+
+  // random data of every length up to 300 bytes, with and without whitespace
+  for (size_t len = 0; len <= 300; ++len) {
+    for (int round = 0; round < 20; ++round) {
+      std::string data(len, '\0');
+      for (auto& c : data) c = static_cast<char>(rng());
+      check(data, rng() % 2 == 0, rng() % 2 == 0);
+    }
   }
 }
 
