@@ -1531,6 +1531,29 @@ TEST_F(TestProjector, TestUnbase64) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_unbase, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestUnbase64NullSlotHoldsInvalidText) {
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+  auto expr = TreeExprBuilder::MakeExpression("unbase64", {field0},
+                                              field("base64", arrow::binary()));
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // the NULL row's slot holds "hello world!", which is not valid base64
+  std::vector<int32_t> offsets = {0, 7, 19, 19};
+  std::vector<uint8_t> validity = {0x05};
+  auto array = std::make_shared<arrow::StringArray>(
+      3, arrow::Buffer::Wrap(offsets), arrow::Buffer::FromString("aGVsbG8hello world!"),
+      arrow::Buffer::Wrap(validity), /*null_count=*/1);
+  auto batch = arrow::RecordBatch::Make(schema, 3, {array});
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBinary({"hello", "", ""}, {true, false, true}),
+                            outputs.at(0));
+}
+
 TEST_F(TestProjector, TestUnbase64InvalidInput) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
