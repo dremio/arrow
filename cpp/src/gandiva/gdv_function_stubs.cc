@@ -324,10 +324,12 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   int32_t chars = 0;
   int32_t padding = 0;
   bool valid = true;
+  char reason[64] = "";
   for (int32_t i = 0; i < in_len; ++i) {
     int32_t value = Base64Value(static_cast<uint8_t>(in[i]));
     if (value >= 0) {
-      if (padding > 0) {  // data after padding
+      if (padding > 0) {
+        snprintf(reason, sizeof(reason), "data after padding at position %d", i);
         valid = false;
         break;
       }
@@ -342,21 +344,30 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
       }
     } else if (in[i] == '=') {
       if (++padding > 2) {
+        snprintf(reason, sizeof(reason), "too many padding characters at position %d", i);
         valid = false;
         break;
       }
     } else if (!IsBase64Whitespace(in[i])) {
+      snprintf(reason, sizeof(reason), "unexpected character 0x%02X at position %d",
+               static_cast<uint8_t>(in[i]), i);
       valid = false;
       break;
     }
   }
   // padding must complete a group of 4, and a single trailing character carries only 6
   // bits
-  if (valid && ((padding > 0 && (chars + padding) % 4 != 0) || chars % 4 == 1)) {
+  if (valid && padding > 0 && (chars + padding) % 4 != 0) {
+    snprintf(reason, sizeof(reason), "padding does not complete the last group of 4");
+    valid = false;
+  } else if (valid && chars % 4 == 1) {
+    snprintf(reason, sizeof(reason), "incomplete last group");
     valid = false;
   }
   if (!valid) {
-    gdv_fn_context_set_error_msg(context, "UNBASE64: input is not valid base64");
+    char err_msg[128];
+    snprintf(err_msg, sizeof(err_msg), "UNBASE64: input is not valid base64: %s", reason);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }

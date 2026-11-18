@@ -186,6 +186,13 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
       {"aGVs\tbG8", "hello"},
       {"aGVsbA= =", "hell"},  // whitespace between padding characters
       {"  \n", ""},
+      // vectors from apache/arrow#49660
+      {"Zg==", "f"},
+      {"Zm8=", "fo"},
+      {"Zm9v", "foo"},
+      {"SGVsbG8gd29ybGQ=", "Hello world"},
+      {"AAAA", std::string("\x00\x00\x00", 3)},
+      {"AP8A", std::string("\x00\xff\x00", 3)},
   };
   for (const auto& [input, expected] : valid_inputs) {
     auto value = gdv_fn_base64_decode_utf8(
@@ -215,6 +222,13 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
       "\v",              // not whitespace, so not an empty input
       "aGVs-G8_",        // url-safe alphabet
       "\xe3\x85\x8f \xe3\x85\x91",  // non-ascii input
+      // vectors from apache/arrow#49660 (unpadded "abc" is accepted here, see above)
+      "ab$=",
+      "abc\xff",
+      "aGVs$G8gd29ybGQ=",
+      "ab=c",
+      "a===",
+      "Zm8=Zm8=",
   };
   for (const auto& input : invalid_inputs) {
     auto value = gdv_fn_base64_decode_utf8(
@@ -222,6 +236,30 @@ TEST(TestGdvFnStubs, TestBase64DecodeStrict) {
     EXPECT_EQ(std::string(value, out_len), "") << input;
     EXPECT_THAT(ctx.get_error(),
                 ::testing::HasSubstr("UNBASE64: input is not valid base64"))
+        << input;
+    ctx.Reset();
+  }
+}
+
+TEST(TestGdvFnStubs, TestBase64DecodeErrorReason) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  const std::vector<std::pair<std::string, std::string>> cases = {
+      {"hello world!", "unexpected character 0x21 at position 11"},
+      {"ab$=", "unexpected character 0x24 at position 2"},
+      {"abc\xff", "unexpected character 0xFF at position 3"},
+      {"ab=c", "data after padding at position 3"},
+      {"a===", "too many padding characters at position 3"},
+      {"aGVsbA=", "padding does not complete the last group of 4"},
+      {"aGVsb", "incomplete last group"},
+  };
+  for (const auto& [input, reason] : cases) {
+    gdv_fn_base64_decode_utf8(ctx_ptr, input.data(), static_cast<int32_t>(input.length()),
+                              &out_len);
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr("UNBASE64: input is not valid base64: " + reason))
         << input;
     ctx.Reset();
   }
