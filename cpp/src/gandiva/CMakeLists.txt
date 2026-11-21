@@ -102,6 +102,7 @@ set(SRC_FILES
     regex_util.cc
     regex_functions_holder.cc
     selection_vector.cc
+    shutdown_guard.cc
     tree_expr_builder.cc
     to_date_holder.cc
     random_generator_holder.cc
@@ -287,6 +288,9 @@ add_gandiva_test(internals-test
                  EXTRA_LINK_LIBS
                  re2::re2
                  ${GANDIVA_OPENSSL_LIBS})
+
+# Its own binary: PreShutdown() is one-way for the life of the process.
+add_gandiva_test(shutdown-guard-test SOURCES shutdown_guard_test.cc)
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
