@@ -691,9 +691,23 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
   }
 
 CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
-CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
 #undef CAST_VARCHAR_FROM_VARLEN_TYPE
+
+// Unlike utf8, binary input is not guaranteed to be valid UTF-8, so it is validated
+// before being reinterpreted as varchar.
+FORCE_INLINE
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length) {
+  if (!gdv_fn_is_valid_utf8(data, data_len)) {
+    gdv_fn_context_set_error_msg(
+        context, "Cannot cast VARBINARY to VARCHAR: input is not valid UTF-8");
+    *out_length = 0;
+    return "";
+  }
+  return castVARCHAR_utf8_int64(context, data, data_len, out_len, out_length);
+}
 
 // Add functions for castVARBINARY
 #define CAST_VARBINARY_FROM_STRING_AND_BINARY(TYPE)                                    \
