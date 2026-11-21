@@ -116,6 +116,9 @@ class GANDIVA_EXPORT Engine {
   /// the main module.
   Status LoadPreCompiledIR();
 
+  /// Link the pre-compiled functions referenced by module_ into it.
+  Status LinkPreCompiledIR();
+
   // load external pre-compiled bitcodes into module
   Status LoadExternalPreCompiledIR();
 
@@ -129,6 +132,11 @@ class GANDIVA_EXPORT Engine {
   std::unique_ptr<llvm::orc::LLJIT> lljit_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
   std::unique_ptr<llvm::Module> module_;
+  /// The pre-compiled function library, loaded lazily. Only the functions that the
+  /// generated code refers to get materialized and linked into module_.
+  std::unique_ptr<llvm::Module> precompiled_module_;
+  /// Declarations added to module_ for the functions in precompiled_module_.
+  std::vector<llvm::Function*> precompiled_declarations_;
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;

@@ -449,12 +449,47 @@ Status Engine::LoadPreCompiledIR() {
 
   std::unique_ptr<llvm::MemoryBuffer> buffer = std::move(buffer_or_error.get());
 
-  /// Parse the IR module.
+  /// Parse the IR module. Function bodies are only materialized when linked.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-  // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
+  ARROW_ASSIGN_OR_RAISE(
+      precompiled_module_,
+      AsArrowResult(module_or_error, "Could not parse precompiled IR: "));
+  precompiled_module_->setDataLayout(module_->getDataLayout());
+
+  // Declare the pre-compiled functions in module_, so that code generation can refer to
+  // them. Linking all ~1600 function bodies for every expression dominates compile time,
+  // so LinkPreCompiledIR() links in just the ones that end up being used.
+  for (const llvm::Function& fn : *precompiled_module_) {
+    if (fn.isDeclaration() || fn.hasLocalLinkage() ||
+        module_->getNamedValue(fn.getName()) != nullptr) {
+      continue;
+    }
+    auto* decl = llvm::Function::Create(
+        fn.getFunctionType(), llvm::GlobalValue::ExternalLinkage, fn.getName(), *module_);
+    decl->setCallingConv(fn.getCallingConv());
+    decl->setAttributes(fn.getAttributes());
+    precompiled_declarations_.push_back(decl);
+  }
+  return Status::OK();
+}
+
+Status Engine::LinkPreCompiledIR() {
+  if (precompiled_module_ == nullptr) {
+    return Status::OK();
+  }
+  // LinkOnlyNeeded links the definitions for declarations present in module_ (and
+  // whatever those depend on), so drop the declarations nothing refers to.
+  for (llvm::Function* decl : precompiled_declarations_) {
+    if (decl->use_empty()) {
+      decl->eraseFromParent();
+    }
+  }
+  precompiled_declarations_.clear();
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(precompiled_module_),
+                                            llvm::Linker::Flags::LinkOnlyNeeded),
+                  Status::CodeGenError("failed to link precompiled IR module"));
   return Status::OK();
 }
 
@@ -572,6 +607,7 @@ static void OptimizeModuleWithLegacyPassManager(llvm::Module& module,
 // Optimise and compile the module.
 Status Engine::FinalizeModule() {
   if (!cached_) {
+    ARROW_RETURN_NOT_OK(LinkPreCompiledIR());
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
