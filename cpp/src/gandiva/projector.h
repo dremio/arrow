@@ -77,6 +77,12 @@ class GANDIVA_EXPORT Projector {
                      std::shared_ptr<Configuration> configuration,
                      std::shared_ptr<Projector>* projector);
 
+  /// Build only from cached object code. A miss returns OK and a null projector.
+  static Status TryMakeFromCache(SchemaPtr schema, const ExpressionVector& exprs,
+                                 SelectionVector::Mode selection_vector_mode,
+                                 std::shared_ptr<Configuration> configuration,
+                                 std::shared_ptr<Projector>* projector);
+
   /// Evaluate the specified record batch, and return the allocated and populated output
   /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
   /// to the vector 'output'.
@@ -125,6 +131,11 @@ class GANDIVA_EXPORT Projector {
   bool GetBuiltFromCache();
 
  private:
+  static Status MakeInternal(SchemaPtr schema, const ExpressionVector& exprs,
+                             SelectionVector::Mode selection_vector_mode,
+                             std::shared_ptr<Configuration> configuration,
+                             bool cache_only, std::shared_ptr<Projector>* projector);
+
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
 
