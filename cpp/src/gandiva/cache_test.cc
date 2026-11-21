@@ -22,6 +22,10 @@
 
 #include <gtest/gtest.h>
 
+#include "gandiva/configuration.h"
+#include "gandiva/expression_cache_key.h"
+#include "gandiva/tree_expr_builder.h"
+
 namespace gandiva {
 
 class TestCacheKey {
@@ -105,6 +109,35 @@ TEST(TestCache, TestGetCacheCapacityEnvVar) {
     EnvVarGuard guard(cache_capacity_env_var, str.c_str());
     ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
+}
+
+// Two distinct Configuration instances with identical content must produce equal
+// ExpressionCacheKeys, so the compiled-expression cache hits instead of recompiling.
+// Regression test for the key comparing the configuration shared_ptr by identity.
+TEST(TestCache, TestExpressionCacheKeyConfigByValue) {
+  auto f0 = arrow::field("f0", arrow::int32());
+  auto f1 = arrow::field("f1", arrow::int32());
+  auto schema = arrow::schema({f0, f1});
+  auto expr =
+      TreeExprBuilder::MakeExpression("add", {f0, f1}, arrow::field("out", arrow::int32()));
+  ExpressionVector exprs = {expr};
+  const auto mode = SelectionVector::Mode::MODE_NONE;
+
+  // Distinct instances, identical content.
+  auto cfg1 = std::make_shared<Configuration>(true);
+  auto cfg2 = std::make_shared<Configuration>(true);
+  ASSERT_NE(cfg1, cfg2);               // different pointers
+  ASSERT_EQ(*cfg1, *cfg2);             // equal content
+
+  ExpressionCacheKey k1(schema, cfg1, exprs, mode);
+  ExpressionCacheKey k2(schema, cfg2, exprs, mode);
+  ASSERT_EQ(k1.Hash(), k2.Hash());
+  ASSERT_TRUE(k1 == k2);               // fails if configuration is compared by identity
+
+  // Different configuration content must still produce a different key.
+  auto cfg3 = std::make_shared<Configuration>(false);  // optimize = false
+  ExpressionCacheKey k3(schema, cfg3, exprs, mode);
+  ASSERT_FALSE(k1 == k3);
 }
 
 }  // namespace gandiva

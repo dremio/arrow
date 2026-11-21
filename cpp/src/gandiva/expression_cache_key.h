@@ -88,8 +88,15 @@ class ExpressionCacheKey {
       return false;
     }
 
+    // Compare the configuration by value, not by shared_ptr identity. Hash() already
+    // folds in configuration_->Hash() by content, so two distinct Configuration
+    // instances with identical content must also compare equal here; comparing the
+    // pointers instead caused spurious cache misses and needless recompiles.
     if (configuration_ != other.configuration_) {
-      return false;
+      if (configuration_ == nullptr || other.configuration_ == nullptr ||
+          !(*configuration_ == *other.configuration_)) {
+        return false;
+      }
     }
 
     if (mode_ != other.mode_) {
