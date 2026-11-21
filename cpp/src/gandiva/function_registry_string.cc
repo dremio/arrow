@@ -78,7 +78,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "gdv_fn_base64_encode_binary", NativeFunction::kNeedsContext),
 
       NativeFunction("unbase64", {}, DataTypeVector{utf8()}, binary(), kResultNullIfNull,
-                     "gdv_fn_base64_decode_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_base64_decode_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("repeat", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "repeat_utf8_int32",
