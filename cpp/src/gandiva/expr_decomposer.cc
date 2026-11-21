@@ -159,6 +159,30 @@ Status ExprDecomposer::Visit(const IfNode& node) {
   return Status::OK();
 }
 
+Status ExprDecomposer::Visit(const CaseNode& node) {
+  ValueValidityPairVector conditions;
+  ValueValidityPairVector results;
+  for (size_t i = 0; i < node.conditions().size(); ++i) {
+    nested_if_else_ = false;
+    ARROW_RETURN_NOT_OK(node.conditions()[i]->Accept(*this));
+    conditions.push_back(result());
+    nested_if_else_ = false;
+    ARROW_RETURN_NOT_OK(node.results()[i]->Accept(*this));
+    results.push_back(result());
+  }
+  nested_if_else_ = false;
+  ARROW_RETURN_NOT_OK(node.else_node()->Accept(*this));
+  auto else_vv = result();
+  nested_if_else_ = false;
+
+  int local_bitmap_idx = annotator_.AddLocalBitMap();
+  auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
+  auto value_dex = std::make_shared<CaseDex>(conditions, results, else_vv,
+                                             node.return_type(), local_bitmap_idx);
+  result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
+}
+
 // Decompose a BooleanNode
 Status ExprDecomposer::Visit(const BooleanNode& node) {
   // decompose the children.

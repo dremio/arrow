@@ -284,4 +284,25 @@ TEST_F(ValidationTestProjector, TestAndBooleanArgType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
+TEST_F(ValidationTestProjector, TestCaseTypes) {
+  auto input = field("a", int32());
+  auto schema = arrow::schema({input});
+  auto value = TreeExprBuilder::MakeField(input);
+  auto truth = TreeExprBuilder::MakeLiteral(true);
+  auto null_value = TreeExprBuilder::MakeNull(int32());
+  for (const auto& node :
+       {TreeExprBuilder::MakeCase({value}, {value}, null_value, int32()),
+        TreeExprBuilder::MakeCase({truth}, {truth}, null_value, int32()),
+        TreeExprBuilder::MakeCase({truth}, {value}, truth, int32())}) {
+    std::shared_ptr<Projector> projector;
+    auto expression = TreeExprBuilder::MakeExpression(node, field("out", int32()));
+    EXPECT_TRUE(Projector::Make(schema, {expression}, TestConfiguration(), &projector)
+                    .IsExpressionValidationError());
+  }
+  EXPECT_EQ(nullptr, TreeExprBuilder::MakeCase({}, {}, null_value, int32()));
+  EXPECT_EQ(nullptr, TreeExprBuilder::MakeCase({truth}, {}, null_value, int32()));
+  EXPECT_EQ(nullptr, TreeExprBuilder::MakeCase({nullptr}, {value}, null_value, int32()));
+  EXPECT_EQ(nullptr, TreeExprBuilder::MakeCase({truth}, {nullptr}, null_value, int32()));
+}
+
 }  // namespace gandiva

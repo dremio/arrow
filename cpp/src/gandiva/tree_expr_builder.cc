@@ -132,6 +132,20 @@ NodePtr TreeExprBuilder::MakeIf(NodePtr condition, NodePtr then_node, NodePtr el
   return std::make_shared<IfNode>(condition, then_node, else_node, result_type);
 }
 
+NodePtr TreeExprBuilder::MakeCase(const NodeVector& conditions, const NodeVector& results,
+                                  NodePtr else_node, DataTypePtr result_type) {
+  if (conditions.empty() || conditions.size() != results.size() || else_node == nullptr ||
+      result_type == nullptr) {
+    return nullptr;
+  }
+  for (size_t i = 0; i < conditions.size(); ++i) {
+    if (conditions[i] == nullptr || results[i] == nullptr) {
+      return nullptr;
+    }
+  }
+  return std::make_shared<CaseNode>(conditions, results, else_node, result_type);
+}
+
 NodePtr TreeExprBuilder::MakeAnd(const NodeVector& children) {
   return std::make_shared<BooleanNode>(BooleanNode::AND, children);
 }

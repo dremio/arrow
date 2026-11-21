@@ -135,6 +135,27 @@ Status ExprValidator::Visit(const IfNode& node) {
   return Status::OK();
 }
 
+Status ExprValidator::Visit(const CaseNode& node) {
+  ARROW_RETURN_IF(
+      node.conditions().empty() || node.conditions().size() != node.results().size(),
+      Status::ExpressionValidationError("CASE requires matching conditions and results"));
+  for (size_t i = 0; i < node.conditions().size(); ++i) {
+    const auto& condition = node.conditions()[i];
+    const auto& result = node.results()[i];
+    ARROW_RETURN_NOT_OK(condition->Accept(*this));
+    ARROW_RETURN_NOT_OK(result->Accept(*this));
+    ARROW_RETURN_IF(!condition->return_type()->Equals(arrow::boolean()),
+                    Status::ExpressionValidationError("CASE condition must be boolean"));
+    ARROW_RETURN_IF(!result->return_type()->Equals(node.return_type()),
+                    Status::ExpressionValidationError("CASE result types must match"));
+  }
+  ARROW_RETURN_NOT_OK(node.else_node()->Accept(*this));
+  ARROW_RETURN_IF(
+      !node.else_node()->return_type()->Equals(node.return_type()),
+      Status::ExpressionValidationError("CASE ELSE type must match result type"));
+  return Status::OK();
+}
+
 Status ExprValidator::Visit(const LiteralNode& node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
   ARROW_RETURN_IF(llvm_type == nullptr,

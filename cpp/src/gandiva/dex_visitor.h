@@ -37,6 +37,7 @@ class NonNullableFuncDex;
 class NullableNeverFuncDex;
 class NullableInternalFuncDex;
 class IfDex;
+class CaseDex;
 class BooleanAndDex;
 class BooleanOrDex;
 template <typename Type>
@@ -58,6 +59,7 @@ class GANDIVA_EXPORT DexVisitor {
   virtual void Visit(const NullableNeverFuncDex& dex) = 0;
   virtual void Visit(const NullableInternalFuncDex& dex) = 0;
   virtual void Visit(const IfDex& dex) = 0;
+  virtual void Visit(const CaseDex& dex) = 0;
   virtual void Visit(const BooleanAndDex& dex) = 0;
   virtual void Visit(const BooleanOrDex& dex) = 0;
   virtual void Visit(const InExprDexBase<int32_t>& dex) = 0;
@@ -84,6 +86,7 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(NullableNeverFuncDex)
   VISIT_DCHECK(NullableInternalFuncDex)
   VISIT_DCHECK(IfDex)
+  VISIT_DCHECK(CaseDex)
   VISIT_DCHECK(BooleanAndDex)
   VISIT_DCHECK(BooleanOrDex)
   VISIT_DCHECK(InExprDexBase<int32_t>)
