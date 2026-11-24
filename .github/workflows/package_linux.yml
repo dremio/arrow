@@ -71,6 +71,7 @@ jobs:
     steps:
       - id: set_enabled
         if: >-
+          github.repository == 'dremio/arrow' ||
           github.ref_type == 'tag' ||
           (github.event_name == 'push' &&
            github.repository == 'apache/arrow' &&
@@ -189,11 +190,6 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
-        with:
-          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
-          key: package-linux-${{ matrix.id }}
       - name: Install dependencies
         run: |
           sudo apt update
@@ -253,15 +249,6 @@ jobs:
         run: |
           rake -C dev/tasks/linux-packages/apache-arrow docker:pull:${TARGET} || :
           rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
-      - name: Save ccache
-        if: >-
-          !cancelled()
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
-        with:
-          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
-          key: package-linux-${{ matrix.id }}
-          include-hidden-files: true
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -299,19 +286,39 @@ jobs:
           fi
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
-      - name: Upload the artifacts to the job
+      # Only the Flight SQL ODBC installers (RPMs) for AlmaLinux 9 and 10 are uploaded.
+      # All other targets are still built and tested, but nothing is uploaded for them.
+      - name: Collect Flight SQL ODBC installers
+        id: collect-odbc
+        if: >-
+          contains(fromJSON('["almalinux-9-amd64", "almalinux-9-arm64",
+          "almalinux-10-amd64", "almalinux-10-arm64"]'), matrix.id)
+        run: |
+          mkdir -p odbc-installers
+          # Match the runtime package (e.g. arrow2700-flight-sql-odbc-libs-*.rpm) but not
+          # its -debuginfo package.
+          find "${DISTRIBUTION}" -name '*-flight-sql-odbc-libs-[0-9]*.rpm' \
+            -exec cp -v {} odbc-installers/ \;
+          if [ -z "$(ls -A odbc-installers)" ]; then
+            echo "No Flight SQL ODBC RPM found for ${{ matrix.id }}" >&2
+            exit 1
+          fi
+          ls -l odbc-installers
+      - name: Upload the Flight SQL ODBC installers to the job
+        if: steps.collect-odbc.conclusion == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.id }}
-          path: ${{ matrix.id }}.tar.gz*
-      - name: Upload the artifacts to GitHub Release
-        if: github.ref_type == 'tag'
+          name: flight-sql-odbc-${{ matrix.id }}
+          path: odbc-installers/*.rpm
+          if-no-files-found: error
+      - name: Upload the Flight SQL ODBC installers to GitHub Release
+        if: github.ref_type == 'tag' && steps.collect-odbc.conclusion == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${GITHUB_REF_NAME} \
             --clobber \
-            ${{ matrix.id }}.tar.gz*
+            odbc-installers/*.rpm
       - name: Set up test
         run: |
           sudo apt install -y \
