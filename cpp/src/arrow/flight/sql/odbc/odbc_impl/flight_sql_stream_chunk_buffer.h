@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <vector>
+
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/odbc/odbc_impl/blocking_queue.h"
@@ -28,6 +31,11 @@ class FlightStreamChunkBuffer {
       std::pair<arrow::Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>
       queue_;
 
+  // Keep each endpoint’s DoGet stream reader so Cancel() can interrupt a producer
+  // blocked in Next() while waiting for the network.
+  std::mutex readers_mutex_;
+  std::vector<std::shared_ptr<FlightStreamReader>> stream_readers_;
+
  public:
   FlightStreamChunkBuffer(FlightSqlClient& flight_sql_client,
                           const FlightClientOptions& client_options,
@@ -38,6 +46,11 @@ class FlightStreamChunkBuffer {
   ~FlightStreamChunkBuffer();
 
   void Close();
+
+  // Cancels the underlying DoGet stream(s) so any producer thread blocked on a
+  // network read returns promptly, then closes the queue. Safe to call from a
+  // different thread than the one fetching rows.
+  void Cancel();
 
   bool GetNext(FlightStreamChunk* chunk);
 };
