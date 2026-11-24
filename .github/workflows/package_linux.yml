@@ -189,11 +189,6 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
-        with:
-          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
-          key: package-linux-${{ matrix.id }}
       - name: Install dependencies
         run: |
           sudo apt update
@@ -253,15 +248,6 @@ jobs:
         run: |
           rake -C dev/tasks/linux-packages/apache-arrow docker:pull:${TARGET} || :
           rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
-      - name: Save ccache
-        if: >-
-          !cancelled()
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
-        with:
-          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
-          key: package-linux-${{ matrix.id }}
-          include-hidden-files: true
       - name: Docker Push
         continue-on-error: true
         if: >-
