@@ -58,6 +58,11 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     util::ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
+    {
+      std::lock_guard<std::mutex> guard(readers_mutex_);
+      stream_readers_.push_back(stream_reader_ptr);
+    }
+
     BlockingQueue<std::pair<Result<FlightStreamChunk>,
                             std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=]()
         -> std::optional<
@@ -98,6 +103,18 @@ bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
 }
 
 void FlightStreamChunkBuffer::Close() { queue_.Close(); }
+
+void FlightStreamChunkBuffer::Cancel() {
+  // Interrupt any producer thread currently blocked inside Next() on the
+  // network before closing the queue. BlockingQueue::Close() joins every
+  // producer thread, so without this, Close() would itself block until the
+  // in-flight read completes (or times out) -- defeating the point of cancel.
+  std::lock_guard<std::mutex> guard(readers_mutex_);
+  for (const auto& reader : stream_readers_) {
+    reader->Cancel();
+  }
+  queue_.Close();
+}
 
 FlightStreamChunkBuffer::~FlightStreamChunkBuffer() { Close(); }
 
