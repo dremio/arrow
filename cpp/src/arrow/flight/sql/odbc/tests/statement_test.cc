@@ -22,7 +22,10 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
+#include <atomic>
+#include <chrono>
 #include <limits>
+#include <thread>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -2274,6 +2277,58 @@ TYPED_TEST(StatementTest, TestSQLCloseCursorWithoutCursor) {
 
   // Verify invalid cursor error state is returned
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+}
+
+TYPED_TEST(StatementTest, TestSQLCancelOnIdleStatement) {
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLCancel(this->stmt));
+}
+
+// Regression test for GH-55790: SQLCancel must be safe to call from a thread other
+// than the one fetching rows, and must cause a blocked/in-progress fetch to stop
+// promptly rather than hang until the whole result set has been read.
+TYPED_TEST(StatementTest, TestSQLCancelDuringFetch) {
+  // A plain (non-recursive) CTE cross-joined with itself a few times, to produce
+  // a large result set (20^4 = 160000 rows) using only portable SQL.
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(
+      wsql,
+      L"WITH v(x) AS (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10),"
+      L"(11),(12),(13),(14),(15),(16),(17),(18),(19),(20)) "
+      L"SELECT a.x FROM v a CROSS JOIN v b CROSS JOIN v c CROSS JOIN v d;");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, this->stmt);
+
+  std::atomic<bool> fetch_started{false};
+  std::atomic<int> rows_fetched{0};
+  std::thread fetch_thread([&]() {
+    fetch_started = true;
+    SQLINTEGER val;
+    while (true) {
+      SQLRETURN rc = SQLFetch(this->stmt);
+      if (rc != SQL_SUCCESS) break;
+      ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+      rows_fetched++;
+    }
+  });
+
+  while (!fetch_started) {
+    std::this_thread::yield();
+  }
+  // Give the fetch loop a brief head start so the cancel lands mid-stream rather
+  // than before fetching has begun.
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLCancel(this->stmt));
+
+  fetch_thread.join();
+
+  // The cancel should have interrupted the fetch well before all 160000 rows were
+  // read.
+  EXPECT_LT(rows_fetched.load(), 160000);
 }
 
 }  // namespace arrow::flight::sql::odbc

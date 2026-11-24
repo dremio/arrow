@@ -201,12 +201,7 @@ SQLRETURN SQL_API SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number,
 }
 
 SQLRETURN SQL_API SQLCancel(SQLHSTMT stmt) {
-  ARROW_LOG(DEBUG) << "SQLCancel called with stmt: " << stmt;
-  return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    throw arrow::flight::sql::odbc::DriverException("SQLCancel is not implemented",
-                                                    "IM001");
-    return SQL_ERROR;
-  });
+  return arrow::flight::sql::odbc::SQLCancel(stmt);
 }
 
 SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT stmt) {

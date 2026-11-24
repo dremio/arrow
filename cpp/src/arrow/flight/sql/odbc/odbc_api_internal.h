@@ -81,6 +81,7 @@ namespace arrow::flight::sql::odbc {
 [[nodiscard]] SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLWCHAR* queryText,
                                    SQLINTEGER text_length);
 [[nodiscard]] SQLRETURN SQLExecute(SQLHSTMT stmt);
+[[nodiscard]] SQLRETURN SQLCancel(SQLHSTMT stmt);
 [[nodiscard]] SQLRETURN SQLFetch(SQLHSTMT stmt);
 [[nodiscard]] SQLRETURN SQLExtendedFetch(SQLHSTMT stmt, SQLUSMALLINT fetch_orientation,
                                          SQLLEN fetch_offset, SQLULEN* row_count_ptr,
