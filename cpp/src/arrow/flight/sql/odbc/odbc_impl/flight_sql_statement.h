@@ -26,6 +26,7 @@
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/types.h"
 
+#include <mutex>
 #include <optional>
 
 namespace arrow::flight::sql::odbc {
@@ -37,6 +38,9 @@ class FlightSqlStatement : public Statement {
   FlightClientOptions client_options_;
   FlightCallOptions call_options_;
   FlightSqlClient& sql_client_;
+  // Guards current_result_set_, since Cancel() (SQLCancel) must be safe to call
+  // from a thread other than the one currently executing/fetching this statement.
+  std::mutex current_result_set_mutex_;
   std::shared_ptr<ResultSet> current_result_set_;
   std::shared_ptr<PreparedStatement> prepared_statement_;
   const MetadataSettings& metadata_settings_;
@@ -46,6 +50,10 @@ class FlightSqlStatement : public Statement {
                                        const std::string* table_name,
                                        const std::string* table_type,
                                        const ColumnNames& column_names);
+
+  // Thread-safe setter/getter for current_result_set_; see
+  // current_result_set_mutex_.
+  std::shared_ptr<ResultSet> SetCurrentResultSet(std::shared_ptr<ResultSet> result_set);
 
  public:
   FlightSqlStatement(const Diagnostics& diagnostics, FlightSqlClient& sql_client,

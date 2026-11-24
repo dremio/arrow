@@ -203,9 +203,14 @@ SQLRETURN SQL_API SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number,
 SQLRETURN SQL_API SQLCancel(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLCancel called with stmt: " << stmt;
   return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    throw arrow::flight::sql::odbc::DriverException("SQLCancel is not implemented",
-                                                    "IM001");
-    return SQL_ERROR;
+    ODBC::ODBCStatement* statement = reinterpret_cast<ODBC::ODBCStatement*>(stmt);
+
+    // Per the ODBC spec, SQLCancel must be safe to call from a different thread
+    // than the one blocked in SQLExecute/SQLExecDirect/SQLFetch on this same
+    // statement handle, in order to interrupt a long-running query.
+    statement->Cancel();
+
+    return SQL_SUCCESS;
   });
 }
 

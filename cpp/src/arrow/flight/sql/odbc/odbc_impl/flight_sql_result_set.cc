@@ -212,7 +212,7 @@ void FlightSqlResultSet::Close() {
 }
 
 void FlightSqlResultSet::Cancel() {
-  chunk_buffer_.Close();
+  chunk_buffer_.Cancel();
   current_chunk_.data = nullptr;
 }
 
