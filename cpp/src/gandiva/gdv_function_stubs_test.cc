@@ -832,6 +832,36 @@ TEST(TestGdvFnStubs, TestUpper) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestInvalidUtf8ErrorMessage) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // the bytes UNBASE64('hello world!') used to return
+  const std::string invalid("\x85\xe9\x65");
+  const int32_t len = static_cast<int32_t>(invalid.length());
+  const std::string expected =
+      "unexpected byte \\85 encountered while decoding utf8 string: the input is not "
+      "valid UTF-8, for example binary data cast to varchar";
+
+  gdv_fn_upper_utf8(ctx_ptr, invalid.data(), len, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  gdv_fn_lower_utf8(ctx_ptr, invalid.data(), len, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  gdv_fn_initcap_utf8(ctx_ptr, invalid.data(), len, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  // valid input is not affected
+  const char* out_str = gdv_fn_upper_utf8(ctx_ptr, "caf\xc3\xa9", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "CAF\xc3\x89");
+  EXPECT_FALSE(ctx.has_error()) << ctx.get_error();
+}
+
 TEST(TestGdvFnStubs, TestLower) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

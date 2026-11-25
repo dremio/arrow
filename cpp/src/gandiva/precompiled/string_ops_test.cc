@@ -266,6 +266,56 @@ TEST(TestStringOps, TestCharLength) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestInvalidUtf8ErrorMessage) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // the bytes UNBASE64('hello world!') used to return
+  const std::string invalid("\x85\xe9\x65");
+  const gdv_int32 len = static_cast<gdv_int32>(invalid.length());
+  auto message = [](const std::string& byte) {
+    return "unexpected byte \\" + byte +
+           " encountered while decoding utf8 string: the input is not valid UTF-8, for "
+           "example binary data cast to varchar";
+  };
+  const std::string expected = message("85");
+
+  EXPECT_EQ(utf8_length(ctx_ptr, invalid.data(), len), 0);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  reverse_utf8(ctx_ptr, invalid.data(), len, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  ltrim_utf8_utf8(ctx_ptr, invalid.data(), len, " ", 1, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  // rtrim walks from the right and reports the byte where the broken character starts
+  const std::string invalid_tail("ab\x85");
+  rtrim_utf8_utf8(ctx_ptr, invalid_tail.data(),
+                  static_cast<gdv_int32>(invalid_tail.length()), " ", 1, &out_len);
+  EXPECT_EQ(ctx.get_error(), message("62"));
+  ctx.Reset();
+
+  btrim_utf8_utf8(ctx_ptr, invalid.data(), len, " ", 1, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  // truncating walks the characters with utf8_byte_pos
+  castVARCHAR_utf8_int64(ctx_ptr, invalid.data(), len, 2, &out_len);
+  EXPECT_EQ(ctx.get_error(), expected);
+  ctx.Reset();
+
+  // valid input is not affected
+  const std::string valid("h\xc3\xa9llo");
+  EXPECT_EQ(utf8_length(ctx_ptr, valid.data(), static_cast<gdv_int32>(valid.length())),
+            5);
+  EXPECT_FALSE(ctx.has_error()) << ctx.get_error();
+}
+
 TEST(TestStringOps, TestConvertUtf8) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

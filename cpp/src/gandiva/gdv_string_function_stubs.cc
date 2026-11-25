@@ -202,7 +202,9 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 
 GDV_FORCE_INLINE
 void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
-  const char* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  const char* fmt =
+      "unexpected byte \\%02hhx encountered while decoding utf8 string: the input is "
+      "not valid UTF-8, for example binary data cast to varchar";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);

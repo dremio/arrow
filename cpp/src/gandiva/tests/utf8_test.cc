@@ -722,6 +722,58 @@ TEST_F(TestUtf8, TestCastVarChar) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
 
+TEST_F(TestUtf8, TestInvalidUtf8FromBinary) {
+  auto field_a = field("a", arrow::binary());
+  auto schema = arrow::schema({field_a});
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_len = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(65536));
+  auto node_cast =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_len}, utf8());
+  auto node_length = TreeExprBuilder::MakeFunction("length", {node_cast}, arrow::int32());
+
+  std::shared_ptr<Projector> cast_projector;
+  auto status = Projector::Make(
+      schema, {TreeExprBuilder::MakeExpression(node_cast, field("res", utf8()))},
+      TestConfiguration(), &cast_projector);
+  ASSERT_TRUE(status.ok()) << status.message();
+
+  std::shared_ptr<Projector> length_projector;
+  status = Projector::Make(
+      schema,
+      {TreeExprBuilder::MakeExpression(node_length, field("res", arrow::int32()))},
+      TestConfiguration(), &length_projector);
+  ASSERT_TRUE(status.ok()) << status.message();
+
+  // valid UTF-8 and Latin-1 bytes, which are not valid UTF-8
+  const std::vector<std::string> values = {"ok", "h\xc3\xa9llo", "caf\xe9"};
+  auto array = MakeArrowArrayBinary(values, {true, true, true});
+  auto batch = arrow::RecordBatch::Make(schema, 3, {array});
+
+  // the cast does not validate: the bytes pass through unchanged
+  arrow::ArrayVector outputs;
+  status = cast_projector->Evaluate(*batch, pool_, &outputs);
+  ASSERT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayUtf8(values, {true, true, true}),
+                            outputs.at(0));
+
+  // length() of valid input works as before
+  auto valid_array = MakeArrowArrayBinary({"ok", "h\xc3\xa9llo"}, {true, true});
+  auto valid_batch = arrow::RecordBatch::Make(schema, 2, {valid_array});
+  outputs.clear();
+  status = length_projector->Evaluate(*valid_batch, pool_, &outputs);
+  ASSERT_TRUE(status.ok()) << status.message();
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt32({2, 5}, {true, true}), outputs.at(0));
+
+  // length() of invalid input fails and says what is wrong with the data
+  outputs.clear();
+  status = length_projector->Evaluate(*batch, pool_, &outputs);
+  ASSERT_FALSE(status.ok());
+  EXPECT_EQ(status.message(),
+            "unexpected byte \\e9 encountered while decoding utf8 string: the input is "
+            "not valid UTF-8, for example binary data cast to varchar");
+}
+
 TEST_F(TestUtf8, TestAscii) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
