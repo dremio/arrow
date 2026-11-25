@@ -1083,6 +1083,22 @@ SQLRETURN SQLExecute(SQLHSTMT stmt) {
   });
 }
 
+SQLRETURN SQLCancel(SQLHSTMT stmt) {
+  ARROW_LOG(DEBUG) << "SQLCancel called with stmt: " << stmt;
+
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // Per the ODBC spec, SQLCancel must be safe to call from a different thread
+    // than the one blocked in SQLExecute/SQLExecDirect/SQLFetch on this same
+    // statement handle, in order to interrupt a long-running query.
+    statement->Cancel();
+
+    return SQL_SUCCESS;
+  });
+}
+
 SQLRETURN SQLFetch(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLFetch called with stmt: " << stmt;
 
