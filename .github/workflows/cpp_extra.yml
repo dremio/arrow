@@ -613,7 +613,10 @@ jobs:
           # Give CI write access for system DSN
           sudo mkdir -p /Library/ODBC
           sudo chown -R $USER /Library/ODBC
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+          # Only run the ODBC tests. The rest of the Arrow tests are covered
+          # by other workflows and are slow on the macOS Intel runners.
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build \
+            --tests-regex '^(arrow-odbc-spi-impl-test|arrow-flight-sql-odbc-test)$'
 
   odbc-macos-universal:
     needs: odbc-macos
