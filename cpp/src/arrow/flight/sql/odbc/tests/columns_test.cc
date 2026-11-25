@@ -2493,9 +2493,10 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColDecimalColumnSizeIsFullyWritten) {
   // If only the low 2 bytes were written, the sentinel's upper 6 bytes would
   // remain set and the full 8-byte value would be enormous rather than the
   // expected precision. Comparing the whole SQLULEN is what catches the short
-  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata.
+  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata. The column
+  // size is the declared decimal precision (38), not sizeof(SQL_NUMERIC_STRUCT).
   EXPECT_NE(kColumnSizeSentinel, column_size);
-  EXPECT_EQ(19u, column_size) << "column_size upper bytes look uninitialized: 0x"
+  EXPECT_EQ(38u, column_size) << "column_size upper bytes look uninitialized: 0x"
                               << std::hex << column_size;
   EXPECT_EQ(0, decimal_digits);
 }
