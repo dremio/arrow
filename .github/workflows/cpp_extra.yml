@@ -526,11 +526,24 @@ jobs:
           brew bundle --file=cpp/Brewfile
 
           # GH-54638: Bundled gRPC v1.76.0 doesn't compile with OpenSSL 4 yet
-          brew list openssl@3 > /dev/null 2>&1 || brew install openssl@3
-          # Don't uninstall OpenSSL 4 as other formulae (e.g. ccache)
-          # could link to it.
-          brew unlink openssl@4 || :
-          brew link --overwrite --force openssl@3
+          # Use OpenSSL 3.6 (3.6.5 or later) instead of "openssl@3" to get
+          # the latest security fixes. The runner image has an older OpenSSL
+          # (3.6.3) and its Homebrew formula data may be outdated, so update
+          # Homebrew first. Homebrew has no openssl@3.6 bottle for Intel
+          # macOS, so it is built from source there.
+          brew update
+          brew install openssl@3.6 || brew upgrade openssl@3.6
+          # Unlink other OpenSSL versions (without uninstalling them, as
+          # other formulae could use them) to avoid mixing versions.
+          brew unlink openssl@3 openssl@4 || :
+          openssl_prefix="$(brew --prefix openssl@3.6)"
+          openssl_version="$("${openssl_prefix}/bin/openssl" version | awk '{print $2}')"
+          echo "${openssl_prefix}: OpenSSL ${openssl_version}"
+          # Fail early if an older OpenSSL was picked up.
+          if [ "$(printf '%s\n' 3.6.5 "${openssl_version}" | sort -V | head -n1)" != "3.6.5" ]; then
+            echo "OpenSSL ${openssl_version} is older than 3.6.5"
+            exit 1
+          fi
 
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
@@ -546,7 +559,9 @@ jobs:
           brew uninstall protobuf
 
           # We want to use bundled Boost for static linking.
-          brew uninstall boost
+          # "brew update" makes Homebrew refuse to uninstall Boost because
+          # it is required to build the installed Thrift, so ignore that.
+          brew uninstall --ignore-dependencies boost
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -567,8 +582,8 @@ jobs:
           export BUILD_WARNING_LEVEL=PRODUCTION
           LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
           ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
-          # GH-54638: Force link OpenSSL 3 to build with gRPC v1.76.0
-          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)"
+          # GH-54638: Force use of OpenSSL 3.6 to build with gRPC v1.76.0
+          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3.6)"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Setup Python
