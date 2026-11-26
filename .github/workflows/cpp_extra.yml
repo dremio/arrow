@@ -576,6 +576,13 @@ jobs:
         id: ccache-info
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Restore ccache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ccache-odbc-macos-${{ matrix.architecture }}-${{ matrix.build-type }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-odbc-macos-${{ matrix.architecture }}-${{ matrix.build-type }}-
       - name: Build
         run: |
           # Homebrew uses /usr/local as prefix. So packages
@@ -593,6 +600,15 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3.6)"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      # Save right after the build so the cache is kept even if a later step
+      # such as Test fails or hits the job timeout.
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ccache-odbc-macos-${{ matrix.architecture }}-${{ matrix.build-type }}-${{ github.run_id }}
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
