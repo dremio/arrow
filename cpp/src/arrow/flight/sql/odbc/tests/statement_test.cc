@@ -2279,13 +2279,37 @@ TYPED_TEST(StatementTest, TestSQLCloseCursorWithoutCursor) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
 
+TYPED_TEST(StatementTest, TestSQLCancelOnNewStatement) {
+  // SQLCancel must be safe to call on a statement that has never executed a query
+  ASSERT_EQ(SQL_SUCCESS, SQLCancel(this->stmt));
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, this->stmt);
+
+  SQLINTEGER val;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+}
+
 TYPED_TEST(StatementTest, TestSQLCancelOnIdleStatement) {
   ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLCancel(this->stmt));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, this->stmt);
+
+  SQLINTEGER val;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
 }
+
+// GH-55800 TODO: Once the mock server can run an interruptible query, add a test
+// that cancels it and verifies execution actually stops server-side.
 
 // Regression test for GH-55790: SQLCancel must be safe to call from a thread other
 // than the one fetching rows, and must cause a blocked/in-progress fetch to stop
@@ -2304,12 +2328,16 @@ TYPED_TEST(StatementTest, TestSQLCancelDuringFetch) {
 
   std::atomic<bool> fetch_started{false};
   std::atomic<int> rows_fetched{0};
+  SQLRETURN final_rc = SQL_SUCCESS;
   std::thread fetch_thread([&]() {
     fetch_started = true;
     SQLINTEGER val;
     while (true) {
       SQLRETURN rc = SQLFetch(this->stmt);
-      if (rc != SQL_SUCCESS) break;
+      if (rc != SQL_SUCCESS) {
+        final_rc = rc;
+        break;
+      }
       ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
       rows_fetched++;
     }
@@ -2327,8 +2355,10 @@ TYPED_TEST(StatementTest, TestSQLCancelDuringFetch) {
   fetch_thread.join();
 
   // The cancel should have interrupted the fetch well before all 160000 rows were
-  // read.
+  // read, and the interrupted SQLFetch must report HY008 (operation canceled).
   EXPECT_LT(rows_fetched.load(), 160000);
+  ASSERT_EQ(SQL_ERROR, final_rc);
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY008);
 }
 
 }  // namespace arrow::flight::sql::odbc

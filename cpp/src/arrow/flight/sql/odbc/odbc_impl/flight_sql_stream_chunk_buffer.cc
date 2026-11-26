@@ -90,12 +90,18 @@ bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
   std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>
       closeable_endpoint_stream_pair;
   if (!queue_.Pop(&closeable_endpoint_stream_pair)) {
+    if (cancelled_) {
+      throw DriverException("Query was canceled", "HY008");
+    }
     return false;
   }
 
   Result<FlightStreamChunk> result = closeable_endpoint_stream_pair.first;
   if (!result.status().ok()) {
     Close();
+    if (cancelled_) {
+      throw DriverException("Query was canceled", "HY008");
+    }
     throw DriverException(result.status().message());
   }
   *chunk = std::move(result.ValueOrDie());
@@ -106,6 +112,13 @@ void FlightStreamChunkBuffer::Close() { queue_.Close(); }
 
 void FlightStreamChunkBuffer::Cancel() {
   std::lock_guard<std::mutex> guard(readers_mutex_);
+  // Per ODBC 3.5, SQLCancel has no effect when no processing is active.
+  // If all producers have finished, keep the buffered rows.
+  if (!queue_.HasActiveProducers()) {
+    return;
+  }
+
+  cancelled_ = true;
   for (const auto& reader : stream_readers_) {
     reader->Cancel();
   }

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -35,6 +36,9 @@ class FlightStreamChunkBuffer {
   // blocked in Next() while waiting for the network.
   std::mutex readers_mutex_;
   std::vector<std::shared_ptr<FlightStreamReader>> stream_readers_;
+  // Set only when Cancel() actually interrupts an in-progress fetch (see Cancel()),
+  // so GetNext() can tell a cancellation apart from a normal end of stream.
+  std::atomic<bool> cancelled_{false};
 
  public:
   FlightStreamChunkBuffer(FlightSqlClient& flight_sql_client,

@@ -95,6 +95,8 @@ class BlockingQueue {
     return true;
   }
 
+  bool HasActiveProducers() const { return active_threads_ > 0; }
+
   void Close() {
     std::unique_lock<std::mutex> unique_lock(mtx_);
 

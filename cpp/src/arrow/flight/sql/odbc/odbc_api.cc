@@ -1087,16 +1087,20 @@ SQLRETURN SQLCancel(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLCancel called with stmt: " << stmt;
 
   using ODBC::ODBCStatement;
-  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
 
-    // Per the ODBC spec, SQLCancel must be safe to call from a different thread
-    // than the one blocked in SQLExecute/SQLExecDirect/SQLFetch on this same
-    // statement handle, in order to interrupt a long-running query.
-    statement->Cancel();
+  if (!stmt) {
+    return SQL_INVALID_HANDLE;
+  }
 
-    return SQL_SUCCESS;
-  });
+  // Bypass ExecuteWithDiagnostics: it would lock the same mutex SQLFetch holds while
+  // blocked, so SQLCancel would wait for the very call it's meant to interrupt. It
+  // also shares Diagnostics with that in-progress SQLFetch.
+  try {
+    ODBCStatement::Of(stmt)->Cancel();
+  } catch (...) {
+    return SQL_ERROR;
+  }
+  return SQL_SUCCESS;
 }
 
 SQLRETURN SQLFetch(SQLHSTMT stmt) {
