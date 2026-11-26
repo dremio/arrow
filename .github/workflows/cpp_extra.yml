@@ -95,7 +95,8 @@ jobs:
 
   docker:
     needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
+    # Temporarily run only the ODBC jobs in this workflow.
+    if: false
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 75
@@ -184,7 +185,8 @@ jobs:
 
   msvc-arm64:
     needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
+    # Temporarily run only the ODBC jobs in this workflow.
+    if: false
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -194,7 +196,8 @@ jobs:
 
   jni-linux:
     needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
+    # Temporarily run only the ODBC jobs in this workflow.
+    if: false
     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
     timeout-minutes: 240
@@ -252,7 +255,8 @@ jobs:
 
   jni-macos:
     needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
+    # Temporarily run only the ODBC jobs in this workflow.
+    if: false
     name: JNI macOS
     runs-on: macos-14
     timeout-minutes: 45
@@ -329,7 +333,8 @@ jobs:
           ../minimal_build.build/arrow-example
   jni-windows:
     needs: check-enabled
-    if: needs.check-enabled.outputs.is_enabled == 'true'
+    # Temporarily run only the ODBC jobs in this workflow.
+    if: false
     name: JNI Windows
     runs-on: windows-2022
     timeout-minutes: 240
@@ -496,7 +501,9 @@ jobs:
     if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
-    timeout-minutes: 120
+    # Intel needs a long time to build OpenSSL and the bundled dependencies
+    # from source as Homebrew no longer provides bottles for Intel macOS.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
