@@ -1,11 +1,7 @@
- llvm/runtimes/CMakeLists.txt | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
 diff --git a/llvm/runtimes/CMakeLists.txt b/llvm/runtimes/CMakeLists.txt
-index 94a43b96d218..fff91366fbb2 100644
 --- a/llvm/runtimes/CMakeLists.txt
 +++ b/llvm/runtimes/CMakeLists.txt
-@@ -504,11 +504,13 @@ if(build_runtimes)
+@@ -583,11 +583,13 @@
    # Forward user-provived system configuration to runtimes for requirement introspection.
    # CMAKE_PREFIX_PATH is the search path for CMake packages.
    if(CMAKE_PREFIX_PATH)
@@ -20,4 +16,4 @@ index 94a43b96d218..fff91366fbb2 100644
 +    list(APPEND extra_cmake_args "-DCMAKE_PROGRAM_PATH=${new_value}")
    endif()
  
-   # TODO: We need to consider passing it as '-DRUNTIMES_x86_64_LLVM_ENABLE_RUNTIMES'.
+   set(libclc_enabled FALSE)
