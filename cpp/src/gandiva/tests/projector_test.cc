@@ -62,17 +62,31 @@ TEST_F(TestProjector, CacheOnlyConstruction) {
   ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
                                         optimized, &cached));
   ASSERT_EQ(cached, nullptr);
+  bool used_fallback = false;
+  ASSERT_OK(Projector::TryMakeFromCacheWithFallback(
+      schema, {expr}, SelectionVector::MODE_NONE, optimized, unoptimized,
+      &used_fallback, &cached));
+  EXPECT_EQ(cached, nullptr);
   std::shared_ptr<Projector> first;
   ASSERT_OK(Projector::Make(schema, {expr}, unoptimized, &first));
   ASSERT_FALSE(first->GetBuiltFromCache());
   ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
                                         optimized, &cached));
   ASSERT_EQ(cached, nullptr);
+  ASSERT_OK(Projector::TryMakeFromCacheWithFallback(
+      schema, {expr}, SelectionVector::MODE_NONE, optimized, unoptimized,
+      &used_fallback, &cached));
+  ASSERT_NE(cached, nullptr);
+  EXPECT_TRUE(used_fallback);
   ASSERT_OK(Projector::Make(schema, {expr}, optimized, &first));
   ASSERT_FALSE(first->GetBuiltFromCache());
   ASSERT_OK(Projector::TryMakeFromCache(schema, {expr}, SelectionVector::MODE_NONE,
                                         optimized, &cached));
+  ASSERT_OK(Projector::TryMakeFromCacheWithFallback(
+      schema, {expr}, SelectionVector::MODE_NONE, optimized, unoptimized,
+      &used_fallback, &cached));
   ASSERT_NE(cached, nullptr);
+  EXPECT_FALSE(used_fallback);
   EXPECT_TRUE(cached->GetBuiltFromCache());
   auto batch = arrow::RecordBatch::Make(
       schema, 3, {MakeArrowArrayInt32({1, 2, 3}, {true, true, true})});

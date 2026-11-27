@@ -68,6 +68,24 @@ Status Projector::TryMakeFromCache(SchemaPtr schema, const ExpressionVector& exp
                       std::move(configuration), true, projector);
 }
 
+Status Projector::TryMakeFromCacheWithFallback(
+    SchemaPtr schema, const ExpressionVector& exprs,
+    SelectionVector::Mode selection_vector_mode,
+    std::shared_ptr<Configuration> preferred_configuration,
+    std::shared_ptr<Configuration> fallback_configuration, bool* used_fallback,
+    std::shared_ptr<Projector>* projector) {
+  *used_fallback = false;
+  ARROW_RETURN_NOT_OK(TryMakeFromCache(schema, exprs, selection_vector_mode,
+                                      std::move(preferred_configuration), projector));
+  if (*projector != nullptr) {
+    return Status::OK();
+  }
+
+  *used_fallback = true;
+  return TryMakeFromCache(std::move(schema), exprs, selection_vector_mode,
+                          std::move(fallback_configuration), projector);
+}
+
 Status Projector::MakeInternal(SchemaPtr schema, const ExpressionVector& exprs,
                                SelectionVector::Mode selection_vector_mode,
                                std::shared_ptr<Configuration> configuration,

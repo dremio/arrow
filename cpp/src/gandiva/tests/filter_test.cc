@@ -52,15 +52,26 @@ TEST_F(TestFilter, CacheOnlyConstruction) {
   std::shared_ptr<Filter> cached;
   ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
   ASSERT_EQ(cached, nullptr);
+  bool used_fallback = false;
+  ASSERT_OK(Filter::TryMakeFromCacheWithFallback(
+      schema, condition, optimized, unoptimized, &used_fallback, &cached));
+  EXPECT_EQ(cached, nullptr);
   std::shared_ptr<Filter> first;
   ASSERT_OK(Filter::Make(schema, condition, unoptimized, &first));
   ASSERT_FALSE(first->GetBuiltFromCache());
   ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
   ASSERT_EQ(cached, nullptr);
+  ASSERT_OK(Filter::TryMakeFromCacheWithFallback(
+      schema, condition, optimized, unoptimized, &used_fallback, &cached));
+  ASSERT_NE(cached, nullptr);
+  EXPECT_TRUE(used_fallback);
   ASSERT_OK(Filter::Make(schema, condition, optimized, &first));
   ASSERT_FALSE(first->GetBuiltFromCache());
   ASSERT_OK(Filter::TryMakeFromCache(schema, condition, optimized, &cached));
+  ASSERT_OK(Filter::TryMakeFromCacheWithFallback(
+      schema, condition, optimized, unoptimized, &used_fallback, &cached));
   ASSERT_NE(cached, nullptr);
+  EXPECT_FALSE(used_fallback);
   EXPECT_TRUE(cached->GetBuiltFromCache());
   auto batch = arrow::RecordBatch::Make(
       schema, 3, {MakeArrowArrayInt32({1, 2, 3}, {true, true, true})});

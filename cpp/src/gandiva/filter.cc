@@ -51,6 +51,23 @@ Status Filter::TryMakeFromCache(SchemaPtr schema, ConditionPtr condition,
                       true, filter);
 }
 
+Status Filter::TryMakeFromCacheWithFallback(
+    SchemaPtr schema, ConditionPtr condition,
+    std::shared_ptr<Configuration> preferred_configuration,
+    std::shared_ptr<Configuration> fallback_configuration, bool* used_fallback,
+    std::shared_ptr<Filter>* filter) {
+  *used_fallback = false;
+  ARROW_RETURN_NOT_OK(TryMakeFromCache(schema, condition,
+                                      std::move(preferred_configuration), filter));
+  if (*filter != nullptr) {
+    return Status::OK();
+  }
+
+  *used_fallback = true;
+  return TryMakeFromCache(std::move(schema), condition,
+                          std::move(fallback_configuration), filter);
+}
+
 Status Filter::MakeInternal(SchemaPtr schema, ConditionPtr condition,
                             std::shared_ptr<Configuration> configuration, bool cache_only,
                             std::shared_ptr<Filter>* filter) {
