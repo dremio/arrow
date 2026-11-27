@@ -24,6 +24,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <set>
@@ -59,6 +61,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/ubsan.h"
 
 #ifdef ARROW_CSV
 #  include "arrow/csv/api.h"
@@ -75,6 +78,7 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
+#include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
@@ -3787,6 +3791,63 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
     ASSERT_OK(round_tripped->ValidateFull());
     ::arrow::AssertArraysEqual(*plain, *round_tripped->column(0)->chunk(0), true);
   }
+}
+
+template <typename ArrowType, typename UInt>
+void CheckFloatingDictionaryBits(const std::array<UInt, 5>& dictionary_bits) {
+  using Value = typename ArrowType::c_type;
+  using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  std::vector<Value> dictionary_values(dictionary_bits.size());
+  std::transform(dictionary_bits.begin(), dictionary_bits.end(),
+                 dictionary_values.begin(),
+                 [](UInt bits) { return ::arrow::util::SafeCopy<Value>(bits); });
+  std::shared_ptr<Array> dictionary;
+  ::arrow::ArrayFromVector<ArrowType>(dictionary_values, &dictionary);
+  auto indices = ArrayFromJSON(::arrow::int32(), "[0, 0, 1, 2, 3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto values, DictionaryArray::FromArrays(indices, dictionary));
+  auto table =
+      Table::Make(::arrow::schema({::arrow::field("values", values->type())}), {values});
+
+  auto properties = WriterProperties::Builder().enable_write_page_index()->build();
+  ASSERT_OK_AND_ASSIGN(auto buffer,
+                       WriteTableToBuffer(table, table->num_rows(), properties));
+  auto parquet_reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  auto metadata = parquet_reader->metadata();
+  ASSERT_EQ(ColumnOrder::IEEE_754_TOTAL_ORDER,
+            metadata->schema()->Column(0)->column_order().get_order());
+  auto statistics = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  ASSERT_EQ(3, statistics->nan_count());
+
+  auto column_index =
+      parquet_reader->GetPageIndexReader()->RowGroup(0)->GetColumnIndex(0);
+  ASSERT_NE(nullptr, column_index);
+  auto nan_counts = column_index->nan_counts();
+  ASSERT_TRUE(nan_counts.has_value());
+  ASSERT_EQ(1U, nan_counts->size());
+  EXPECT_EQ(3, (*nan_counts)[0]);
+
+  std::unique_ptr<FileReader> arrow_reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.Build(&arrow_reader));
+  ASSERT_OK_AND_ASSIGN(auto read_table, arrow_reader->ReadTable());
+  auto actual = checked_pointer_cast<ArrayType>(read_table->column(0)->chunk(0));
+  const std::array<UInt, 6> expected_bits{dictionary_bits[0], dictionary_bits[0],
+                                          dictionary_bits[1], dictionary_bits[2],
+                                          dictionary_bits[3], dictionary_bits[4]};
+  ASSERT_EQ(expected_bits.size(), actual->length());
+  for (int64_t value_index = 0; value_index < actual->length(); ++value_index) {
+    ASSERT_EQ(expected_bits[value_index],
+              ::arrow::util::SafeCopy<UInt>(actual->Value(value_index)));
+  }
+}
+
+TEST(TestArrowReadWrite, FloatingDictionaryBits) {
+  CheckFloatingDictionaryBits<::arrow::FloatType>(
+      std::array<uint32_t, 5>{0xff800001, 0x7fc00002, 0, 0x80000000, 0x3f800000});
+  // These two distinct double NaNs collide with the previous dictionary memoization.
+  CheckFloatingDictionaryBits<::arrow::DoubleType>(std::array<uint64_t, 5>{
+      0x7ff9f7783bb3bbef, 0xfff9f778bbb3bbef, 0, 0x8000000000000000, 0x3ff0000000000000});
 }
 
 TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
