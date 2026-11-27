@@ -66,6 +66,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
   // Consider it might be the first call to Move() and current_chunk is not
   // populated yet
   assert(rows > 0);
+  if (cancelled_) {
+    throw DriverException("Query was canceled", "HY008");
+  }
   if (current_chunk_.data == nullptr) {
     if (!chunk_buffer_.GetNext(&current_chunk_)) {
       return 0;
@@ -93,6 +96,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                                     static_cast<size_t>(batch_rows - current_row_));
 
     if (rows_to_fetch == 0) {
+      if (cancelled_) {
+        throw DriverException("Query was canceled", "HY008");
+      }
       if (!chunk_buffer_.GetNext(&current_chunk_)) {
         break;
       }
@@ -212,8 +218,10 @@ void FlightSqlResultSet::Close() {
 }
 
 void FlightSqlResultSet::Cancel() {
-  chunk_buffer_.Close();
-  current_chunk_.data = nullptr;
+  // GH-55800 TODO: Cancel the query on the server via the Flight SQL protocol's
+  // CancelFlightInfo, instead of only cancelling the client-side stream below.
+  cancelled_ = true;
+  chunk_buffer_.Cancel();
 }
 
 SQLRETURN FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,

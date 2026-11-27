@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -37,6 +39,7 @@ class FlightSqlResultSet : public ResultSet {
   const MetadataSettings& metadata_settings_;
   FlightStreamChunkBuffer chunk_buffer_;
   FlightStreamChunk current_chunk_;
+  std::atomic<bool> cancelled_{false};
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<RecordBatchTransformer> transformer_;
   std::shared_ptr<ResultSetMetadata> metadata_;

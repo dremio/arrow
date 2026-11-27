@@ -256,6 +256,7 @@ static constexpr std::string_view kErrorState24000 = "24000";
 static constexpr std::string_view kErrorState28000 = "28000";
 static constexpr std::string_view kErrorStateHY000 = "HY000";
 static constexpr std::string_view kErrorStateHY004 = "HY004";
+static constexpr std::string_view kErrorStateHY008 = "HY008";
 static constexpr std::string_view kErrorStateHY009 = "HY009";
 static constexpr std::string_view kErrorStateHY010 = "HY010";
 static constexpr std::string_view kErrorStateHY017 = "HY017";
