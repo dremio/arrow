@@ -809,7 +809,7 @@ class ColumnWriterImpl {
 
   // Adds Data Pages to an in memory buffer in dictionary encoding mode
   // Serializes the Data Pages in other encoding modes
-  void AddDataPage();
+  int64_t AddDataPage();
 
   void BuildDataPageV1(int64_t definition_levels_rle_size,
                        int64_t repetition_levels_rle_size, int64_t uncompressed_size,
@@ -962,7 +962,7 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
   return level_encoder_.len() + prefix_size;
 }
 
-void ColumnWriterImpl::AddDataPage() {
+int64_t ColumnWriterImpl::AddDataPage() {
   int64_t definition_levels_rle_size = 0;
   int64_t repetition_levels_rle_size = 0;
 
@@ -998,6 +998,7 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_encoded_values_ = 0;
   num_buffered_rows_ = 0;
   num_buffered_nulls_ = 0;
+  return values->size();
 }
 
 void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
@@ -1287,7 +1288,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                         BloomFilter* bloom_filter,
                         internal::ContentDefinedChunker* content_defined_chunker)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
-                         content_defined_chunker) {
+                         content_defined_chunker),
+        check_dictionary_benefit_(use_dictionary && content_defined_chunker == nullptr &&
+                                  properties->dictionary_benefit_check_enabled()) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                    descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -1667,6 +1670,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   // which case we call back to the dense write path)
   std::shared_ptr<::arrow::Array> preserved_dictionary_;
 
+  bool check_dictionary_benefit_;
+  int64_t first_page_plain_size_ = 0;
+
   int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
     // Update histograms now, to maximize cache efficiency.
@@ -1822,13 +1828,34 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                descr_->max_repetition_level());
   }
 
-  // Update the unencoded data bytes for ByteArray only per the specification.
-  void UpdateUnencodedDataBytes() const {
+  void UpdateValueSizes(int64_t num_non_null) {
+    int64_t payload_bytes = 0;
     if constexpr (std::is_same_v<T, ByteArray>) {
-      if (page_size_statistics_ != nullptr) {
-        page_size_statistics_->IncrementUnencodedByteArrayDataBytes(
-            current_encoder_->ReportUnencodedDataBytes());
+      if (page_size_statistics_ != nullptr || check_dictionary_benefit_) {
+        payload_bytes = current_encoder_->ReportUnencodedDataBytes();
+        if (page_size_statistics_ != nullptr) {
+          page_size_statistics_->IncrementUnencodedByteArrayDataBytes(payload_bytes);
+        }
       }
+    }
+
+    if (!check_dictionary_benefit_) {
+      return;
+    }
+    int64_t value_width = sizeof(T);
+    if constexpr (std::is_same_v<T, ByteArray>) {
+      value_width = sizeof(uint32_t);
+    } else if constexpr (std::is_same_v<T, FLBA>) {
+      value_width = descr_->type_length();
+    }
+    int64_t batch_plain_size;
+    if (::arrow::internal::MultiplyWithOverflow(num_non_null, value_width,
+                                                &batch_plain_size) ||
+        ::arrow::internal::AddWithOverflow(batch_plain_size, payload_bytes,
+                                           &batch_plain_size) ||
+        ::arrow::internal::AddWithOverflow(first_page_plain_size_, batch_plain_size,
+                                           &first_page_plain_size_)) {
+      throw ParquetException("First page PLAIN value size exceeds int64_t");
     }
   }
 
@@ -1841,7 +1868,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (check_page_limit &&
         (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize() ||
          num_buffered_rows_ >= properties_->max_rows_per_page())) {
-      AddDataPage();
+      const int64_t encoded_size = AddDataPage();
+      if (check_dictionary_benefit_) {
+        check_dictionary_benefit_ = false;
+        // Preserve the first page. Only later pages use the fallback encoder.
+        if (encoded_size >= first_page_plain_size_ ||
+            current_dict_encoder_->dict_encoded_size() >=
+                first_page_plain_size_ - encoded_size) {
+          FallbackToPlainEncoding();
+        }
+      }
     }
   }
 
@@ -1851,6 +1887,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
+      check_dictionary_benefit_ = false;
       // Only PLAIN encoding is supported for fallback
       current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
                                      descr_, properties_->memory_pool());
@@ -1885,7 +1922,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       page_statistics_->Update(values, num_values, num_nulls);
     }
 
-    UpdateUnencodedDataBytes();
+    UpdateValueSizes(num_values);
 
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (chunk_geospatial_statistics_ != nullptr) {
@@ -1931,7 +1968,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                                      num_spaced_values, num_values, num_nulls);
     }
 
-    UpdateUnencodedDataBytes();
+    UpdateValueSizes(num_values);
 
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (chunk_geospatial_statistics_ != nullptr) {
@@ -1980,6 +2017,8 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     return WriteDense();
   }
 
+  // Preloaded dictionaries may include entries outside the first page.
+  check_dictionary_benefit_ = false;
   auto dict_encoder = dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
   const auto& data = checked_cast<const ::arrow::DictionaryArray&>(array);
   std::shared_ptr<::arrow::Array> dictionary = data.dictionary();
@@ -2048,8 +2087,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
     dict_encoder->PutIndices(*writeable_indices);
-    // Update unencoded byte array data size to size statistics
-    UpdateUnencodedDataBytes();
+    UpdateValueSizes(batch_num_values);
     const int64_t parquet_null_count = batch_size - batch_num_values;
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, parquet_null_count,
                                  check_page);
@@ -2522,7 +2560,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNumValues(non_null);
     }
 
-    UpdateUnencodedDataBytes();
+    UpdateValueSizes(non_null);
 
     if (chunk_geospatial_statistics_ != nullptr) {
       chunk_geospatial_statistics_->Update(*data_slice);
