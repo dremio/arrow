@@ -231,10 +231,7 @@ const Connection::ConnPropertyMap& Configuration::GetProperties() const {
 }
 
 std::vector<std::string> Configuration::GetCustomKeys() const {
-  // Returns the keys shown in the "Advanced properties" table of the Windows DSN dialog:
-  // every key without a dedicated dialog field. Compare against DSN_DIALOG_KEYS rather
-  // than ALL_KEYS, otherwise known keys such as StringColumnLength would be hidden from
-  // the dialog and lost when the DSN is saved.
+  // Returns the keys shown in the "Advanced properties" table of the Windows DSN dialog
   Connection::ConnPropertyMap copy_props(properties_);
   for (auto& key : FlightSqlConnection::DSN_DIALOG_KEYS) {
     copy_props.erase(std::string(key));

@@ -24,6 +24,8 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
+// -AL- review this file, ask Claude to list all new tests that have been added
+// in this branch, so I know which tests to pay attention to.
 #include <algorithm>
 
 #include <gtest/gtest.h>
@@ -768,6 +770,8 @@ TEST(DsnConfiguration, LoadDsnReadsAllKnownKeys) {
   ASSERT_TRUE(UnregisterDsn(wdsn));
 }
 
+// -AL- TODO: review the test
+// -AL- see if #include <algorithm> can be removed
 // Reproduces what the Windows DSN dialog does when a user opens an existing DSN and clicks
 // OK (ConfigDSNW with ODBC_CONFIG_DSN): LoadDsn, then SaveParameters, which clears the
 // configuration and rebuilds it from the dialog fields plus the "Advanced properties"

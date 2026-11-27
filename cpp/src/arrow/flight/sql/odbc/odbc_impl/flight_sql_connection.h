@@ -54,8 +54,7 @@ class FlightSqlConnection : public Connection {
  public:
   /// \brief All connection keys known to the driver.
   static const std::vector<std::string_view> ALL_KEYS;
-  /// \brief Keys that have a dedicated field in the Windows DSN configuration dialog (or
-  ///        are intentionally hidden from it, like DRIVER).
+  /// \brief Keys that have a dedicated field in the Windows DSN configuration dialog.
   ///
   /// Keys in ALL_KEYS but not in DSN_DIALOG_KEYS (e.g. STRING_COLUMN_LENGTH) have no
   /// dedicated field, so the dialog lists them in the "Advanced properties" table.

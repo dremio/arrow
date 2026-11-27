@@ -20,10 +20,10 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
 
-#include <algorithm>
 #include <set>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "arrow/util/string.h"
 #include "gtest/gtest.h"
@@ -35,9 +35,12 @@ namespace {
 
 bool ContainsKeyIgnoreCase(const std::vector<std::string_view>& keys,
                            std::string_view key) {
-  return std::any_of(keys.begin(), keys.end(), [&](std::string_view candidate) {
-    return arrow::internal::AsciiEqualsCaseInsensitive(candidate, key);
-  });
+  for (const auto& candidate : keys) {
+    if (arrow::internal::AsciiEqualsCaseInsensitive(candidate, key)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::set<std::string> ToSet(const std::vector<std::string>& keys) {
@@ -49,9 +52,6 @@ const std::vector<std::string_view> kKeysWithoutDialogField = {
     FlightSqlConnection::STRING_COLUMN_LENGTH, FlightSqlConnection::USE_WIDE_CHAR,
     FlightSqlConnection::CHUNK_BUFFER_CAPACITY};
 
-// Every key in ALL_KEYS that is not in DSN_DIALOG_KEYS, i.e. the known keys the dialog
-// lists in its "Advanced properties" table. Derived so that a new known key is covered by
-// the tests below without editing them.
 std::vector<std::string> KnownKeysWithoutDialogField() {
   std::vector<std::string> keys;
   for (const auto& key : FlightSqlConnection::ALL_KEYS) {
@@ -62,8 +62,6 @@ std::vector<std::string> KnownKeysWithoutDialogField() {
   return keys;
 }
 
-// Sets a realistic value for every key that has a dedicated field in the Windows DSN
-// dialog.
 void SetDialogKeys(Configuration& config) {
   config.Set(FlightSqlConnection::DSN, "test dsn");
   config.Set(FlightSqlConnection::DRIVER, "test driver");
@@ -79,7 +77,6 @@ void SetDialogKeys(Configuration& config) {
   config.Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION, "false");
 }
 
-// Sets a realistic value for every known key without a dedicated dialog field.
 void SetKeysWithoutDialogField(Configuration& config) {
   config.Set(FlightSqlConnection::STRING_COLUMN_LENGTH, "1024");
   config.Set(FlightSqlConnection::USE_WIDE_CHAR, "true");
@@ -103,9 +100,9 @@ TEST(DsnDialogKeysTest, KeysWithoutDialogFieldAreNotDialogKeys) {
   }
 }
 
-// Fails when a key is added to ALL_KEYS without deciding whether it gets its own field in
-// the DSN dialog. Add it to DSN_DIALOG_KEYS if it does, or to kKeysWithoutDialogField
-// above if it should be listed in the dialog's "Advanced properties" table.
+// Every key in ALL_KEYS must be classified. If you add a key, put it in DSN_DIALOG_KEYS
+// when it gets its own field in the DSN dialog, or in kKeysWithoutDialogField when it
+// should appear in the dialog's "Advanced properties" table.
 TEST(DsnDialogKeysTest, EveryKnownKeyIsClassified) {
   for (const auto& key : FlightSqlConnection::ALL_KEYS) {
     const bool in_dialog =
@@ -116,8 +113,6 @@ TEST(DsnDialogKeysTest, EveryKnownKeyIsClassified) {
   }
 }
 
-// Fails when a key is added to ALL_KEYS without a value in the helpers above, which would
-// leave it untested by the GetCustomKeys tests below.
 TEST(ConfigurationTest, TestHelpersSetEveryKnownKey) {
   Configuration config;
   SetDialogKeys(config);
@@ -150,7 +145,6 @@ TEST(ConfigurationTest, GetCustomKeysIncludesKeysWithoutDialogField) {
   const std::set<std::string> expected(keys_without_dialog_field.begin(),
                                        keys_without_dialog_field.end());
   EXPECT_EQ(expected, ToSet(config.GetCustomKeys()));
-  // Guards the derivation above against silently becoming empty.
   EXPECT_FALSE(expected.empty());
 }
 

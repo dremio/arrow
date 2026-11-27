@@ -63,9 +63,7 @@ class Configuration {
   const Connection::ConnPropertyMap& GetProperties() const;
 
   /**
-   * Get the keys of properties that have no dedicated field in the Windows DSN
-   * dialog, i.e. those shown in its "Advanced properties" table. Keys in
-   * FlightSqlConnection::DSN_DIALOG_KEYS are excluded.
+   * Get the keys shown in its "Advanced properties" table.
    */
   std::vector<std::string> GetCustomKeys() const;
 
