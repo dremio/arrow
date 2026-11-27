@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Non-public Thrift schema serialization utilities
+// Non-public schema utilities
 
 #pragma once
 
@@ -51,6 +51,16 @@ std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> schema,
 
 PARQUET_EXPORT
 void SchemaToThrift(const GroupNode* schema, std::vector<format::SchemaElement>* out);
+
+PARQUET_EXPORT
+bool IsFloatingPointType(const ColumnDescriptor& descr);
+
+// A legacy schema may omit column orders. The writer computes and advertises
+// type-defined statistics for those columns.
+inline ColumnOrder::type GetColumnOrderForWriting(const ColumnDescriptor& descr) {
+  const auto order = descr.column_order().get_order();
+  return order == ColumnOrder::UNDEFINED ? ColumnOrder::TYPE_DEFINED_ORDER : order;
+}
 
 }  // namespace schema
 }  // namespace parquet

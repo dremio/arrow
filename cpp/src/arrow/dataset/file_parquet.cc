@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -31,6 +32,7 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -143,6 +145,19 @@ bool IsNan(const Scalar& value) {
       const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
       return std::isnan(double_scalar.value);
     }
+  }
+  return false;
+}
+
+bool IsFloatingPointZero(const Scalar& value) {
+  if (!value.is_valid) {
+    return false;
+  }
+  if (value.type->id() == Type::FLOAT) {
+    return checked_cast<const FloatScalar&>(value).value == 0.0f;
+  }
+  if (value.type->id() == Type::DOUBLE) {
+    return checked_cast<const DoubleScalar&>(value).value == 0.0;
   }
   return false;
 }
@@ -353,13 +368,45 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
     // If there are no non-null values, column `field_ref` in the fragment
     // might be empty or all values are nulls. In this case, we also return
     // a null expression.
     return is_null(std::move(field_expr));
+  }
+
+  auto with_null = [&](compute::Expression expression) {
+    bool may_have_null = !statistics.HasNullCount() || statistics.null_count() != 0;
+    if (may_have_null) {
+      return compute::or_(std::move(expression), is_null(field_expr));
+    }
+    return expression;
+  };
+  auto is_nan_expression = [&] { return compute::call("is_nan", {field_expr}); };
+
+  const bool is_floating_point = is_floating(field.type()->id());
+  const auto nan_count = statistics.nan_count();
+  auto with_nan = [&](compute::Expression expression) {
+    bool may_have_nan = is_floating_point && (!nan_count.has_value() || *nan_count != 0);
+    if (may_have_nan) {
+      return compute::or_(std::move(expression), is_nan_expression());
+    }
+    return expression;
+  };
+  const bool all_nan =
+      is_floating_point && nan_count.has_value() && *nan_count == statistics.num_values();
+  if (all_nan) {
+    return with_null(is_nan_expression());
+  }
+
+  if (field.type()->id() == Type::HALF_FLOAT) {
+    // TODO: Arrow compute has no HALF_FLOAT scalar comparison kernels, so numeric
+    // statistics expressions cannot be bound. GH-46858 tracks the scalar
+    // representation, while GH-50512 explains why HALF_FLOAT cannot simply be
+    // added to NumericTypes(). Statistics pruning is optional, so skip it instead
+    // of returning NotImplemented and failing the scan.
+    return std::nullopt;
   }
 
   std::shared_ptr<Scalar> min, max;
@@ -373,13 +420,15 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     min = maybe_min.MoveValueUnsafe().scalar();
     max = maybe_max.MoveValueUnsafe().scalar();
 
-    if (min->Equals(*max)) {
+    // is_in distinguishes signed zeros. A type-defined zero bound can represent
+    // either sign, even when both bounds have the same bit pattern.
+    const bool ambiguous_zero =
+        IsFloatingPointZero(*min) && statistics.descr()->column_order().get_order() !=
+                                         parquet::ColumnOrder::IEEE_754_TOTAL_ORDER;
+    if (!ambiguous_zero &&
+        min->Equals(*max, EqualOptions::Defaults().signed_zeros_equal(false))) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
-
-      if (!may_have_null) {
-        return single_value;
-      }
-      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
+      return with_null(with_nan(std::move(single_value)));
     }
 
     auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
@@ -402,10 +451,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
-    if (may_have_null) {
-      return compute::or_(std::move(in_range), compute::is_null(std::move(field_expr)));
-    }
-    return in_range;
+    return with_null(with_nan(std::move(in_range)));
   }
   return std::nullopt;
 }

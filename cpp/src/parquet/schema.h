@@ -226,7 +226,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   ColumnOrder column_order() const { return column_order_; }
 
-  void SetColumnOrder(ColumnOrder column_order) { column_order_ = column_order; }
+  void SetColumnOrder(ColumnOrder column_order);
 
   int32_t type_length() const { return type_length_; }
 
@@ -387,6 +387,8 @@ class PARQUET_EXPORT ColumnDescriptor {
     switch (column_order().get_order()) {
       case ColumnOrder::TYPE_DEFINED_ORDER:
         return sort_order() != SortOrder::UNKNOWN;
+      case ColumnOrder::IEEE_754_TOTAL_ORDER:
+        return true;
       case ColumnOrder::UNDEFINED:
         // If there is no defined column order, the obsolete min and max fields
         // in the Statistics object are to be used, and they are always sorted
