@@ -40,6 +40,37 @@ Filter::~Filter() {}
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
                     std::shared_ptr<Filter>* filter) {
+  return MakeInternal(std::move(schema), std::move(condition), std::move(configuration),
+                      false, filter);
+}
+
+Status Filter::TryMakeFromCache(SchemaPtr schema, ConditionPtr condition,
+                                std::shared_ptr<Configuration> configuration,
+                                std::shared_ptr<Filter>* filter) {
+  return MakeInternal(std::move(schema), std::move(condition), std::move(configuration),
+                      true, filter);
+}
+
+Status Filter::TryMakeFromCacheWithFallback(
+    SchemaPtr schema, ConditionPtr condition,
+    std::shared_ptr<Configuration> preferred_configuration,
+    std::shared_ptr<Configuration> fallback_configuration, bool* used_fallback,
+    std::shared_ptr<Filter>* filter) {
+  *used_fallback = false;
+  ARROW_RETURN_NOT_OK(TryMakeFromCache(schema, condition,
+                                      std::move(preferred_configuration), filter));
+  if (*filter != nullptr) {
+    return Status::OK();
+  }
+
+  *used_fallback = true;
+  return TryMakeFromCache(std::move(schema), condition,
+                          std::move(fallback_configuration), filter);
+}
+
+Status Filter::MakeInternal(SchemaPtr schema, ConditionPtr condition,
+                            std::shared_ptr<Configuration> configuration, bool cache_only,
+                            std::shared_ptr<Filter>* filter) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(condition == nullptr, Status::Invalid("Condition cannot be null"));
   ARROW_RETURN_IF(configuration == nullptr,
@@ -56,6 +87,10 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
   prev_cached_obj = cache->GetObjectCode(cache_key);
+  if (cache_only && prev_cached_obj == nullptr) {
+    filter->reset();
+    return Status::OK();
+  }
 
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {

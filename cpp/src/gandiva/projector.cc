@@ -56,6 +56,40 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        SelectionVector::Mode selection_vector_mode,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
+  return MakeInternal(std::move(schema), exprs, selection_vector_mode,
+                      std::move(configuration), false, projector);
+}
+
+Status Projector::TryMakeFromCache(SchemaPtr schema, const ExpressionVector& exprs,
+                                   SelectionVector::Mode selection_vector_mode,
+                                   std::shared_ptr<Configuration> configuration,
+                                   std::shared_ptr<Projector>* projector) {
+  return MakeInternal(std::move(schema), exprs, selection_vector_mode,
+                      std::move(configuration), true, projector);
+}
+
+Status Projector::TryMakeFromCacheWithFallback(
+    SchemaPtr schema, const ExpressionVector& exprs,
+    SelectionVector::Mode selection_vector_mode,
+    std::shared_ptr<Configuration> preferred_configuration,
+    std::shared_ptr<Configuration> fallback_configuration, bool* used_fallback,
+    std::shared_ptr<Projector>* projector) {
+  *used_fallback = false;
+  ARROW_RETURN_NOT_OK(TryMakeFromCache(schema, exprs, selection_vector_mode,
+                                      std::move(preferred_configuration), projector));
+  if (*projector != nullptr) {
+    return Status::OK();
+  }
+
+  *used_fallback = true;
+  return TryMakeFromCache(std::move(schema), exprs, selection_vector_mode,
+                          std::move(fallback_configuration), projector);
+}
+
+Status Projector::MakeInternal(SchemaPtr schema, const ExpressionVector& exprs,
+                               SelectionVector::Mode selection_vector_mode,
+                               std::shared_ptr<Configuration> configuration,
+                               bool cache_only, std::shared_ptr<Projector>* projector) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(exprs.empty(), Status::Invalid("Expressions cannot be empty"));
   ARROW_RETURN_IF(configuration == nullptr,
@@ -71,6 +105,10 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
   prev_cached_obj = cache->GetObjectCode(cache_key);
+  if (cache_only && prev_cached_obj == nullptr) {
+    projector->reset();
+    return Status::OK();
+  }
 
   // Verify if previous projector obj code was cached
   if (prev_cached_obj != nullptr) {

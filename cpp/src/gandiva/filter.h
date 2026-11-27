@@ -68,6 +68,20 @@ class GANDIVA_EXPORT Filter {
                      std::shared_ptr<Configuration> config,
                      std::shared_ptr<Filter>* filter);
 
+  /// Build only from cached object code. A miss returns OK and a null filter.
+  static Status TryMakeFromCache(SchemaPtr schema, ConditionPtr condition,
+                                 std::shared_ptr<Configuration> configuration,
+                                 std::shared_ptr<Filter>* filter);
+
+  /// Try cached object code for the preferred configuration, then the fallback on a miss.
+  /// used_fallback identifies the final probe, including on errors. A double miss
+  /// returns OK and a null filter.
+  static Status TryMakeFromCacheWithFallback(
+      SchemaPtr schema, ConditionPtr condition,
+      std::shared_ptr<Configuration> preferred_configuration,
+      std::shared_ptr<Configuration> fallback_configuration, bool* used_fallback,
+      std::shared_ptr<Filter>* filter);
+
   /// Evaluate the specified record batch, and populate output selection vector.
   ///
   /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
@@ -83,6 +97,10 @@ class GANDIVA_EXPORT Filter {
   bool GetBuiltFromCache();
 
  private:
+  static Status MakeInternal(SchemaPtr schema, ConditionPtr condition,
+                             std::shared_ptr<Configuration> configuration,
+                             bool cache_only, std::shared_ptr<Filter>* filter);
+
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
   std::shared_ptr<Configuration> configuration_;
