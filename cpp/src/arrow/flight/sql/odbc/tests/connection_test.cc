@@ -18,6 +18,7 @@
 #include "arrow/flight/sql/odbc/tests/odbc_test_suite.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
+#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
 #include <sql.h>
 #include <sqltypes.h>
@@ -763,6 +764,73 @@ TEST(DsnConfiguration, LoadDsnReadsAllKnownKeys) {
   std::sort(expected_custom_keys.begin(), expected_custom_keys.end());
   std::sort(custom_keys.begin(), custom_keys.end());
   EXPECT_EQ(expected_custom_keys, custom_keys);
+
+  ASSERT_TRUE(UnregisterDsn(wdsn));
+}
+
+// Reproduces what the Windows DSN dialog does when a user opens an existing DSN and clicks
+// OK (ConfigDSNW with ODBC_CONFIG_DSN): LoadDsn, then SaveParameters, which clears the
+// configuration and rebuilds it from the dialog fields plus the "Advanced properties"
+// rows returned by GetCustomKeys, then UnregisterDsn and RegisterDsn. Keys without a
+// dialog field, such as StringColumnLength, used to be lost at this point.
+TEST(DsnConfiguration, DsnSurvivesDialogRoundTrip) {
+  using config::Configuration;
+
+  const std::string driver = "Apache Arrow Flight SQL ODBC Driver";
+  Connection::ConnPropertyMap properties = {
+      {std::string(FlightSqlConnection::DRIVER), driver},
+      {std::string(FlightSqlConnection::HOST), "localhost"},
+      {std::string(FlightSqlConnection::PORT), "32010"},
+      {std::string(FlightSqlConnection::UID), "user"},
+      {std::string(FlightSqlConnection::PWD), "password"},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), "false"},
+      {std::string(FlightSqlConnection::TRUSTED_CERTS), "/path/to/cert"},
+      {std::string(FlightSqlConnection::USE_SYSTEM_TRUST_STORE), "false"},
+      {std::string(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION), "true"},
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH), "2048"},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), "true"},
+      {std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "7"},
+      {"MyCustomKey", "custom value"},
+  };
+  ASSERT_TRUE(WriteDSN(properties));
+
+  const std::string dsn(kTestDsn);
+  ASSERT_OK_AND_ASSIGN(std::wstring wdsn, arrow::util::UTF8ToWideString(dsn));
+  CONVERT_SQLWCHAR_STR(wdriver, driver);
+
+  // The dialog opens with the DSN loaded.
+  Configuration loaded;
+  loaded.LoadDsn(dsn);
+
+  // Clicking OK: SaveParameters writes the dialog's own fields (basic authentication, so
+  // no token) and then every row of the "Advanced properties" table.
+  Configuration saved;
+  for (const auto& key :
+       {FlightSqlConnection::DSN, FlightSqlConnection::HOST, FlightSqlConnection::PORT,
+        FlightSqlConnection::UID, FlightSqlConnection::PWD,
+        FlightSqlConnection::USE_ENCRYPTION, FlightSqlConnection::TRUSTED_CERTS,
+        FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+        FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION}) {
+    saved.Set(key, loaded.Get(key));
+  }
+  for (const auto& key : loaded.GetCustomKeys()) {
+    saved.Set(key, loaded.Get(key));
+  }
+
+  // ConfigDSNW then re-registers the DSN.
+  ASSERT_TRUE(UnregisterDsn(wdsn));
+  ASSERT_TRUE(RegisterDsn(saved, reinterpret_cast<LPCWSTR>(wdriver.c_str())));
+
+  Configuration reloaded;
+  reloaded.LoadDsn(dsn);
+
+  // Check before unregistering the DSN so a failed assertion does not leak it.
+  for (const auto& [key, value] : properties) {
+    if (key == FlightSqlConnection::DRIVER) {
+      continue;
+    }
+    EXPECT_EQ(value, reloaded.Get(key)) << key << " was lost by the dialog round trip";
+  }
 
   ASSERT_TRUE(UnregisterDsn(wdsn));
 }
