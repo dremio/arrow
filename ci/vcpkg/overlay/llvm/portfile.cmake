@@ -5,20 +5,18 @@ vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 # Only build release configuration to speed up build time
 set(VCPKG_BUILD_TYPE release)
 
-# [BOLT] Allow to compile with MSVC (#151189)
+# Use the LLVM release tarball, which includes the BOLT MSVC build fix.
+set(llvm_archive "llvm-project-${VERSION}.src.tar.xz")
 vcpkg_download_distfile(
-    PATCH1_FILE
-    URLS https://github.com/llvm/llvm-project/commit/497d17737518d417f6411d46aef1334f642ccd81.patch?full_index=1
-    SHA512 7bf4d4ee8f72fea5b8094320d1f3a71063ec19fe1b552424182c4140055bf6aacfa9ff64b0bcab0a8d6739e4b6249641f58d19fb6b35e1ada67b66b53776dc1a
-    FILENAME 497d17737518d417f6411d46aef1334f642ccd81.patch
+    ARCHIVE
+    URLS "https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/${llvm_archive}"
+    FILENAME "${llvm_archive}"
+    SHA512 03beadbaf13ec29911d3934395cfa19a7d77d6c50532e70375f5c1d43369a9b17c10f00325c08d874776df6679a3bee77ce50110408748a3f661372f1fdfbce6
 )
 
-vcpkg_from_github(
-    OUT_SOURCE_PATH SOURCE_PATH
-    REPO llvm/llvm-project
-    REF "llvmorg-${VERSION}"
-    SHA512 85d272761253428b648f3d111b7308f8cdee74cceebec9e709126c4555ad1e78c443183ad8eb7319e0a15bafb97868ab5b5a3d86ba64812750c568dbf715d8ec
-    HEAD_REF main
+vcpkg_extract_source_archive(
+    SOURCE_PATH
+    ARCHIVE "${ARCHIVE}"
     PATCHES
         0001-fix-install-package-dir.patch
         0002-fix-tools-install-dir.patch
@@ -26,7 +24,6 @@ vcpkg_from_github(
         0004-disable-libomp-aliases.patch
         0005-fix-runtimes.patch
         0006-create-destination-mlir-directory.patch
-        "${PATCH1_FILE}"
 )
 
 vcpkg_check_features(
@@ -286,6 +283,8 @@ vcpkg_cmake_configure(
         -DLLVM_BUILD_BENCHMARKS=OFF
         # Force TableGen to be built with optimization. This will significantly improve build time.
         -DLLVM_OPTIMIZED_TABLEGEN=ON
+        # Keep Gandiva JNI independent of a system Z3 installation.
+        -DLLVM_ENABLE_Z3_SOLVER=OFF
         -DPACKAGE_VERSION=${VERSION}
         # Limit the maximum number of concurrent link jobs to 1. This should fix low amount of memory issue for link.
         -DLLVM_PARALLEL_LINK_JOBS=1
