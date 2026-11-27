@@ -172,6 +172,19 @@ void Configuration::LoadDsn(const std::string& dsn) {
                     DEFAULT_DISABLE_CERT_VERIFICATION));
 #endif  // __APPLE__
 
+  // These are known keys without a dedicated field in the Windows DSN dialog. They must
+  // be read explicitly because RemoveAllKnownKeys below strips them from customKeys.
+  Set(FlightSqlConnection::STRING_COLUMN_LENGTH,
+      ReadDsnString(dsn, FlightSqlConnection::STRING_COLUMN_LENGTH));
+  Set(FlightSqlConnection::USE_WIDE_CHAR,
+      ReadDsnString(dsn, FlightSqlConnection::USE_WIDE_CHAR));
+  Set(FlightSqlConnection::CHUNK_BUFFER_CAPACITY,
+      ReadDsnString(dsn, FlightSqlConnection::CHUNK_BUFFER_CAPACITY));
+
+  // "User ID" is the alias of UID that the Microsoft OLE DB to ODBC bridge (MSDASQL)
+  // writes.
+  Set(FlightSqlConnection::USER_ID, ReadDsnString(dsn, FlightSqlConnection::USER_ID));
+
   RemoveAllKnownKeys(customKeys);
   for (auto key : customKeys) {
     std::string_view key_sv(key);
@@ -218,8 +231,12 @@ const Connection::ConnPropertyMap& Configuration::GetProperties() const {
 }
 
 std::vector<std::string> Configuration::GetCustomKeys() const {
+  // Returns the keys shown in the "Advanced properties" table of the Windows DSN dialog:
+  // every key without a dedicated dialog field. Compare against DSN_DIALOG_KEYS rather
+  // than ALL_KEYS, otherwise known keys such as StringColumnLength would be hidden from
+  // the dialog and lost when the DSN is saved.
   Connection::ConnPropertyMap copy_props(properties_);
-  for (auto& key : FlightSqlConnection::ALL_KEYS) {
+  for (auto& key : FlightSqlConnection::DSN_DIALOG_KEYS) {
     copy_props.erase(std::string(key));
   }
   std::vector<std::string> keys;

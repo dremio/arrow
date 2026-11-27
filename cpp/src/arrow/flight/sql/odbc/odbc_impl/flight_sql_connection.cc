@@ -67,6 +67,23 @@ const std::vector<std::string_view> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::USE_WIDE_CHAR,
     FlightSqlConnection::CHUNK_BUFFER_CAPACITY};
 
+// Keys with a dedicated field in the Windows DSN dialog. USER_ID is an alias of UID and
+// DRIVER is set by the driver manager, so neither is shown as an advanced property.
+// Any new key with its own dialog field must be added here.
+const std::vector<std::string_view> FlightSqlConnection::DSN_DIALOG_KEYS = {
+    FlightSqlConnection::DSN,
+    FlightSqlConnection::DRIVER,
+    FlightSqlConnection::HOST,
+    FlightSqlConnection::PORT,
+    FlightSqlConnection::TOKEN,
+    FlightSqlConnection::UID,
+    FlightSqlConnection::USER_ID,
+    FlightSqlConnection::PWD,
+    FlightSqlConnection::USE_ENCRYPTION,
+    FlightSqlConnection::TRUSTED_CERTS,
+    FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+    FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION};
+
 namespace {
 
 #if _WIN32 || _WIN64

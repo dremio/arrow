@@ -23,6 +23,8 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
@@ -280,6 +282,58 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+}
+
+// StringColumnLength in the connection string must override the length reported for
+// string columns.
+TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectStringColumnLength) {
+  constexpr SQLULEN kStringColumnLength = 100;
+  std::string connect_str =
+      this->GetConnectionString() + ";StringColumnLength=" +
+      std::to_string(kStringColumnLength);
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
+  SQLSMALLINT out_str_len;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+                             static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+
+  SQLHSTMT statement;
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, this->conn, &statement));
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(
+      sql_query, L"SELECT 'abc' AS short_str, CAST('abc' AS VARCHAR(50)) AS varchar_str");
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(statement, sql_query, sql_query_len))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, statement);
+
+  for (SQLUSMALLINT column = 1; column <= 2; ++column) {
+    SQLWCHAR column_name[kOdbcBufferSize];
+    SQLSMALLINT name_length = 0;
+    SQLSMALLINT data_type = 0;
+    SQLULEN column_size = 0;
+    SQLSMALLINT decimal_digits = 0;
+    SQLSMALLINT nullable = 0;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLDescribeCol(statement, column, column_name,
+                             kOdbcBufferSize, &name_length, &data_type, &column_size,
+                             &decimal_digits, &nullable))
+        << GetOdbcErrorMessage(SQL_HANDLE_STMT, statement);
+    EXPECT_EQ(kStringColumnLength, column_size) << "column " << column;
+
+    SQLLEN length = 0;
+    ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(statement, column, SQL_DESC_LENGTH, 0, 0,
+                                           nullptr, &length));
+    EXPECT_EQ(static_cast<SQLLEN>(kStringColumnLength), length) << "column " << column;
+  }
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, statement));
   ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
@@ -603,6 +657,114 @@ TYPED_TEST(ConnectionTest, TestExplicitDescriptorsOutliveStatement) {
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, statement));
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, apd_descriptor));
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, ard_descriptor));
+}
+
+// StringColumnLength, UseWideChar and ChunkBufferCapacity are known keys without a field
+// in the Windows DSN dialog. Configuration::LoadDsn used to drop them, so they were lost
+// whenever a DSN was loaded and then saved again.
+TEST(DsnConfiguration, LoadDsnReadsKeysWithoutDialogField) {
+  using config::Configuration;
+
+  Connection::ConnPropertyMap properties = {
+      {std::string(FlightSqlConnection::DRIVER), "Apache Arrow Flight SQL ODBC Driver"},
+      {std::string(FlightSqlConnection::HOST), "localhost"},
+      {std::string(FlightSqlConnection::PORT), "32010"},
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH), "2048"},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), "true"},
+      {std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "7"},
+      {"MyCustomKey", "custom value"},
+  };
+  ASSERT_TRUE(WriteDSN(properties));
+
+  const std::string dsn(kTestDsn);
+  ASSERT_OK_AND_ASSIGN(std::wstring wdsn, arrow::util::UTF8ToWideString(dsn));
+
+  Configuration loaded;
+  loaded.LoadDsn(dsn);
+
+  // Check before unregistering the DSN so a failed assertion does not leak it.
+  EXPECT_EQ("localhost", loaded.Get(FlightSqlConnection::HOST));
+  EXPECT_EQ("32010", loaded.Get(FlightSqlConnection::PORT));
+  EXPECT_EQ("2048", loaded.Get(FlightSqlConnection::STRING_COLUMN_LENGTH));
+  EXPECT_EQ("true", loaded.Get(FlightSqlConnection::USE_WIDE_CHAR));
+  EXPECT_EQ("7", loaded.Get(FlightSqlConnection::CHUNK_BUFFER_CAPACITY));
+  EXPECT_EQ("custom value", loaded.Get("MyCustomKey"));
+
+  // The Windows DSN dialog lists exactly these keys in its "Advanced properties" table.
+  // GetCustomKeys() returns them in the property map's case-insensitive alphabetical
+  // order.
+  const std::vector<std::string> expected_custom_keys = {
+      std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "MyCustomKey",
+      std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
+      std::string(FlightSqlConnection::USE_WIDE_CHAR)};
+  EXPECT_EQ(expected_custom_keys, loaded.GetCustomKeys());
+
+  ASSERT_TRUE(UnregisterDsn(wdsn));
+}
+
+// Every key in ALL_KEYS must survive LoadDsn, so a key added to ALL_KEYS without also
+// being read by LoadDsn fails here. DSN is set from the argument and DRIVER only names
+// the driver the DSN is registered with, so neither is loaded from the DSN's values.
+TEST(DsnConfiguration, LoadDsnReadsAllKnownKeys) {
+  using config::Configuration;
+
+  // A realistic value for every known key. The encryption values differ from the defaults
+  // LoadDsn falls back to, and UID and "User ID" differ from each other, so a key that is
+  // not read from the DSN fails below.
+  Connection::ConnPropertyMap properties = {
+      {std::string(FlightSqlConnection::DRIVER), "Apache Arrow Flight SQL ODBC Driver"},
+      {std::string(FlightSqlConnection::HOST), "localhost"},
+      {std::string(FlightSqlConnection::PORT), "32010"},
+      {std::string(FlightSqlConnection::TOKEN), "token"},
+      {std::string(FlightSqlConnection::UID), "user"},
+      {std::string(FlightSqlConnection::USER_ID), "ole db user"},
+      {std::string(FlightSqlConnection::PWD), "password"},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), "false"},
+      {std::string(FlightSqlConnection::TRUSTED_CERTS), "/path/to/cert"},
+      {std::string(FlightSqlConnection::USE_SYSTEM_TRUST_STORE), "false"},
+      {std::string(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION), "true"},
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH), "2048"},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), "true"},
+      {std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY), "7"},
+  };
+  // Fails when a key is added to ALL_KEYS without a value above.
+  for (const auto& key : FlightSqlConnection::ALL_KEYS) {
+    if (key == FlightSqlConnection::DSN) {
+      continue;
+    }
+    EXPECT_EQ(1U, properties.count(key)) << "Add a value for " << key << " to this test";
+  }
+  ASSERT_TRUE(WriteDSN(properties));
+
+  const std::string dsn(kTestDsn);
+  ASSERT_OK_AND_ASSIGN(std::wstring wdsn, arrow::util::UTF8ToWideString(dsn));
+
+  Configuration loaded;
+  loaded.LoadDsn(dsn);
+
+  // Check before unregistering the DSN so a failed assertion does not leak it.
+  EXPECT_EQ(dsn, loaded.Get(FlightSqlConnection::DSN));
+  for (const auto& [key, value] : properties) {
+    if (key == FlightSqlConnection::DRIVER) {
+      continue;
+    }
+    EXPECT_EQ(value, loaded.Get(key)) << key << " was not loaded from the DSN";
+  }
+
+  // The Windows DSN dialog lists exactly the known keys without a field of their own.
+  std::vector<std::string> expected_custom_keys;
+  for (const auto& key : FlightSqlConnection::ALL_KEYS) {
+    const auto& dialog_keys = FlightSqlConnection::DSN_DIALOG_KEYS;
+    if (std::find(dialog_keys.begin(), dialog_keys.end(), key) == dialog_keys.end()) {
+      expected_custom_keys.emplace_back(key);
+    }
+  }
+  auto custom_keys = loaded.GetCustomKeys();
+  std::sort(expected_custom_keys.begin(), expected_custom_keys.end());
+  std::sort(custom_keys.begin(), custom_keys.end());
+  EXPECT_EQ(expected_custom_keys, custom_keys);
+
+  ASSERT_TRUE(UnregisterDsn(wdsn));
 }
 
 }  // namespace arrow::flight::sql::odbc

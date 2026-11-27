@@ -52,7 +52,15 @@ class FlightSqlConnection : public Connection {
   void PopulateMetadataSettings(const Connection::ConnPropertyMap& conn_property_map);
 
  public:
+  /// \brief All connection keys known to the driver.
   static const std::vector<std::string_view> ALL_KEYS;
+  /// \brief Keys that have a dedicated field in the Windows DSN configuration dialog (or
+  ///        are intentionally hidden from it, like DRIVER).
+  ///
+  /// Keys in ALL_KEYS but not in DSN_DIALOG_KEYS (e.g. STRING_COLUMN_LENGTH) have no
+  /// dedicated field, so the dialog lists them in the "Advanced properties" table.
+  /// Any new key that gets its own field in the dialog must be added here explicitly.
+  static const std::vector<std::string_view> DSN_DIALOG_KEYS;
   static constexpr std::string_view DSN = "dsn";
   static constexpr std::string_view DRIVER = "driver";
   static constexpr std::string_view HOST = "host";
